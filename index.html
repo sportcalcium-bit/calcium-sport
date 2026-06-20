@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Calcium Sport Results</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="nav">
+      <div class="brand">
+        <div class="brand-mark">CS</div>
+        <div>
+          <div class="brand-title" id="siteTitle">Calcium Sport</div>
+          <div class="brand-subtitle" id="tagline">World Cup 2026 results, fixtures, standings and stats</div>
+        </div>
+      </div>
+      <nav class="nav-links">
+        <a href="#results">Results</a>
+        <a href="#fixtures">Fixtures</a>
+        <a href="#tables">Tables</a>
+        <a href="#stats">Stats</a>
+      </nav>
+    </div>
+
+    <section class="hero">
+      <div>
+        <p class="eyebrow" id="competitionName">FIFA World Cup 2026</p>
+        <h1>Football results, tables and fixtures powered by your Google Sheet.</h1>
+        <p class="hero-copy">Update your workbook and this website refreshes into a proper football results hub.</p>
+      </div>
+      <div class="hero-card" id="featuredMatch">
+        <div class="skeleton">Loading featured match...</div>
+      </div>
+    </section>
+  </header>
+
+  <main>
+    <section class="controls-card">
+      <div class="search-wrap">
+        <span>Search</span>
+        <input id="searchInput" placeholder="Team, round, competition..." />
+      </div>
+      <div class="filter-wrap">
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn" data-filter="FT">Results</button>
+        <button class="filter-btn" data-filter="Scheduled">Fixtures</button>
+      </div>
+    </section>
+
+    <section class="section" id="results">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Match Centre</p>
+          <h2>Results and fixtures</h2>
+        </div>
+        <p id="matchCount" class="muted"></p>
+      </div>
+      <div class="matches-grid" id="matchesGrid"></div>
+    </section>
+
+    <section class="section" id="tables">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Group Stage</p>
+          <h2>Standings</h2>
+        </div>
+      </div>
+      <div class="tables-grid" id="tablesGrid"></div>
+    </section>
+
+    <section class="section" id="stats">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Player Data</p>
+          <h2>Top scorers, assists and cards</h2>
+        </div>
+      </div>
+      <div class="stats-grid">
+        <div class="stats-card">
+          <h3>Top scorers</h3>
+          <div id="topScorers"></div>
+        </div>
+        <div class="stats-card">
+          <h3>Top assists</h3>
+          <div id="topAssists"></div>
+        </div>
+        <div class="stats-card">
+          <h3>Yellow cards</h3>
+          <div id="topYellowCards"></div>
+        </div>
+        <div class="stats-card">
+          <h3>Red cards</h3>
+          <div id="topRedCards"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <strong>Calcium Sport</strong>
+    <span>Automated from Google Sheets</span>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
