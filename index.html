@@ -3,108 +3,132 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Calcium Sport Results</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <title>Calcium Sport | World Cup 2026</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <header class="site-header">
-    <div class="nav">
-      <div class="brand">
-        <div class="brand-mark">CS</div>
-        <div>
-          <div class="brand-title" id="siteTitle">Calcium Sport</div>
-          <div class="brand-subtitle" id="tagline">World Cup 2026 results, fixtures, standings and stats</div>
-        </div>
+    <div class="brand">
+      <div class="brand-mark">CS</div>
+      <div>
+        <h1 id="siteTitle">Calcium Sport</h1>
+        <p id="siteTagline">World Cup 2026 results, fixtures, standings and stats</p>
       </div>
-      <nav class="nav-links">
-        <a href="#results">Results</a>
-        <a href="#fixtures">Fixtures</a>
-        <a href="#tables">Tables</a>
-        <a href="#stats">Stats</a>
-      </nav>
     </div>
 
-    <section class="hero">
-      <div>
-        <p class="eyebrow" id="competitionName">FIFA World Cup 2026</p>
-        <h1>Football results, tables and fixtures powered by your Google Sheet.</h1>
-        <p class="hero-copy">Update your workbook and this website refreshes into a proper football results hub.</p>
-      </div>
-      <div class="hero-card" id="featuredMatch">
-        <div class="skeleton">Loading featured match...</div>
-      </div>
-    </section>
+    <nav class="top-nav" aria-label="Primary navigation">
+      <button class="nav-btn active" data-view="summary">Summary</button>
+      <button class="nav-btn" data-view="results">Results</button>
+      <button class="nav-btn" data-view="fixtures">Fixtures</button>
+      <button class="nav-btn" data-view="standings">Standings</button>
+      <button class="nav-btn" data-view="stats">Stats</button>
+    </nav>
   </header>
 
   <main>
-    <section class="controls-card">
-      <div class="search-wrap">
-        <span>Search</span>
-        <input id="searchInput" placeholder="Team, round, competition..." />
+    <section class="hero-card">
+      <div class="breadcrumb">⚽ Football <span>›</span> 🌍 World</div>
+      <div class="hero-content">
+        <div class="trophy-card">🏆</div>
+        <div class="hero-copy">
+          <p class="eyebrow">FIFA World Cup 2026</p>
+          <h2>World Championship</h2>
+          <p class="muted">Live-style hub for results, fixtures, tables and tournament leaders.</p>
+        </div>
       </div>
-      <div class="filter-wrap">
-        <button class="filter-btn active" data-filter="all">All</button>
-        <button class="filter-btn" data-filter="FT">Results</button>
-        <button class="filter-btn" data-filter="Scheduled">Fixtures</button>
+      <div class="progress-wrap">
+        <span>11.06</span>
+        <div class="progress-track"><div class="progress-fill"></div></div>
+        <span>19.07</span>
       </div>
     </section>
 
-    <section class="section" id="results">
-      <div class="section-heading">
-        <div>
-          <p class="eyebrow">Match Centre</p>
-          <h2>Results and fixtures</h2>
-        </div>
-        <p id="matchCount" class="muted"></p>
+    <section class="control-card">
+      <div class="control-grid">
+        <label>
+          Jump to
+          <select id="jumpSelect">
+            <option value="summary">Summary</option>
+            <option value="results">Past results</option>
+            <option value="fixtures">Scheduled games</option>
+            <option value="standings">Group tables</option>
+            <option value="stats">Player stats</option>
+          </select>
+        </label>
+        <label>
+          Group
+          <select id="groupFilter">
+            <option value="all">All groups</option>
+          </select>
+        </label>
+        <label>
+          Team search
+          <input id="searchInput" type="search" placeholder="Search team or player..." />
+        </label>
       </div>
-      <div class="matches-grid" id="matchesGrid"></div>
     </section>
 
-    <section class="section" id="tables">
+    <section id="loading" class="state-card">Loading Calcium Sport data...</section>
+    <section id="error" class="state-card error hidden">Could not load data. Check your Apps Script deployment and refresh.</section>
+
+    <section id="summary" class="view-section active">
       <div class="section-heading">
         <div>
-          <p class="eyebrow">Group Stage</p>
-          <h2>Standings</h2>
+          <p class="eyebrow">Overview</p>
+          <h2>Today and latest</h2>
         </div>
       </div>
-      <div class="tables-grid" id="tablesGrid"></div>
+      <div class="dashboard-grid">
+        <article class="panel wide">
+          <div class="panel-title"><h3>Latest results</h3><button class="text-btn" data-view="results">View all</button></div>
+          <div id="latestResults" class="match-list"></div>
+        </article>
+        <article class="panel">
+          <div class="panel-title"><h3>Next fixtures</h3><button class="text-btn" data-view="fixtures">View all</button></div>
+          <div id="nextFixtures" class="mini-list"></div>
+        </article>
+        <article class="panel">
+          <div class="panel-title"><h3>Leaders</h3><button class="text-btn" data-view="stats">Stats</button></div>
+          <div id="leaders" class="leaders"></div>
+        </article>
+      </div>
     </section>
 
-    <section class="section" id="stats">
+    <section id="results" class="view-section">
       <div class="section-heading">
-        <div>
-          <p class="eyebrow">Player Data</p>
-          <h2>Top scorers, assists and cards</h2>
-        </div>
+        <div><p class="eyebrow">Finished</p><h2>Past results</h2></div>
+      </div>
+      <div id="resultsList" class="match-list full"></div>
+    </section>
+
+    <section id="fixtures" class="view-section">
+      <div class="section-heading">
+        <div><p class="eyebrow">Upcoming</p><h2>Scheduled games</h2></div>
+      </div>
+      <div id="fixturesList" class="match-list full"></div>
+    </section>
+
+    <section id="standings" class="view-section">
+      <div class="section-heading">
+        <div><p class="eyebrow">Tables</p><h2>Group standings</h2></div>
+      </div>
+      <div id="standingsGrid" class="standings-grid"></div>
+    </section>
+
+    <section id="stats" class="view-section">
+      <div class="section-heading">
+        <div><p class="eyebrow">Players</p><h2>Tournament stats</h2></div>
       </div>
       <div class="stats-grid">
-        <div class="stats-card">
-          <h3>Top scorers</h3>
-          <div id="topScorers"></div>
-        </div>
-        <div class="stats-card">
-          <h3>Top assists</h3>
-          <div id="topAssists"></div>
-        </div>
-        <div class="stats-card">
-          <h3>Yellow cards</h3>
-          <div id="topYellowCards"></div>
-        </div>
-        <div class="stats-card">
-          <h3>Red cards</h3>
-          <div id="topRedCards"></div>
-        </div>
+        <article class="panel"><h3>Top scorers</h3><div id="topGoals" class="stat-table"></div></article>
+        <article class="panel"><h3>Top assists</h3><div id="topAssists" class="stat-table"></div></article>
+        <article class="panel"><h3>Yellow cards</h3><div id="topYellows" class="stat-table"></div></article>
+        <article class="panel"><h3>Red cards</h3><div id="topReds" class="stat-table"></div></article>
       </div>
     </section>
   </main>
 
-  <footer>
-    <strong>Calcium Sport</strong>
-    <span>Automated from Google Sheets</span>
-  </footer>
+  <button id="backTop" class="back-top" aria-label="Back to top">↑</button>
 
   <script src="script.js"></script>
 </body>
