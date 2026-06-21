@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Calcium Sport Results Centre</title>
-  <link rel="stylesheet" href="style.css?v=700" />
+  <link rel="stylesheet" href="style.css?v=1200" />
 </head>
 <body>
   <header class="site-header">
@@ -81,24 +81,17 @@
       <button id="clearFilters" type="button">Clear</button>
     </section>
 
-    <section class="summary-grid">
-      <article class="panel">
-        <div class="panel-header">
-          <h2>Latest results</h2>
-        </div>
-        <div id="latestResults" class="match-list">
-          <div class="empty">Loading results...</div>
-        </div>
-      </article>
+    <section class="scoreboard-card">
+      <div class="competition-strip">
+        <span class="star">☆</span>
+        <span class="world-icon">🌐</span>
+        <strong id="scoreboardTitle">WORLD: World Championship</strong>
+        <span class="pin">📌</span>
+      </div>
 
-      <article class="panel">
-        <div class="panel-header">
-          <h2>Upcoming fixtures</h2>
-        </div>
-        <div id="upcomingFixtures" class="match-list">
-          <div class="empty">Loading fixtures...</div>
-        </div>
-      </article>
+      <div id="scoreboardList">
+        <div class="empty">Loading matches...</div>
+      </div>
     </section>
 
     <section class="panel" id="resultsSection">
@@ -106,8 +99,7 @@
         <h2>Results</h2>
         <span id="resultsCount">0 matches</span>
       </div>
-      <div id="resultsList" class="match-list"></div>
-      <div id="allResults" class="match-list hidden-compat"></div>
+      <div id="resultsList"></div>
     </section>
 
     <section class="panel" id="fixturesSection">
@@ -115,8 +107,7 @@
         <h2>Scheduled games</h2>
         <span id="fixturesCount">0 matches</span>
       </div>
-      <div id="fixturesList" class="match-list"></div>
-      <div id="allFixtures" class="match-list hidden-compat"></div>
+      <div id="fixturesList"></div>
     </section>
 
     <section class="panel" id="standingsSection">
@@ -125,7 +116,6 @@
         <span>Sorted by points, goal difference, goals scored</span>
       </div>
       <div id="standingsContainer"></div>
-      <div id="standingsList" class="hidden-compat"></div>
     </section>
 
     <section class="panel" id="statsSection">
@@ -159,6 +149,6 @@
 
   <button id="backToTop" class="back-to-top" type="button">↑</button>
 
-  <script src="script.js?v=700"></script>
+  <script src="script.js?v=1200"></script>
 </body>
 </html>
