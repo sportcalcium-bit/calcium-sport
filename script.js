@@ -411,7 +411,6 @@ function renderMatchDetail(match) {
 
         <div class="match-main-score">
           <div>${escapeHTML(safeScore(match.HomeScore))} - ${escapeHTML(safeScore(match.AwayScore))}</div>
-          <span>${escapeHTML(match.Venue || match.Stadium || 'Venue unavailable')}</span>
         </div>
 
         <div class="match-main-team">
