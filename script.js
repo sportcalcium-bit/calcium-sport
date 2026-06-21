@@ -1,154 +1,512 @@
 const API_URL = 'https://script.google.com/macros/s/AKfycbyFU-9M16UBls1YvTZfXxCDGLFBT2CL1qvTH7S_pmdHCD6kSeQpHQlQW_gg6r5vhfjOZA/exec';
+
 let appData = null;
-let currentCompetition = new URLSearchParams(location.search).get('competition') || '';
+let currentCompetition = new URLSearchParams(window.location.search).get('competition') || '';
+let currentView = 'summary';
+let currentSearch = '';
+let currentGroup = '';
 
 const $ = id => document.getElementById(id);
 
 init();
 
-async function init(){
-  setLoading();
-  await loadCompetition(currentCompetition);
-  bindEvents();
+async function init() {
+  setLoadingState();
+
+  try {
+    await loadCompetition(currentCompetition);
+    bindEvents();
+  } catch (error) {
+    console.error(error);
+    showError('Could not load competition data. Please check the Apps Script backend.');
+  }
 }
 
-function setLoading(){
-  $('competitionTitle').textContent = 'Loading...';
-  $('latestResults').innerHTML = '<div class="empty">Loading results...</div>';
-}
+async function loadCompetition(competitionParam) {
+  const url = competitionParam
+    ? `${API_URL}?competition=${encodeURIComponent(competitionParam)}`
+    : API_URL;
 
-async function loadCompetition(comp){
-  const url = comp ? `${API_URL}?competition=${encodeURIComponent(comp)}` : API_URL;
-  const res = await fetch(url, {cache:'no-store'});
-  appData = await res.json();
-  currentCompetition = comp || competitionKey(appData.selectedCompetition || (appData.competitions || [])[0]);
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error(`Backend error: ${response.status}`);
+  }
+
+  appData = await response.json();
+
+  if (appData.error) {
+    throw new Error(appData.error);
+  }
+
+  currentCompetition = makeCompetitionSlug(appData.selectedCompetition || appData.site || {});
+  populateCompetitionDropdown();
+  populateGroupDropdown();
   renderAll();
 }
 
-function bindEvents(){
-  $('competitionSelect').addEventListener('change', async e => {
-    const value = e.target.value;
-    const qs = value ? `?competition=${encodeURIComponent(value)}` : location.pathname;
-    history.replaceState(null, '', qs);
-    await loadCompetition(value);
+function bindEvents() {
+  const competitionSelect = $('competitionSelect') || $('competitionDropdown') || $('competition');
+  const jumpSelect = $('jumpSelect') || $('jumpTo') || $('sectionSelect');
+  const searchInput = $('searchInput') || $('search');
+  const groupFilter = $('groupFilter') || $('groupSelect');
+  const clearBtn = $('clearFilters') || $('clearBtn');
+
+  if (competitionSelect) {
+    competitionSelect.addEventListener('change', async event => {
+      const selected = event.target.value;
+      updateUrlCompetition(selected);
+      await loadCompetition(selected);
+    });
+  }
+
+  if (jumpSelect) {
+    jumpSelect.addEventListener('change', event => {
+      const section = event.target.value;
+      jumpToSection(section);
+    });
+  }
+
+  if (searchInput) {
+    searchInput.addEventListener('input', event => {
+      currentSearch = event.target.value.toLowerCase().trim();
+      renderAll();
+    });
+  }
+
+  if (groupFilter) {
+    groupFilter.addEventListener('change', event => {
+      currentGroup = event.target.value;
+      renderAll();
+    });
+  }
+
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      currentSearch = '';
+      currentGroup = '';
+
+      if (searchInput) searchInput.value = '';
+      if (groupFilter) groupFilter.value = '';
+
+      renderAll();
+    });
+  }
+
+  document.querySelectorAll('[data-view]').forEach(button => {
+    button.addEventListener('click', () => {
+      currentView = button.getAttribute('data-view');
+      renderAll();
+      jumpToSection(currentView);
+    });
   });
-  $('jumpSelect').addEventListener('change', e => scrollToSection(e.target.value));
-  document.querySelectorAll('.tabs button').forEach(btn => btn.addEventListener('click', () => scrollToSection(btn.dataset.target)));
-  $('searchInput').addEventListener('input', renderContent);
-  $('groupFilter').addEventListener('change', renderContent);
-  $('clearFilters').addEventListener('click', () => { $('searchInput').value=''; $('groupFilter').value='all'; renderContent(); });
-  window.addEventListener('scroll', () => { $('toTop').style.display = scrollY > 500 ? 'block' : 'none'; });
-  $('toTop').addEventListener('click', () => scrollTo({top:0,behavior:'smooth'}));
+
+  const backTop = $('backToTop');
+  if (backTop) {
+    backTop.addEventListener('click', () => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  }
 }
 
-function renderAll(){
+function renderAll() {
+  if (!appData) return;
+
   renderHeader();
-  renderCompetitionSelect();
-  renderGroups();
-  renderContent();
+  renderSummary();
+  renderResults();
+  renderFixtures();
+  renderStandings();
+  renderStats();
 }
 
-function renderHeader(){
+function setLoadingState() {
+  setText('competitionTitle', 'Loading...');
+  setText('competitionSubtitle', 'Loading competition data');
+  setHTML('latestResults', '<div class="empty">Loading results...</div>');
+  setHTML('upcomingFixtures', '<div class="empty">Loading fixtures...</div>');
+  setHTML('standingsContainer', '<div class="empty">Loading standings...</div>');
+}
+
+function renderHeader() {
   const site = appData.site || {};
-  $('competitionTitle').textContent = `${site.competition || 'Competition'} ${site.year || ''}`.trim();
-  $('competitionMeta').textContent = `${site.region || ''} • ${site.tagline || 'Fixtures, results, standings and stats'}`;
-  $('regionLabel').textContent = (site.region || 'World').toUpperCase();
-  $('seasonLabel').textContent = `${site.competition || 'Football'} ${site.year || ''}`.trim();
-  $('startDate').textContent = site.startDate || 'Start';
-  $('endDate').textContent = site.endDate || 'End';
-  if(site.logoUrl){ $('competitionLogo').src = site.logoUrl; $('competitionLogo').style.display='block'; } else { $('competitionLogo').style.display='none'; }
-  $('progressBar').style.width = progressPercent(site.startDate, site.endDate) + '%';
+  const selected = appData.selectedCompetition || {};
+
+  const name = selected['Competition Name'] || site.competition || 'Competition';
+  const year = selected.Year || site.year || '';
+  const region = selected.Region || site.region || 'Football';
+  const logo = selected['Logo URL'] || site.logoUrl || '';
+
+  setText('competitionTitle', name);
+  setText('competitionSubtitle', year ? `${name} ${year}` : name);
+  setText('siteSubtitle', year ? `${name} ${year}` : 'Football results centre');
+  setText('competitionRegion', region);
+  setText('regionLabel', region);
+  setText('startDate', selected.StartDate || site.startDate || 'Start');
+  setText('endDate', selected.EndDate || site.endDate || 'End');
+
+  const logoEl = $('competitionLogo');
+  if (logoEl && logo) {
+    logoEl.src = logo;
+    logoEl.alt = `${name} logo`;
+  }
 }
 
-function renderCompetitionSelect(){
-  const comps = appData.competitions || [];
-  const selectedName = (appData.selectedCompetition || {})['Competition Name'];
-  $('competitionSelect').innerHTML = comps.map(c => {
-    const key = competitionKey(c);
-    const label = `${c['Competition Name']} ${c.Year || ''}`.trim();
-    const selected = c['Competition Name'] === selectedName ? 'selected' : '';
-    return `<option value="${escapeHtml(key)}" ${selected}>${escapeHtml(label)}</option>`;
+function populateCompetitionDropdown() {
+  const select = $('competitionSelect') || $('competitionDropdown') || $('competition');
+  if (!select) return;
+
+  const competitions = appData.competitions || [];
+
+  select.innerHTML = competitions.map(comp => {
+    const value = makeCompetitionSlug(comp);
+    const label = `${comp['Competition Name'] || 'Competition'} ${comp.Year || ''}`.trim();
+    const selected = value === currentCompetition ? 'selected' : '';
+
+    return `<option value="${escapeHTML(value)}" ${selected}>${escapeHTML(label)}</option>`;
   }).join('');
 }
 
-function renderGroups(){
-  const groups = [...new Set((appData.standings || []).map(r => r.Group).filter(Boolean))];
-  $('groupFilter').innerHTML = '<option value="all">All groups/tables</option>' + groups.map(g => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join('');
+function populateGroupDropdown() {
+  const select = $('groupFilter') || $('groupSelect');
+  if (!select) return;
+
+  const groups = [...new Set((appData.standings || []).map(row => row.Group).filter(Boolean))];
+
+  select.innerHTML = `
+    <option value="">All groups/tables</option>
+    ${groups.map(group => `<option value="${escapeHTML(group)}">${escapeHTML(group)}</option>`).join('')}
+  `;
 }
 
-function renderContent(){
-  const q = $('searchInput').value.trim().toLowerCase();
-  const group = $('groupFilter').value;
-  const matches = filterMatches(appData.matches || [], q);
-  const completed = matches.filter(m => m.Status === 'FT').slice().reverse();
-  const scheduled = matches.filter(m => m.Status !== 'FT');
-  const standings = filterStandings(appData.standings || [], q, group);
-  const stats = filterStats(appData.stats || [], q);
+function renderSummary() {
+  const matches = getFilteredMatches();
+  const latestResults = matches
+    .filter(match => match.Status === 'FT')
+    .slice(-6)
+    .reverse();
 
-  $('latestResults').innerHTML = renderMatches(completed.slice(0,5));
-  $('upcomingFixtures').innerHTML = renderMatches(scheduled.slice(0,5));
-  $('resultsList').innerHTML = renderMatches(completed);
-  $('fixturesList').innerHTML = renderMatches(scheduled);
-  $('resultsCount').textContent = `${completed.length} matches`;
-  $('fixturesCount').textContent = `${scheduled.length} matches`;
-  renderStandings(standings);
-  renderStats(stats);
-}
+  const upcoming = matches
+    .filter(match => match.Status !== 'FT')
+    .slice(0, 6);
 
-function filterMatches(rows,q){
-  if(!q) return rows;
-  return rows.filter(m => `${m.HomeTeam} ${m.AwayTeam} ${m.Round}`.toLowerCase().includes(q));
-}
-function filterStandings(rows,q,group){
-  return rows.filter(r => (group === 'all' || r.Group === group) && (!q || `${r.Team} ${r.Group}`.toLowerCase().includes(q)));
-}
-function filterStats(rows,q){
-  if(!q) return rows;
-  return rows.filter(r => `${r.Player} ${r.Team}`.toLowerCase().includes(q));
+  setHTML('latestResults', latestResults.length
+    ? latestResults.map(renderMatchRow).join('')
+    : '<div class="empty">No latest results yet.</div>'
+  );
+
+  setHTML('upcomingFixtures', upcoming.length
+    ? upcoming.map(renderMatchRow).join('')
+    : '<div class="empty">No upcoming fixtures yet.</div>'
+  );
 }
 
-function renderMatches(rows){
-  if(!rows.length) return '<div class="empty">No matches found.</div>';
-  return rows.map(m => `
-    <div class="match-row">
-      <div class="status ${m.Status === 'FT' ? 'ft' : ''}">${m.Status === 'FT' ? 'Finished' : 'Scheduled'}</div>
-      <div class="teams">
-        <div class="team">${logo(m.HomeLogo)}<span>${escapeHtml(m.HomeTeam)}</span></div>
-        <div class="team">${logo(m.AwayLogo)}<span>${escapeHtml(m.AwayTeam)}</span></div>
-        <div class="meta">${escapeHtml(m.Round || '')}${m.Date ? ' • ' + escapeHtml(m.Date) : ''}</div>
+function renderResults() {
+  const results = getFilteredMatches()
+    .filter(match => match.Status === 'FT')
+    .reverse();
+
+  const html = results.length
+    ? results.map(renderMatchRow).join('')
+    : '<div class="empty">No results found.</div>';
+
+  setHTML('resultsList', html);
+  setHTML('allResults', html);
+}
+
+function renderFixtures() {
+  const fixtures = getFilteredMatches()
+    .filter(match => match.Status !== 'FT');
+
+  const html = fixtures.length
+    ? fixtures.map(renderMatchRow).join('')
+    : '<div class="empty">No scheduled games found.</div>';
+
+  setHTML('fixturesList', html);
+  setHTML('allFixtures', html);
+}
+
+function renderStandings() {
+  const standings = getFilteredStandings();
+
+  if (!standings.length) {
+    setHTML('standingsContainer', '<div class="empty">No standings found.</div>');
+    setHTML('standingsList', '<div class="empty">No standings found.</div>');
+    return;
+  }
+
+  const groups = groupBy(standings, row => row.Group || 'Table');
+
+  const html = Object.keys(groups).map(groupName => {
+    const rows = groups[groupName];
+
+    return `
+      <section class="table-card">
+        <div class="table-card-header">
+          <h3>${escapeHTML(groupName)}</h3>
+          <span>${rows.length} teams</span>
+        </div>
+
+        <div class="standings-table-wrap">
+          <table class="standings-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Team</th>
+                <th>PT</th>
+                <th>GW</th>
+                <th>W</th>
+                <th>D</th>
+                <th>L</th>
+                <th>GF</th>
+                <th>GA</th>
+                <th>GD</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map((team, index) => `
+                <tr>
+                  <td>${index + 1}</td>
+                  <td class="team-cell">
+                    ${team.Logo ? `<img src="${escapeAttr(team.Logo)}" alt="">` : ''}
+                    <span>${escapeHTML(team.Team)}</span>
+                  </td>
+                  <td><strong>${safeNumber(team.Points)}</strong></td>
+                  <td>${safeNumber(team.Played)}</td>
+                  <td>${safeNumber(team.Won)}</td>
+                  <td>${safeNumber(team.Drawn)}</td>
+                  <td>${safeNumber(team.Lost)}</td>
+                  <td>${safeNumber(team.GoalsFor)}</td>
+                  <td>${safeNumber(team.GoalsAgainst)}</td>
+                  <td>${formatGoalDifference(team.GoalDifference)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    `;
+  }).join('');
+
+  setHTML('standingsContainer', html);
+  setHTML('standingsList', html);
+}
+
+function renderStats() {
+  const stats = getFilteredStats();
+
+  renderStatList('topScorers', stats, 'Goals', 'G');
+  renderStatList('topAssists', stats, 'Assists', 'A');
+  renderStatList('yellowCards', stats, 'YellowCards', 'Y');
+  renderStatList('redCards', stats, 'RedCards', 'R');
+}
+
+function renderStatList(containerId, stats, key, label) {
+  const rows = stats
+    .filter(row => Number(row[key]) > 0)
+    .sort((a, b) => Number(b[key]) - Number(a[key]))
+    .slice(0, 15);
+
+  const html = rows.length
+    ? rows.map((row, index) => `
+      <div class="stat-row">
+        <span class="stat-rank">${index + 1}</span>
+        <span class="stat-player">
+          ${row.Logo ? `<img src="${escapeAttr(row.Logo)}" alt="">` : ''}
+          <span>${escapeHTML(row.Player)}</span>
+        </span>
+        <span class="stat-team">${escapeHTML(row.Team)}</span>
+        <strong class="stat-value">${safeNumber(row[key])}</strong>
       </div>
-      <div class="score"><span>${m.HomeScore || '-'}</span><span>:</span><span>${m.AwayScore || '-'}</span></div>
-    </div>`).join('');
+    `).join('')
+    : '<div class="empty">No data yet.</div>';
+
+  setHTML(containerId, html);
 }
 
-function renderStandings(rows){
-  if(!rows.length){ $('standingsWrap').innerHTML='<div class="empty">No standings found.</div>'; return; }
-  const byGroup = groupBy(rows, 'Group');
-  $('standingsWrap').innerHTML = Object.entries(byGroup).map(([group, teams]) => `
-    <div class="table-card">
-      <div class="table-title">${escapeHtml(group)}</div>
-      <table class="standings-table">
-        <thead><tr><th>#</th><th>Team</th><th>Pts</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th></tr></thead>
-        <tbody>${teams.map((t,i) => `<tr><td class="rank">${i+1}</td><td class="team-cell">${logo(t.Logo)}${escapeHtml(t.Team)}</td><td><b>${t.Points}</b></td><td>${t.Played}</td><td>${t.Won}</td><td>${t.Drawn}</td><td>${t.Lost}</td><td>${t.GoalsFor}</td><td>${t.GoalsAgainst}</td><td>${t.GoalDifference}</td></tr>`).join('')}</tbody>
-      </table>
-    </div>`).join('');
+function renderMatchRow(match) {
+  const isFinished = match.Status === 'FT';
+  const score = isFinished
+    ? `${safeScore(match.HomeScore)} - ${safeScore(match.AwayScore)}`
+    : '- : -';
+
+  return `
+    <article class="match-row">
+      <div class="match-status">${isFinished ? 'Finished' : 'Scheduled'}</div>
+
+      <div class="match-teams">
+        <div class="team-line">
+          ${match.HomeLogo ? `<img src="${escapeAttr(match.HomeLogo)}" alt="">` : ''}
+          <span>${escapeHTML(match.HomeTeam)}</span>
+        </div>
+        <div class="team-line">
+          ${match.AwayLogo ? `<img src="${escapeAttr(match.AwayLogo)}" alt="">` : ''}
+          <span>${escapeHTML(match.AwayTeam)}</span>
+        </div>
+      </div>
+
+      <div class="match-score">${score}</div>
+
+      <div class="match-meta">
+        <span>${escapeHTML(match.Round || 'Competition')}</span>
+        ${match.Date ? `<span>${escapeHTML(match.Date)}</span>` : ''}
+      </div>
+    </article>
+  `;
 }
 
-function renderStats(rows){
-  renderStatBox('topScorers', rows, 'Goals');
-  renderStatBox('topAssists', rows, 'Assists');
-  renderStatBox('yellowCards', rows, 'YellowCards', 'yellow');
-  renderStatBox('redCards', rows, 'RedCards', 'red');
-}
-function renderStatBox(id, rows, key, cls=''){
-  const sorted = rows.filter(r => Number(r[key]) > 0).sort((a,b)=>Number(b[key])-Number(a[key])).slice(0,10);
-  $(id).innerHTML = sorted.length ? sorted.map(r => `<div class="stat-row"><div><div class="stat-name">${escapeHtml(r.Player)}</div><div class="stat-team">${logo(r.Logo)} ${escapeHtml(r.Team)}</div></div><div class="stat-value ${cls}">${r[key]}</div></div>`).join('') : '<div class="empty">No data yet.</div>';
+function getFilteredMatches() {
+  let matches = appData.matches || [];
+
+  if (currentSearch) {
+    matches = matches.filter(match => {
+      return [
+        match.HomeTeam,
+        match.AwayTeam,
+        match.Round,
+        match.Competition
+      ].join(' ').toLowerCase().includes(currentSearch);
+    });
+  }
+
+  if (currentGroup) {
+    matches = matches.filter(match => String(match.Round || '').toLowerCase() === currentGroup.toLowerCase());
+  }
+
+  return matches;
 }
 
-function competitionKey(c){ return slugify(`${c?.['Competition Name'] || ''} ${c?.Year || ''}`.trim()); }
-function slugify(v){ return String(v).toLowerCase().replace(/&/g,'and').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''); }
-function logo(src){ return src ? `<img src="${escapeHtml(src)}" alt="" loading="lazy" onerror="this.style.display='none'">` : ''; }
-function groupBy(rows,key){ return rows.reduce((acc,row)=>{ const k=row[key]||'Table'; (acc[k] ||= []).push(row); return acc; },{}); }
-function scrollToSection(id){ document.getElementById(id)?.scrollIntoView({behavior:'smooth', block:'start'}); document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active', b.dataset.target===id)); }
-function progressPercent(start,end){ const s=Date.parse(start), e=Date.parse(end), n=Date.now(); if(!s||!e||e<=s) return 45; return Math.max(0,Math.min(100,Math.round(((n-s)/(e-s))*100))); }
-function escapeHtml(v){ return String(v ?? '').replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch])); }
+function getFilteredStandings() {
+  let standings = appData.standings || [];
+
+  if (currentSearch) {
+    standings = standings.filter(row => {
+      return [
+        row.Team,
+        row.Group,
+        row.Competition
+      ].join(' ').toLowerCase().includes(currentSearch);
+    });
+  }
+
+  if (currentGroup) {
+    standings = standings.filter(row => row.Group === currentGroup);
+  }
+
+  return standings;
+}
+
+function getFilteredStats() {
+  let stats = appData.stats || [];
+
+  if (currentSearch) {
+    stats = stats.filter(row => {
+      return [
+        row.Player,
+        row.Team
+      ].join(' ').toLowerCase().includes(currentSearch);
+    });
+  }
+
+  return stats;
+}
+
+function jumpToSection(section) {
+  const map = {
+    summary: 'summarySection',
+    results: 'resultsSection',
+    fixtures: 'fixturesSection',
+    standings: 'standingsSection',
+    stats: 'statsSection'
+  };
+
+  const id = map[section] || section;
+  const el = $(id);
+
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+function updateUrlCompetition(slug) {
+  const url = new URL(window.location.href);
+  url.searchParams.set('competition', slug);
+  window.history.replaceState({}, '', url.toString());
+}
+
+function makeCompetitionSlug(comp) {
+  const name = comp['Competition Name'] || comp.competition || '';
+  const year = comp.Year || comp.year || '';
+
+  return slugify(`${name} ${year}`.trim());
+}
+
+function slugify(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function groupBy(items, fn) {
+  return items.reduce((acc, item) => {
+    const key = fn(item);
+
+    if (!acc[key]) {
+      acc[key] = [];
+    }
+
+    acc[key].push(item);
+    return acc;
+  }, {});
+}
+
+function setText(id, value) {
+  const el = $(id);
+  if (el) el.textContent = value;
+}
+
+function setHTML(id, value) {
+  const el = $(id);
+  if (el) el.innerHTML = value;
+}
+
+function showError(message) {
+  setText('competitionTitle', 'Error');
+  setText('competitionSubtitle', message);
+  setHTML('latestResults', `<div class="empty">${escapeHTML(message)}</div>`);
+  setHTML('upcomingFixtures', '');
+}
+
+function safeNumber(value) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : 0;
+}
+
+function safeScore(value) {
+  return value === '' || value === undefined || value === null ? '-' : value;
+}
+
+function formatGoalDifference(value) {
+  const num = Number(value);
+
+  if (!Number.isFinite(num)) {
+    return '0';
+  }
+
+  return num > 0 ? `+${num}` : String(num);
+}
+
+function escapeHTML(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function escapeAttr(value) {
+  return escapeHTML(value);
+}
