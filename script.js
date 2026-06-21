@@ -2,7 +2,6 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbyFU-9M16UBls1YvTZfXxCD
 
 let appData = null;
 let currentCompetition = new URLSearchParams(window.location.search).get('competition') || '';
-let currentView = 'summary';
 let currentSearch = '';
 let currentGroup = '';
 
@@ -48,11 +47,11 @@ async function loadCompetition(competitionParam) {
 }
 
 function bindEvents() {
-  const competitionSelect = $('competitionSelect') || $('competitionDropdown') || $('competition');
-  const jumpSelect = $('jumpSelect') || $('jumpTo') || $('sectionSelect');
-  const searchInput = $('searchInput') || $('search');
-  const groupFilter = $('groupFilter') || $('groupSelect');
-  const clearBtn = $('clearFilters') || $('clearBtn');
+  const competitionSelect = $('competitionSelect');
+  const jumpSelect = $('jumpSelect');
+  const searchInput = $('searchInput');
+  const groupFilter = $('groupFilter');
+  const clearBtn = $('clearFilters');
 
   if (competitionSelect) {
     competitionSelect.addEventListener('change', async event => {
@@ -71,11 +70,8 @@ function bindEvents() {
 
   if (jumpSelect) {
     jumpSelect.addEventListener('change', event => {
-      const section = event.target.value;
-      currentView = section;
-      setActiveTab(section);
-      renderAll();
-      jumpToSection(section);
+      jumpToSection(event.target.value);
+      setActiveTab(event.target.value);
     });
   }
 
@@ -107,10 +103,9 @@ function bindEvents() {
 
   document.querySelectorAll('[data-view]').forEach(button => {
     button.addEventListener('click', () => {
-      currentView = button.getAttribute('data-view');
-      setActiveTab(currentView);
-      renderAll();
-      jumpToSection(currentView);
+      const view = button.getAttribute('data-view');
+      setActiveTab(view);
+      jumpToSection(view);
     });
   });
 
@@ -127,7 +122,7 @@ function renderAll() {
   if (!appData) return;
 
   renderHeader();
-  renderSummary();
+  renderScoreboard();
   renderResults();
   renderFixtures();
   renderStandings();
@@ -137,8 +132,9 @@ function renderAll() {
 function setLoadingState() {
   setText('competitionTitle', 'Loading...');
   setText('competitionSubtitle', 'Loading competition data');
-  setHTML('latestResults', '<div class="empty">Loading results...</div>');
-  setHTML('upcomingFixtures', '<div class="empty">Loading fixtures...</div>');
+  setHTML('scoreboardList', '<div class="empty">Loading matches...</div>');
+  setHTML('resultsList', '<div class="empty">Loading results...</div>');
+  setHTML('fixturesList', '<div class="empty">Loading fixtures...</div>');
   setHTML('standingsContainer', '<div class="empty">Loading standings...</div>');
 }
 
@@ -154,10 +150,14 @@ function renderHeader() {
   setText('competitionTitle', name);
   setText('competitionSubtitle', year ? `${name} ${year}` : name);
   setText('siteSubtitle', year ? `${name} ${year}` : 'Football results centre');
-  setText('competitionRegion', region);
   setText('regionLabel', region);
   setText('startDate', selected.StartDate || site.startDate || 'Start');
   setText('endDate', selected.EndDate || site.endDate || 'End');
+
+  const scoreboardTitle = $('scoreboardTitle');
+  if (scoreboardTitle) {
+    scoreboardTitle.textContent = `${String(region || 'World').toUpperCase()}: ${name}`;
+  }
 
   const logoEl = $('competitionLogo');
 
@@ -168,7 +168,7 @@ function renderHeader() {
 }
 
 function populateCompetitionDropdown() {
-  const select = $('competitionSelect') || $('competitionDropdown') || $('competition');
+  const select = $('competitionSelect');
 
   if (!select) return;
 
@@ -184,7 +184,7 @@ function populateCompetitionDropdown() {
 }
 
 function populateGroupDropdown() {
-  const select = $('groupFilter') || $('groupSelect');
+  const select = $('groupFilter');
 
   if (!select) return;
 
@@ -196,40 +196,38 @@ function populateGroupDropdown() {
   `;
 }
 
-function renderSummary() {
+function renderScoreboard() {
   const matches = getFilteredMatches();
 
-  const latestResults = matches
-    .filter(match => match.Status === 'FT')
-    .slice(-8)
-    .reverse();
+  if (!matches.length) {
+    setHTML('scoreboardList', '<div class="empty">No matches found.</div>');
+    return;
+  }
 
-  const upcoming = matches
-    .filter(match => match.Status !== 'FT')
-    .slice(0, 8);
+  const ordered = [...matches].sort((a, b) => {
+    const roundA = roundSortValue(a.Round);
+    const roundB = roundSortValue(b.Round);
 
-  setHTML('latestResults', latestResults.length
-    ? renderGroupedMatches(latestResults)
-    : '<div class="empty">No latest results yet.</div>'
-  );
+    if (roundA !== roundB) {
+      return roundB - roundA;
+    }
 
-  setHTML('upcomingFixtures', upcoming.length
-    ? renderGroupedMatches(upcoming)
-    : '<div class="empty">No upcoming fixtures yet.</div>'
-  );
+    return matchDateSortValue(b) - matchDateSortValue(a);
+  });
+
+  setHTML('scoreboardList', renderGroupedScoreboard(ordered));
 }
 
 function renderResults() {
   const results = getFilteredMatches()
     .filter(match => match.Status === 'FT')
-    .reverse();
+    .sort((a, b) => matchDateSortValue(b) - matchDateSortValue(a));
 
   const html = results.length
-    ? renderGroupedMatches(results)
+    ? renderGroupedScoreboard(results)
     : '<div class="empty">No results found.</div>';
 
   setHTML('resultsList', html);
-  setHTML('allResults', html);
 
   const countEl = $('resultsCount');
 
@@ -240,14 +238,14 @@ function renderResults() {
 
 function renderFixtures() {
   const fixtures = getFilteredMatches()
-    .filter(match => match.Status !== 'FT');
+    .filter(match => match.Status !== 'FT')
+    .sort((a, b) => matchDateSortValue(a) - matchDateSortValue(b));
 
   const html = fixtures.length
-    ? renderGroupedMatches(fixtures)
+    ? renderGroupedScoreboard(fixtures)
     : '<div class="empty">No scheduled games found.</div>';
 
   setHTML('fixturesList', html);
-  setHTML('allFixtures', html);
 
   const countEl = $('fixturesCount');
 
@@ -256,48 +254,48 @@ function renderFixtures() {
   }
 }
 
-function renderGroupedMatches(matches) {
+function renderGroupedScoreboard(matches) {
   const grouped = groupBy(matches, match => formatRoundLabel(match.Round));
 
   return Object.keys(grouped).map(round => {
     return `
       <section class="round-block">
         <div class="round-heading">${escapeHTML(round)}</div>
-        <div class="round-matches">
-          ${grouped[round].map(renderMatchRow).join('')}
-        </div>
+        ${grouped[round].map(renderScoreboardRow).join('')}
       </section>
     `;
   }).join('');
 }
 
-function renderMatchRow(match) {
+function renderScoreboardRow(match) {
   const isFinished = match.Status === 'FT';
 
   const homeScore = isFinished ? safeScore(match.HomeScore) : '-';
   const awayScore = isFinished ? safeScore(match.AwayScore) : '-';
 
-  const dateTime = [match.Date, match.Time].filter(Boolean).join(' ');
+  const dateTime = formatDateTime(match.Date, match.Time);
 
   return `
-    <article class="match-row match-row-new">
-      <div class="match-date-time">
-        <span>${escapeHTML(dateTime || match.Status || '')}</span>
+    <article class="scoreboard-row">
+      <div class="scoreboard-star">☆</div>
+
+      <div class="scoreboard-date">
+        ${escapeHTML(dateTime)}
       </div>
 
-      <div class="match-teams">
-        <div class="team-line">
+      <div class="scoreboard-teams">
+        <div class="score-team-line">
           ${match.HomeLogo ? `<img src="${escapeAttr(match.HomeLogo)}" alt="">` : ''}
           <span>${escapeHTML(match.HomeTeam)}</span>
         </div>
 
-        <div class="team-line">
+        <div class="score-team-line">
           ${match.AwayLogo ? `<img src="${escapeAttr(match.AwayLogo)}" alt="">` : ''}
           <span>${escapeHTML(match.AwayTeam)}</span>
         </div>
       </div>
 
-      <div class="match-score">
+      <div class="scoreboard-score">
         <strong>${escapeHTML(homeScore)}</strong>
         <strong>${escapeHTML(awayScore)}</strong>
       </div>
@@ -310,7 +308,6 @@ function renderStandings() {
 
   if (!standings.length) {
     setHTML('standingsContainer', '<div class="empty">No standings found.</div>');
-    setHTML('standingsList', '<div class="empty">No standings found.</div>');
     return;
   }
 
@@ -368,19 +365,18 @@ function renderStandings() {
   }).join('');
 
   setHTML('standingsContainer', html);
-  setHTML('standingsList', html);
 }
 
 function renderStats() {
   const stats = getFilteredStats();
 
-  renderStatList('topScorers', stats, 'Goals', 'G');
-  renderStatList('topAssists', stats, 'Assists', 'A');
-  renderStatList('yellowCards', stats, 'YellowCards', 'Y');
-  renderStatList('redCards', stats, 'RedCards', 'R');
+  renderStatList('topScorers', stats, 'Goals');
+  renderStatList('topAssists', stats, 'Assists');
+  renderStatList('yellowCards', stats, 'YellowCards');
+  renderStatList('redCards', stats, 'RedCards');
 }
 
-function renderStatList(containerId, stats, key, label) {
+function renderStatList(containerId, stats, key) {
   const rows = stats
     .filter(row => Number(row[key]) > 0)
     .sort((a, b) => Number(b[key]) - Number(a[key]))
@@ -516,14 +512,6 @@ function makeCompetitionSlug(comp) {
   return slugify(`${name} ${year}`.trim());
 }
 
-function slugify(value) {
-  return String(value || '')
-    .toLowerCase()
-    .replace(/&/g, 'and')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
-
 function formatRoundLabel(value) {
   const text = String(value || '').trim();
 
@@ -536,6 +524,100 @@ function formatRoundLabel(value) {
   }
 
   return text.toUpperCase();
+}
+
+function roundSortValue(value) {
+  const text = String(value || '').toLowerCase().trim();
+
+  if (/^\d+$/.test(text)) {
+    return Number(text);
+  }
+
+  if (text.includes('final') && !text.includes('semi') && !text.includes('quarter')) return 100;
+  if (text.includes('semi')) return 90;
+  if (text.includes('quarter')) return 80;
+  if (text.includes('16')) return 70;
+  if (text.includes('32')) return 60;
+
+  return 0;
+}
+
+function matchDateSortValue(match) {
+  const date = String(match.Date || '').trim();
+  const time = String(match.Time || '').trim();
+
+  const parsed = parseDateTime(date, time);
+
+  return parsed ? parsed.getTime() : 0;
+}
+
+function parseDateTime(date, time) {
+  if (!date) return null;
+
+  const dateText = String(date).trim();
+  const timeText = String(time || '00:00').trim();
+
+  let day = '';
+  let month = '';
+  let year = '';
+
+  if (/^\d{1,2}[./-]\d{1,2}[./-]\d{2,4}$/.test(dateText)) {
+    const parts = dateText.split(/[./-]/);
+    day = parts[0];
+    month = parts[1];
+    year = parts[2];
+
+    if (year.length === 2) {
+      year = `20${year}`;
+    }
+  } else if (/^\d{4}-\d{2}-\d{2}$/.test(dateText)) {
+    const parts = dateText.split('-');
+    year = parts[0];
+    month = parts[1];
+    day = parts[2];
+  } else {
+    return null;
+  }
+
+  const iso = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${timeText || '00:00'}:00`;
+  const parsed = new Date(iso);
+
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function formatDateTime(date, time) {
+  const cleanDate = String(date || '').trim();
+  const cleanTime = String(time || '').trim();
+
+  if (!cleanDate && !cleanTime) {
+    return '';
+  }
+
+  if (!cleanDate) {
+    return cleanTime;
+  }
+
+  let shortDate = cleanDate;
+
+  if (/^\d{1,2}[./-]\d{1,2}[./-]\d{2,4}$/.test(cleanDate)) {
+    const parts = cleanDate.split(/[./-]/);
+    shortDate = `${parts[0].padStart(2, '0')}.${parts[1].padStart(2, '0')}.`;
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(cleanDate)) {
+    const parts = cleanDate.split('-');
+    shortDate = `${parts[2]}.${parts[1]}.`;
+  }
+
+  return cleanTime ? `${shortDate} ${cleanTime}` : shortDate;
+}
+
+function slugify(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 }
 
 function normaliseText(value) {
@@ -587,8 +669,7 @@ function setHTML(id, value) {
 function showError(message) {
   setText('competitionTitle', 'Error');
   setText('competitionSubtitle', message);
-  setHTML('latestResults', `<div class="empty">${escapeHTML(message)}</div>`);
-  setHTML('upcomingFixtures', '');
+  setHTML('scoreboardList', `<div class="empty">${escapeHTML(message)}</div>`);
 }
 
 function safeNumber(value) {
