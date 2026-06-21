@@ -151,9 +151,11 @@ button {
 }
 
 .competition-logo-wrap img {
-  max-width: 86px;
-  max-height: 86px;
-  object-fit: contain;
+  max-width: 86px !important;
+  max-height: 86px !important;
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain !important;
 }
 
 .hero-copy h2 {
@@ -338,12 +340,85 @@ button {
   white-space: nowrap;
 }
 
+/* Compatibility for the older match-row structure */
+.match-list {
+  display: block;
+}
+
+.match-row {
+  display: grid !important;
+  grid-template-columns: 40px 145px minmax(0, 1fr) 48px !important;
+  align-items: center !important;
+  gap: 10px !important;
+  min-height: 74px !important;
+  padding: 8px 0 !important;
+  border-bottom: 1px solid var(--line) !important;
+  background: transparent !important;
+}
+
+.match-status {
+  color: #d3e2e8 !important;
+  font-size: 15px !important;
+  font-weight: 800 !important;
+  white-space: nowrap !important;
+}
+
+.match-date-time {
+  color: #d3e2e8 !important;
+  font-size: 15px !important;
+  font-weight: 800 !important;
+  white-space: nowrap !important;
+}
+
+.match-teams {
+  display: grid !important;
+  gap: 7px !important;
+  min-width: 0 !important;
+}
+
+.team-line {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  min-width: 0 !important;
+  font-size: 18px !important;
+  font-weight: 900 !important;
+  line-height: 1.15 !important;
+}
+
+.team-line img,
+.match-row img,
+.match-teams img,
+.match-list img {
+  width: 24px !important;
+  height: 24px !important;
+  min-width: 24px !important;
+  max-width: 24px !important;
+  min-height: 24px !important;
+  max-height: 24px !important;
+  object-fit: contain !important;
+  border-radius: 3px !important;
+  display: inline-block !important;
+}
+
+.team-line span {
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.match-score,
 .scoreboard-score {
-  display: grid;
-  gap: 7px;
-  justify-items: end;
-  font-size: 18px;
-  font-weight: 900;
+  display: grid !important;
+  gap: 7px !important;
+  justify-items: end !important;
+  font-size: 18px !important;
+  font-weight: 900 !important;
+}
+
+.match-meta {
+  color: var(--muted) !important;
+  font-size: 13px !important;
 }
 
 .panel {
@@ -423,6 +498,8 @@ button {
 .team-cell img {
   width: 24px !important;
   height: 24px !important;
+  max-width: 24px !important;
+  max-height: 24px !important;
   object-fit: contain !important;
 }
 
@@ -455,6 +532,8 @@ button {
 .stat-player img {
   width: 22px !important;
   height: 22px !important;
+  max-width: 22px !important;
+  max-height: 22px !important;
   object-fit: contain !important;
 }
 
@@ -479,6 +558,10 @@ button {
   padding: 18px 0;
 }
 
+.hidden-compat {
+  display: none !important;
+}
+
 .back-to-top {
   position: fixed;
   right: 24px;
@@ -490,6 +573,22 @@ button {
   background: #0b4d58;
   color: white;
   font-size: 28px;
+}
+
+/* Emergency hard cap: no image inside the content can explode full-size */
+.page-shell img,
+.panel img,
+.scoreboard-card img,
+.match-row img,
+.scoreboard-row img {
+  max-width: 28px !important;
+  max-height: 28px !important;
+  object-fit: contain !important;
+}
+
+.competition-logo-wrap img {
+  max-width: 86px !important;
+  max-height: 86px !important;
 }
 
 @media (max-width: 900px) {
@@ -517,16 +616,20 @@ button {
     grid-template-columns: 1fr;
   }
 
-  .scoreboard-row {
-    grid-template-columns: 34px 92px minmax(0, 1fr) 36px;
+  .scoreboard-row,
+  .match-row {
+    grid-template-columns: 34px 92px minmax(0, 1fr) 36px !important;
   }
 
-  .scoreboard-date {
-    font-size: 13px;
+  .scoreboard-date,
+  .match-status,
+  .match-date-time {
+    font-size: 13px !important;
   }
 
-  .score-team-line {
-    font-size: 16px;
+  .score-team-line,
+  .team-line {
+    font-size: 16px !important;
   }
 
   .stats-grid {
