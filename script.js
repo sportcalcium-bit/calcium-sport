@@ -390,6 +390,8 @@ function renderMatchDetail(match) {
   const matchEvents = getMatchEvents(match.MatchID || match.ID);
   const firstHalf = matchEvents.filter(event => getHalfNumber(event.Half) === 1);
   const secondHalf = matchEvents.filter(event => getHalfNumber(event.Half) === 2);
+  const youtubeUrl = match.YouTubeURL || match.YoutubeURL || match.HighlightsURL || '';
+  const highlights = renderHighlights(youtubeUrl);
 
   const homeLogo = match.HomeLogo
     ? `<img src="${escapeAttr(match.HomeLogo)}" alt="">`
@@ -425,11 +427,71 @@ function renderMatchDetail(match) {
       <strong>${escapeHTML(match.Venue || match.Stadium || 'Venue unavailable')}</strong>
     </section>
 
+    ${highlights}
+
     <section class="event-section">
       ${renderHalfEvents('1ST HALF', firstHalf, match)}
       ${renderHalfEvents('2ND HALF', secondHalf, match)}
     </section>
   `;
+}
+
+function renderHighlights(url) {
+  const cleanUrl = String(url || '').trim();
+
+  if (!cleanUrl) {
+    return '';
+  }
+
+  const videoId = getYouTubeId(cleanUrl);
+  const thumbnail = videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : '';
+
+  if (!thumbnail) {
+    return `
+      <section class="highlights-row">
+        <div>
+          <span>▶ Highlights:</span>
+          <strong>Watch match highlights</strong>
+        </div>
+        <a class="highlight-button" href="${escapeAttr(cleanUrl)}" target="_blank" rel="noopener noreferrer">Open video</a>
+      </section>
+    `;
+  }
+
+  return `
+    <section class="highlights-card">
+      <div class="highlights-header">
+        <span>▶ Highlights</span>
+        <a href="${escapeAttr(cleanUrl)}" target="_blank" rel="noopener noreferrer">Open on YouTube</a>
+      </div>
+
+      <a class="youtube-preview" href="${escapeAttr(cleanUrl)}" target="_blank" rel="noopener noreferrer">
+        <img src="${escapeAttr(thumbnail)}" alt="YouTube highlights thumbnail" onerror="this.src='https://img.youtube.com/vi/${escapeAttr(videoId)}/hqdefault.jpg'">
+        <span class="youtube-play">▶</span>
+      </a>
+    </section>
+  `;
+}
+
+function getYouTubeId(url) {
+  const text = String(url || '').trim();
+
+  const patterns = [
+    /youtube\.com\/watch\?v=([^&]+)/i,
+    /youtu\.be\/([^?&]+)/i,
+    /youtube\.com\/shorts\/([^?&]+)/i,
+    /youtube\.com\/embed\/([^?&]+)/i
+  ];
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+
+    if (match && match[1]) {
+      return match[1];
+    }
+  }
+
+  return '';
 }
 
 function getMatchEvents(matchId) {
