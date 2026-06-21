@@ -427,12 +427,12 @@ function renderMatchDetail(match) {
       <strong>${escapeHTML(match.Venue || match.Stadium || 'Venue unavailable')}</strong>
     </section>
 
-    ${highlights}
-
     <section class="event-section">
       ${renderHalfEvents('1ST HALF', firstHalf, match)}
       ${renderHalfEvents('2ND HALF', secondHalf, match)}
     </section>
+
+    ${highlights}
   `;
 }
 
@@ -459,7 +459,7 @@ function renderHighlights(url) {
   }
 
   return `
-    <section class="highlights-card">
+    <section class="highlights-card highlights-bottom">
       <div class="highlights-header">
         <span>▶ Highlights</span>
         <a href="${escapeAttr(cleanUrl)}" target="_blank" rel="noopener noreferrer">Open on YouTube</a>
