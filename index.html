@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Calcium Sport Results Centre</title>
-  <link rel="stylesheet" href="./style.css?v=3100" />
+  <link rel="stylesheet" href="./style.css?v=4000" />
 </head>
 <body>
   <header class="site-header">
@@ -147,8 +147,17 @@
     </section>
   </main>
 
+  <div id="matchModal" class="match-modal hidden">
+    <div class="match-modal-backdrop" onclick="closeMatchModal()"></div>
+
+    <article class="match-detail-card">
+      <button type="button" class="match-close" onclick="closeMatchModal()">×</button>
+      <div id="matchDetailContent"></div>
+    </article>
+  </div>
+
   <button id="backToTop" class="back-to-top" type="button">↑</button>
 
-  <script src="./script.js?v=3100"></script>
+  <script src="./script.js?v=4000"></script>
 </body>
 </html>
