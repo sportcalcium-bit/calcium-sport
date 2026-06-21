@@ -689,16 +689,6 @@ button {
   letter-spacing: 0.03em;
 }
 
-.match-main-score span {
-  display: block;
-  margin-top: 10px;
-  color: var(--muted);
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  font-size: 13px;
-}
-
 .venue-row {
   display: flex;
   justify-content: space-between;
@@ -718,6 +708,100 @@ button {
 
 .venue-row strong {
   text-align: right;
+}
+
+/* YouTube highlights */
+.highlights-card {
+  padding: 18px;
+  background: #031f26;
+  border-bottom: 1px solid var(--line);
+}
+
+.highlights-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.highlights-header span {
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #dcecf1;
+}
+
+.highlights-header a,
+.highlight-button {
+  color: #ffffff;
+  text-decoration: none;
+  font-weight: 900;
+  background: #0b4d58;
+  border: 1px solid rgba(89, 220, 235, 0.25);
+  border-radius: 12px;
+  padding: 9px 12px;
+}
+
+.youtube-preview {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border-radius: 16px;
+  background: #000;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.youtube-preview img {
+  display: block;
+  width: 100% !important;
+  max-width: none !important;
+  height: auto !important;
+  max-height: none !important;
+  aspect-ratio: 16 / 9;
+  object-fit: cover !important;
+  opacity: 0.92;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.youtube-preview:hover img {
+  transform: scale(1.03);
+  opacity: 1;
+}
+
+.youtube-play {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: auto;
+  width: 74px;
+  height: 54px;
+  border-radius: 16px;
+  background: #ff0000;
+  color: #ffffff;
+  font-size: 28px;
+  font-weight: 900;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+}
+
+.highlights-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  background: #031f26;
+  border-bottom: 1px solid var(--line);
+}
+
+.highlights-row span {
+  display: block;
+  color: var(--muted);
+  text-transform: uppercase;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  margin-bottom: 4px;
 }
 
 .half-block {
@@ -905,11 +989,20 @@ img {
     order: -1;
   }
 
-  .venue-row {
+  .venue-row,
+  .highlights-row,
+  .highlights-header {
     flex-direction: column;
+    align-items: flex-start;
   }
 
   .venue-row strong {
     text-align: left;
+  }
+
+  .youtube-play {
+    width: 62px;
+    height: 46px;
+    font-size: 22px;
   }
 }
