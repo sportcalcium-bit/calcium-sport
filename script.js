@@ -57,6 +57,7 @@ function bindEvents() {
   if (competitionSelect) {
     competitionSelect.addEventListener('change', async event => {
       const selected = event.target.value;
+
       currentSearch = '';
       currentGroup = '';
 
@@ -114,6 +115,7 @@ function bindEvents() {
   });
 
   const backTop = $('backToTop');
+
   if (backTop) {
     backTop.addEventListener('click', () => {
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -158,6 +160,7 @@ function renderHeader() {
   setText('endDate', selected.EndDate || site.endDate || 'End');
 
   const logoEl = $('competitionLogo');
+
   if (logoEl && logo) {
     logoEl.src = logo;
     logoEl.alt = `${name} logo`;
@@ -166,6 +169,7 @@ function renderHeader() {
 
 function populateCompetitionDropdown() {
   const select = $('competitionSelect') || $('competitionDropdown') || $('competition');
+
   if (!select) return;
 
   const competitions = appData.competitions || [];
@@ -181,6 +185,7 @@ function populateCompetitionDropdown() {
 
 function populateGroupDropdown() {
   const select = $('groupFilter') || $('groupSelect');
+
   if (!select) return;
 
   const groups = [...new Set((appData.standings || []).map(row => row.Group).filter(Boolean))];
@@ -196,20 +201,20 @@ function renderSummary() {
 
   const latestResults = matches
     .filter(match => match.Status === 'FT')
-    .slice(-6)
+    .slice(-8)
     .reverse();
 
   const upcoming = matches
     .filter(match => match.Status !== 'FT')
-    .slice(0, 6);
+    .slice(0, 8);
 
   setHTML('latestResults', latestResults.length
-    ? latestResults.map(renderMatchRow).join('')
+    ? renderGroupedMatches(latestResults)
     : '<div class="empty">No latest results yet.</div>'
   );
 
   setHTML('upcomingFixtures', upcoming.length
-    ? upcoming.map(renderMatchRow).join('')
+    ? renderGroupedMatches(upcoming)
     : '<div class="empty">No upcoming fixtures yet.</div>'
   );
 }
@@ -220,14 +225,17 @@ function renderResults() {
     .reverse();
 
   const html = results.length
-    ? results.map(renderMatchRow).join('')
+    ? renderGroupedMatches(results)
     : '<div class="empty">No results found.</div>';
 
   setHTML('resultsList', html);
   setHTML('allResults', html);
 
   const countEl = $('resultsCount');
-  if (countEl) countEl.textContent = `${results.length} matches`;
+
+  if (countEl) {
+    countEl.textContent = `${results.length} matches`;
+  }
 }
 
 function renderFixtures() {
@@ -235,14 +243,66 @@ function renderFixtures() {
     .filter(match => match.Status !== 'FT');
 
   const html = fixtures.length
-    ? fixtures.map(renderMatchRow).join('')
+    ? renderGroupedMatches(fixtures)
     : '<div class="empty">No scheduled games found.</div>';
 
   setHTML('fixturesList', html);
   setHTML('allFixtures', html);
 
   const countEl = $('fixturesCount');
-  if (countEl) countEl.textContent = `${fixtures.length} matches`;
+
+  if (countEl) {
+    countEl.textContent = `${fixtures.length} matches`;
+  }
+}
+
+function renderGroupedMatches(matches) {
+  const grouped = groupBy(matches, match => formatRoundLabel(match.Round));
+
+  return Object.keys(grouped).map(round => {
+    return `
+      <section class="round-block">
+        <div class="round-heading">${escapeHTML(round)}</div>
+        <div class="round-matches">
+          ${grouped[round].map(renderMatchRow).join('')}
+        </div>
+      </section>
+    `;
+  }).join('');
+}
+
+function renderMatchRow(match) {
+  const isFinished = match.Status === 'FT';
+
+  const homeScore = isFinished ? safeScore(match.HomeScore) : '-';
+  const awayScore = isFinished ? safeScore(match.AwayScore) : '-';
+
+  const dateTime = [match.Date, match.Time].filter(Boolean).join(' ');
+
+  return `
+    <article class="match-row match-row-new">
+      <div class="match-date-time">
+        <span>${escapeHTML(dateTime || match.Status || '')}</span>
+      </div>
+
+      <div class="match-teams">
+        <div class="team-line">
+          ${match.HomeLogo ? `<img src="${escapeAttr(match.HomeLogo)}" alt="">` : ''}
+          <span>${escapeHTML(match.HomeTeam)}</span>
+        </div>
+
+        <div class="team-line">
+          ${match.AwayLogo ? `<img src="${escapeAttr(match.AwayLogo)}" alt="">` : ''}
+          <span>${escapeHTML(match.AwayTeam)}</span>
+        </div>
+      </div>
+
+      <div class="match-score">
+        <strong>${escapeHTML(homeScore)}</strong>
+        <strong>${escapeHTML(awayScore)}</strong>
+      </div>
+    </article>
+  `;
 }
 
 function renderStandings() {
@@ -343,37 +403,6 @@ function renderStatList(containerId, stats, key, label) {
   setHTML(containerId, html);
 }
 
-function renderMatchRow(match) {
-  const isFinished = match.Status === 'FT';
-  const score = isFinished
-    ? `${safeScore(match.HomeScore)} - ${safeScore(match.AwayScore)}`
-    : '- : -';
-
-  return `
-    <article class="match-row">
-      <div class="match-status">${isFinished ? 'Finished' : 'Scheduled'}</div>
-
-      <div class="match-teams">
-        <div class="team-line">
-          ${match.HomeLogo ? `<img src="${escapeAttr(match.HomeLogo)}" alt="">` : ''}
-          <span>${escapeHTML(match.HomeTeam)}</span>
-        </div>
-        <div class="team-line">
-          ${match.AwayLogo ? `<img src="${escapeAttr(match.AwayLogo)}" alt="">` : ''}
-          <span>${escapeHTML(match.AwayTeam)}</span>
-        </div>
-      </div>
-
-      <div class="match-score">${score}</div>
-
-      <div class="match-meta">
-        <span>${escapeHTML(match.Round || 'Competition')}</span>
-        ${match.Date ? `<span>${escapeHTML(match.Date)}</span>` : ''}
-      </div>
-    </article>
-  `;
-}
-
 function getFilteredMatches() {
   let matches = appData.matches || [];
 
@@ -383,21 +412,31 @@ function getFilteredMatches() {
         match.HomeTeam,
         match.AwayTeam,
         match.Round,
-        match.Competition
+        match.Competition,
+        match.Date,
+        match.Time
       ].join(' ').toLowerCase().includes(currentSearch);
     });
   }
 
   if (currentGroup) {
+    const selectedGroupKey = normaliseText(currentGroup);
+
     const teamsInGroup = (appData.standings || [])
-      .filter(row => row.Group === currentGroup)
-      .map(row => row.Team);
+      .filter(row => normaliseText(row.Group) === selectedGroupKey)
+      .map(row => normaliseTeamName(row.Team))
+      .filter(Boolean);
 
     matches = matches.filter(match => {
+      const home = normaliseTeamName(match.HomeTeam);
+      const away = normaliseTeamName(match.AwayTeam);
+      const round = normaliseText(match.Round);
+
       return (
-        teamsInGroup.includes(match.HomeTeam) ||
-        teamsInGroup.includes(match.AwayTeam) ||
-        String(match.Round || '').toLowerCase() === currentGroup.toLowerCase()
+        teamsInGroup.includes(home) ||
+        teamsInGroup.includes(away) ||
+        round === selectedGroupKey ||
+        round.includes(selectedGroupKey)
       );
     });
   }
@@ -419,7 +458,8 @@ function getFilteredStandings() {
   }
 
   if (currentGroup) {
-    standings = standings.filter(row => row.Group === currentGroup);
+    const selectedGroupKey = normaliseText(currentGroup);
+    standings = standings.filter(row => normaliseText(row.Group) === selectedGroupKey);
   }
 
   return standings;
@@ -484,6 +524,37 @@ function slugify(value) {
     .replace(/^-+|-+$/g, '');
 }
 
+function formatRoundLabel(value) {
+  const text = String(value || '').trim();
+
+  if (!text) {
+    return 'MATCHES';
+  }
+
+  if (/^\d+$/.test(text)) {
+    return `ROUND ${text}`;
+  }
+
+  return text.toUpperCase();
+}
+
+function normaliseText(value) {
+  return String(value || '')
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
+function normaliseTeamName(value) {
+  return String(value || '')
+    .toLowerCase()
+    .trim()
+    .replace(/\([a-z]{2,4}\)/gi, '')
+    .replace(/[^a-z0-9À-ÿ\s]/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function groupBy(items, fn) {
   return items.reduce((acc, item) => {
     const key = fn(item);
@@ -499,12 +570,18 @@ function groupBy(items, fn) {
 
 function setText(id, value) {
   const el = $(id);
-  if (el) el.textContent = value;
+
+  if (el) {
+    el.textContent = value;
+  }
 }
 
 function setHTML(id, value) {
   const el = $(id);
-  if (el) el.innerHTML = value;
+
+  if (el) {
+    el.innerHTML = value;
+  }
 }
 
 function showError(message) {
