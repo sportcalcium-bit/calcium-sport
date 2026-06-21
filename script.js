@@ -432,10 +432,7 @@ function getRankClass(index, groupSize, isGroupStage) {
 function isGroupStageCompetition() {
   const type = String(appData.competitionType || appData.site?.competitionType || '').toLowerCase();
 
-  return (
-    type.includes('group') ||
-    type.includes('groups')
-  );
+  return type.includes('group') || type.includes('groups');
 }
 
 function renderStats() {
@@ -610,11 +607,25 @@ function roundSortValue(value) {
     return Number(text);
   }
 
-  if (text.includes('final') && !text.includes('semi') && !text.includes('quarter')) return 100;
-  if (text.includes('semi')) return 90;
-  if (text.includes('quarter')) return 80;
-  if (text.includes('16')) return 70;
-  if (text.includes('32')) return 60;
+  if (text.includes('final') && !text.includes('semi') && !text.includes('quarter')) {
+    return 100;
+  }
+
+  if (text.includes('semi')) {
+    return 90;
+  }
+
+  if (text.includes('quarter')) {
+    return 80;
+  }
+
+  if (text.includes('16')) {
+    return 70;
+  }
+
+  if (text.includes('32')) {
+    return 60;
+  }
 
   return 0;
 }
