@@ -7,6 +7,9 @@ let currentGroup = '';
 
 const $ = id => document.getElementById(id);
 
+const SMALL_LOGO_STYLE = 'width:24px;height:24px;min-width:24px;max-width:24px;min-height:24px;max-height:24px;object-fit:contain;border-radius:3px;display:inline-block;';
+const STAT_LOGO_STYLE = 'width:22px;height:22px;min-width:22px;max-width:22px;min-height:22px;max-height:22px;object-fit:contain;border-radius:3px;display:inline-block;';
+
 init();
 
 async function init() {
@@ -60,8 +63,13 @@ function bindEvents() {
       currentSearch = '';
       currentGroup = '';
 
-      if (searchInput) searchInput.value = '';
-      if (groupFilter) groupFilter.value = '';
+      if (searchInput) {
+        searchInput.value = '';
+      }
+
+      if (groupFilter) {
+        groupFilter.value = '';
+      }
 
       updateUrlCompetition(selected);
       await loadCompetition(selected);
@@ -94,8 +102,13 @@ function bindEvents() {
       currentSearch = '';
       currentGroup = '';
 
-      if (searchInput) searchInput.value = '';
-      if (groupFilter) groupFilter.value = '';
+      if (searchInput) {
+        searchInput.value = '';
+      }
+
+      if (groupFilter) {
+        groupFilter.value = '';
+      }
 
       renderAll();
     });
@@ -119,7 +132,9 @@ function bindEvents() {
 }
 
 function renderAll() {
-  if (!appData) return;
+  if (!appData) {
+    return;
+  }
 
   renderHeader();
   renderScoreboard();
@@ -155,6 +170,7 @@ function renderHeader() {
   setText('endDate', selected.EndDate || site.endDate || 'End');
 
   const scoreboardTitle = $('scoreboardTitle');
+
   if (scoreboardTitle) {
     scoreboardTitle.textContent = `${String(region || 'World').toUpperCase()}: ${name}`;
   }
@@ -164,13 +180,20 @@ function renderHeader() {
   if (logoEl && logo) {
     logoEl.src = logo;
     logoEl.alt = `${name} logo`;
+    logoEl.style.maxWidth = '86px';
+    logoEl.style.maxHeight = '86px';
+    logoEl.style.width = 'auto';
+    logoEl.style.height = 'auto';
+    logoEl.style.objectFit = 'contain';
   }
 }
 
 function populateCompetitionDropdown() {
   const select = $('competitionSelect');
 
-  if (!select) return;
+  if (!select) {
+    return;
+  }
 
   const competitions = appData.competitions || [];
 
@@ -186,7 +209,9 @@ function populateCompetitionDropdown() {
 function populateGroupDropdown() {
   const select = $('groupFilter');
 
-  if (!select) return;
+  if (!select) {
+    return;
+  }
 
   const groups = [...new Set((appData.standings || []).map(row => row.Group).filter(Boolean))];
 
@@ -275,6 +300,14 @@ function renderScoreboardRow(match) {
 
   const dateTime = formatDateTime(match.Date, match.Time);
 
+  const homeLogo = match.HomeLogo
+    ? `<img src="${escapeAttr(match.HomeLogo)}" alt="" style="${SMALL_LOGO_STYLE}">`
+    : '';
+
+  const awayLogo = match.AwayLogo
+    ? `<img src="${escapeAttr(match.AwayLogo)}" alt="" style="${SMALL_LOGO_STYLE}">`
+    : '';
+
   return `
     <article class="scoreboard-row">
       <div class="scoreboard-star">☆</div>
@@ -285,12 +318,12 @@ function renderScoreboardRow(match) {
 
       <div class="scoreboard-teams">
         <div class="score-team-line">
-          ${match.HomeLogo ? `<img src="${escapeAttr(match.HomeLogo)}" alt="">` : ''}
+          ${homeLogo}
           <span>${escapeHTML(match.HomeTeam)}</span>
         </div>
 
         <div class="score-team-line">
-          ${match.AwayLogo ? `<img src="${escapeAttr(match.AwayLogo)}" alt="">` : ''}
+          ${awayLogo}
           <span>${escapeHTML(match.AwayTeam)}</span>
         </div>
       </div>
@@ -340,23 +373,29 @@ function renderStandings() {
               </tr>
             </thead>
             <tbody>
-              ${rows.map((team, index) => `
-                <tr>
-                  <td>${index + 1}</td>
-                  <td class="team-cell">
-                    ${team.Logo ? `<img src="${escapeAttr(team.Logo)}" alt="">` : ''}
-                    <span>${escapeHTML(team.Team)}</span>
-                  </td>
-                  <td><strong>${safeNumber(team.Points)}</strong></td>
-                  <td>${safeNumber(team.Played)}</td>
-                  <td>${safeNumber(team.Won)}</td>
-                  <td>${safeNumber(team.Drawn)}</td>
-                  <td>${safeNumber(team.Lost)}</td>
-                  <td>${safeNumber(team.GoalsFor)}</td>
-                  <td>${safeNumber(team.GoalsAgainst)}</td>
-                  <td>${formatGoalDifference(team.GoalDifference)}</td>
-                </tr>
-              `).join('')}
+              ${rows.map((team, index) => {
+                const logo = team.Logo
+                  ? `<img src="${escapeAttr(team.Logo)}" alt="" style="${SMALL_LOGO_STYLE}">`
+                  : '';
+
+                return `
+                  <tr>
+                    <td>${index + 1}</td>
+                    <td class="team-cell">
+                      ${logo}
+                      <span>${escapeHTML(team.Team)}</span>
+                    </td>
+                    <td><strong>${safeNumber(team.Points)}</strong></td>
+                    <td>${safeNumber(team.Played)}</td>
+                    <td>${safeNumber(team.Won)}</td>
+                    <td>${safeNumber(team.Drawn)}</td>
+                    <td>${safeNumber(team.Lost)}</td>
+                    <td>${safeNumber(team.GoalsFor)}</td>
+                    <td>${safeNumber(team.GoalsAgainst)}</td>
+                    <td>${formatGoalDifference(team.GoalDifference)}</td>
+                  </tr>
+                `;
+              }).join('')}
             </tbody>
           </table>
         </div>
@@ -383,17 +422,23 @@ function renderStatList(containerId, stats, key) {
     .slice(0, 15);
 
   const html = rows.length
-    ? rows.map((row, index) => `
-      <div class="stat-row">
-        <span class="stat-rank">${index + 1}</span>
-        <span class="stat-player">
-          ${row.Logo ? `<img src="${escapeAttr(row.Logo)}" alt="">` : ''}
-          <span>${escapeHTML(row.Player)}</span>
-        </span>
-        <span class="stat-team">${escapeHTML(row.Team)}</span>
-        <strong class="stat-value">${safeNumber(row[key])}</strong>
-      </div>
-    `).join('')
+    ? rows.map((row, index) => {
+      const logo = row.Logo
+        ? `<img src="${escapeAttr(row.Logo)}" alt="" style="${STAT_LOGO_STYLE}">`
+        : '';
+
+      return `
+        <div class="stat-row">
+          <span class="stat-rank">${index + 1}</span>
+          <span class="stat-player">
+            ${logo}
+            <span>${escapeHTML(row.Player)}</span>
+          </span>
+          <span class="stat-team">${escapeHTML(row.Team)}</span>
+          <strong class="stat-value">${safeNumber(row[key])}</strong>
+        </div>
+      `;
+    }).join('')
     : '<div class="empty">No data yet.</div>';
 
   setHTML(containerId, html);
@@ -552,7 +597,9 @@ function matchDateSortValue(match) {
 }
 
 function parseDateTime(date, time) {
-  if (!date) return null;
+  if (!date) {
+    return null;
+  }
 
   const dateText = String(date).trim();
   const timeText = String(time || '00:00').trim();
