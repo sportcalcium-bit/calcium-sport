@@ -1,117 +1,139 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Calcium Sport</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header class="topbar">
+  <header class="site-header">
     <div class="brand">
-      <div class="brand-mark">CS</div>
+      <div class="brand-logo">CS</div>
       <div>
-        <div class="brand-title">Calcium Sport</div>
-        <div class="brand-subtitle" id="seasonLabel">Football results centre</div>
+        <h1>Calcium Sport</h1>
+        <p id="siteSubtitle">Football results centre</p>
       </div>
     </div>
-    <div class="controls">
-      <label class="select-wrap">
+
+    <div class="top-controls">
+      <label>
         <span>Competition</span>
         <select id="competitionSelect"></select>
       </label>
-      <label class="select-wrap">
+      <label>
         <span>Jump to</span>
         <select id="jumpSelect">
-          <option value="summary">Summary</option>
-          <option value="results">Past results</option>
-          <option value="fixtures">Scheduled games</option>
-          <option value="standings">Tables</option>
-          <option value="stats">Stats</option>
+          <option value="summarySection">Summary</option>
+          <option value="resultsSection">Results</option>
+          <option value="fixturesSection">Fixtures</option>
+          <option value="standingsSection">Standings</option>
+          <option value="statsSection">Stats</option>
         </select>
       </label>
     </div>
   </header>
 
-  <main>
-    <section class="hero" id="summary">
-      <div class="crumb">FOOTBALL <span>›</span> <span id="regionLabel">WORLD</span></div>
+  <main class="page">
+    <section class="hero-card" id="summarySection">
+      <div class="breadcrumb">Football › <span id="competitionRegion">World</span></div>
       <div class="hero-main">
-        <img id="competitionLogo" class="competition-logo" alt="Competition logo" />
-        <div>
-          <h1 id="competitionTitle">Loading...</h1>
-          <p id="competitionMeta">Loading competition data</p>
-          <div class="progress">
+        <div class="competition-logo-wrap">
+          <img id="competitionLogo" alt="Competition logo" />
+        </div>
+        <div class="hero-text">
+          <h2 id="competitionTitle">Loading...</h2>
+          <p id="competitionSubtitle">Loading competition data</p>
+          <div class="timeline">
             <span id="startDate">Start</span>
-            <div class="bar"><div id="progressBar"></div></div>
+            <div class="timeline-bar"><span></span></div>
             <span id="endDate">End</span>
           </div>
         </div>
       </div>
-      <nav class="tabs">
-        <button data-target="summary" class="active">Summary</button>
-        <button data-target="results">Results</button>
-        <button data-target="fixtures">Fixtures</button>
-        <button data-target="standings">Standings</button>
-        <button data-target="stats">Stats</button>
+
+      <nav class="tabs" aria-label="Website sections">
+        <button type="button" class="tab active" data-jump="summarySection">Summary</button>
+        <button type="button" class="tab" data-jump="resultsSection">Results</button>
+        <button type="button" class="tab" data-jump="fixturesSection">Fixtures</button>
+        <button type="button" class="tab" data-jump="standingsSection">Standings</button>
+        <button type="button" class="tab" data-jump="statsSection">Stats</button>
       </nav>
     </section>
 
-    <section class="toolbar card">
+    <section class="filter-card">
       <input id="searchInput" type="search" placeholder="Search team or player..." />
-      <select id="groupFilter"><option value="all">All groups/tables</option></select>
-      <button id="clearFilters">Clear</button>
+      <select id="groupFilter"><option value="">All groups/tables</option></select>
+      <button id="clearFilters" type="button">Clear</button>
     </section>
 
-    <section class="grid-two">
-      <div class="card" id="latestCard">
-        <h2>Latest results</h2>
-        <div id="latestResults" class="match-list"></div>
-      </div>
-      <div class="card" id="upcomingCard">
-        <h2>Upcoming fixtures</h2>
-        <div id="upcomingFixtures" class="match-list"></div>
-      </div>
+    <section class="summary-grid">
+      <article class="panel">
+        <div class="section-heading">
+          <h2>Latest results</h2>
+        </div>
+        <div id="latestResults" class="match-list"><div class="empty">Loading results...</div></div>
+      </article>
+
+      <article class="panel">
+        <div class="section-heading">
+          <h2>Upcoming fixtures</h2>
+        </div>
+        <div id="upcomingFixtures" class="match-list"><div class="empty">Loading fixtures...</div></div>
+      </article>
     </section>
 
-    <section class="card section" id="results">
-      <div class="section-head">
-        <h2>Past results</h2>
+    <section class="panel" id="resultsSection">
+      <div class="section-heading">
+        <h2>Results</h2>
         <span id="resultsCount"></span>
       </div>
-      <div id="resultsList" class="match-list big"></div>
+      <div id="resultsList" class="match-list"></div>
     </section>
 
-    <section class="card section" id="fixtures">
-      <div class="section-head">
-        <h2>Scheduled games</h2>
+    <section class="panel" id="fixturesSection">
+      <div class="section-heading">
+        <h2>Fixtures</h2>
         <span id="fixturesCount"></span>
       </div>
-      <div id="fixturesList" class="match-list big"></div>
+      <div id="fixturesList" class="match-list"></div>
     </section>
 
-    <section class="card section" id="standings">
-      <div class="section-head">
+    <section class="panel" id="standingsSection">
+      <div class="section-heading">
         <h2>Standings</h2>
         <span>Sorted by points, goal difference, goals scored</span>
       </div>
-      <div id="standingsWrap" class="standings-grid"></div>
+      <div id="standingsContainer"></div>
     </section>
 
-    <section class="card section" id="stats">
-      <div class="section-head">
+    <section class="panel" id="statsSection">
+      <div class="section-heading">
         <h2>Player stats</h2>
       </div>
       <div class="stats-grid">
-        <div><h3>Top scorers</h3><div id="topScorers"></div></div>
-        <div><h3>Top assists</h3><div id="topAssists"></div></div>
-        <div><h3>Yellow cards</h3><div id="yellowCards"></div></div>
-        <div><h3>Red cards</h3><div id="redCards"></div></div>
+        <div>
+          <h3>Top scorers</h3>
+          <div id="topScorers"></div>
+        </div>
+        <div>
+          <h3>Top assists</h3>
+          <div id="topAssists"></div>
+        </div>
+        <div>
+          <h3>Yellow cards</h3>
+          <div id="yellowCards"></div>
+        </div>
+        <div>
+          <h3>Red cards</h3>
+          <div id="redCards"></div>
+        </div>
       </div>
     </section>
   </main>
 
-  <button id="toTop" title="Back to top">↑</button>
+  <button id="backToTop" class="back-top" type="button">↑</button>
+
   <script src="script.js"></script>
 </body>
 </html>
