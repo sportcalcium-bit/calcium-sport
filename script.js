@@ -5,10 +5,17 @@ let currentCompetition = new URLSearchParams(window.location.search).get('compet
 let currentSearch = '';
 let currentGroup = '';
 
+let expandedStats = {
+  topScorers: false,
+  topAssists: false,
+  yellowCards: false,
+  redCards: false
+};
+
 const $ = id => document.getElementById(id);
 
 const SMALL_LOGO_STYLE = 'width:24px;height:24px;min-width:24px;max-width:24px;min-height:24px;max-height:24px;object-fit:contain;border-radius:3px;display:inline-block;';
-const STAT_LOGO_STYLE = 'width:22px;height:22px;min-width:22px;max-width:22px;min-height:22px;max-height:22px;object-fit:contain;border-radius:3px;display:inline-block;';
+const STAT_LOGO_STYLE = 'width:24px;height:24px;min-width:24px;max-width:24px;min-height:24px;max-height:24px;object-fit:contain;border-radius:3px;display:inline-block;';
 
 init();
 
@@ -43,6 +50,13 @@ async function loadCompetition(competitionParam) {
 
   const selected = appData.selectedCompetition || appData.site || {};
   currentCompetition = makeCompetitionSlug(selected);
+
+  expandedStats = {
+    topScorers: false,
+    topAssists: false,
+    yellowCards: false,
+    redCards: false
+  };
 
   populateCompetitionDropdown();
   populateGroupDropdown();
@@ -438,40 +452,65 @@ function isGroupStageCompetition() {
 function renderStats() {
   const stats = getFilteredStats();
 
-  renderStatList('topScorers', stats, 'Goals');
-  renderStatList('topAssists', stats, 'Assists');
-  renderStatList('yellowCards', stats, 'YellowCards');
-  renderStatList('redCards', stats, 'RedCards');
+  renderStatList('topScorers', stats, 'Goals', 'topScorers');
+  renderStatList('topAssists', stats, 'Assists', 'topAssists');
+  renderStatList('yellowCards', stats, 'YellowCards', 'yellowCards');
+  renderStatList('redCards', stats, 'RedCards', 'redCards');
 }
 
-function renderStatList(containerId, stats, key) {
-  const rows = stats
+function renderStatList(containerId, stats, key, expandKey) {
+  const allRows = stats
     .filter(row => Number(row[key]) > 0)
-    .sort((a, b) => Number(b[key]) - Number(a[key]))
-    .slice(0, 15);
+    .sort((a, b) => {
+      if (Number(b[key]) !== Number(a[key])) {
+        return Number(b[key]) - Number(a[key]);
+      }
 
-  const html = rows.length
-    ? rows.map((row, index) => {
-      const logo = row.Logo
-        ? `<img src="${escapeAttr(row.Logo)}" alt="" style="${STAT_LOGO_STYLE}">`
-        : '';
+      return String(a.Player || '').localeCompare(String(b.Player || ''));
+    });
 
-      return `
-        <div class="stat-row">
-          <span class="stat-rank">${index + 1}</span>
-          <span class="stat-player">
-            ${logo}
-            <span>${escapeHTML(row.Player)}</span>
-          </span>
-          <span class="stat-team">${escapeHTML(row.Team)}</span>
-          <strong class="stat-value">${safeNumber(row[key])}</strong>
-        </div>
-      `;
-    }).join('')
-    : '<div class="empty">No data yet.</div>';
+  const isExpanded = expandedStats[expandKey];
+  const visibleRows = isExpanded ? allRows : allRows.slice(0, 3);
 
-  setHTML(containerId, html);
+  if (!allRows.length) {
+    setHTML(containerId, '<div class="empty">No data yet.</div>');
+    return;
+  }
+
+  const rowsHtml = visibleRows.map((row, index) => {
+    const logo = row.Logo
+      ? `<img src="${escapeAttr(row.Logo)}" alt="" style="${STAT_LOGO_STYLE}">`
+      : '';
+
+    return `
+      <div class="stat-row">
+        <span class="stat-rank">${index + 1}</span>
+
+        <span class="stat-player">
+          ${logo}
+          <span class="stat-player-name" title="${escapeAttr(row.Player)}">${escapeHTML(row.Player)}</span>
+        </span>
+
+        <strong class="stat-value">${safeNumber(row[key])}</strong>
+      </div>
+    `;
+  }).join('');
+
+  const buttonHtml = allRows.length > 3
+    ? `
+      <button class="stat-toggle" type="button" onclick="toggleStatList('${expandKey}')">
+        ${isExpanded ? 'Show less' : `See more (${allRows.length})`}
+      </button>
+    `
+    : '';
+
+  setHTML(containerId, rowsHtml + buttonHtml);
 }
+
+window.toggleStatList = function toggleStatList(key) {
+  expandedStats[key] = !expandedStats[key];
+  renderStats();
+};
 
 function getFilteredMatches() {
   let matches = appData.matches || [];
