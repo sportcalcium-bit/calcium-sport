@@ -322,8 +322,11 @@ function renderScoreboardRow(match) {
     ? `<img src="${escapeAttr(match.AwayLogo)}" alt="" style="${SMALL_LOGO_STYLE}">`
     : '';
 
+  const clickableClass = isFinished && match.MatchID ? 'is-clickable' : '';
+  const clickHandler = isFinished && match.MatchID ? `onclick="openMatchDetail('${escapeAttr(match.MatchID)}')"` : '';
+
   return `
-    <article class="scoreboard-row">
+    <article class="scoreboard-row ${clickableClass}" ${clickHandler}>
       <div class="scoreboard-star">☆</div>
 
       <div class="scoreboard-date">
@@ -348,6 +351,224 @@ function renderScoreboardRow(match) {
       </div>
     </article>
   `;
+}
+
+function openMatchDetail(matchId) {
+  const match = (appData.matches || []).find(item => item.MatchID === matchId || item.ID === matchId);
+
+  if (!match) {
+    return;
+  }
+
+  const modal = $('matchModal');
+  const content = $('matchDetailContent');
+
+  if (!modal || !content) {
+    return;
+  }
+
+  content.innerHTML = renderMatchDetail(match);
+  modal.classList.remove('hidden');
+  document.body.classList.add('modal-open');
+}
+
+window.openMatchDetail = openMatchDetail;
+
+function closeMatchModal() {
+  const modal = $('matchModal');
+
+  if (modal) {
+    modal.classList.add('hidden');
+  }
+
+  document.body.classList.remove('modal-open');
+}
+
+window.closeMatchModal = closeMatchModal;
+
+function renderMatchDetail(match) {
+  const matchEvents = getMatchEvents(match.MatchID || match.ID);
+  const firstHalf = matchEvents.filter(event => getHalfNumber(event.Half) === 1);
+  const secondHalf = matchEvents.filter(event => getHalfNumber(event.Half) === 2);
+
+  const homeLogo = match.HomeLogo
+    ? `<img src="${escapeAttr(match.HomeLogo)}" alt="">`
+    : '';
+
+  const awayLogo = match.AwayLogo
+    ? `<img src="${escapeAttr(match.AwayLogo)}" alt="">`
+    : '';
+
+  return `
+    <section class="match-hero">
+      <div class="match-date-main">${escapeHTML(formatFullDateTime(match.Date, match.Time))}</div>
+
+      <div class="match-main-teams">
+        <div class="match-main-team">
+          <div class="match-main-logo">${homeLogo}</div>
+          <strong>${escapeHTML(match.HomeTeam)}</strong>
+        </div>
+
+        <div class="match-main-score">
+          <div>${escapeHTML(safeScore(match.HomeScore))} - ${escapeHTML(safeScore(match.AwayScore))}</div>
+          <span>${escapeHTML(match.Venue || match.Stadium || 'Venue unavailable')}</span>
+        </div>
+
+        <div class="match-main-team">
+          <div class="match-main-logo">${awayLogo}</div>
+          <strong>${escapeHTML(match.AwayTeam)}</strong>
+        </div>
+      </div>
+    </section>
+
+    <section class="venue-row">
+      <span>🏟️ Venue:</span>
+      <strong>${escapeHTML(match.Venue || match.Stadium || 'Venue unavailable')}</strong>
+    </section>
+
+    <section class="event-section">
+      ${renderHalfEvents('1ST HALF', firstHalf, match)}
+      ${renderHalfEvents('2ND HALF', secondHalf, match)}
+    </section>
+  `;
+}
+
+function getMatchEvents(matchId) {
+  return (appData.events || [])
+    .filter(event => event.MatchID === matchId)
+    .sort((a, b) => Number(a.Minute || 0) - Number(b.Minute || 0));
+}
+
+function renderHalfEvents(title, events, match) {
+  if (!events.length) {
+    return `
+      <div class="half-block">
+        <div class="half-title">${escapeHTML(title)}</div>
+        <div class="empty match-empty">No events.</div>
+      </div>
+    `;
+  }
+
+  let liveHome = 0;
+  let liveAway = 0;
+
+  const allEventsBeforeThisHalf = getMatchEvents(match.MatchID || match.ID)
+    .filter(event => {
+      if (title === '1ST HALF') {
+        return false;
+      }
+
+      return getHalfNumber(event.Half) === 1;
+    })
+    .sort((a, b) => Number(a.Minute || 0) - Number(b.Minute || 0));
+
+  allEventsBeforeThisHalf.forEach(event => {
+    if (isGoalEvent(event)) {
+      if (sameTeam(event.Team, match.HomeTeam)) {
+        liveHome += 1;
+      }
+
+      if (sameTeam(event.Team, match.AwayTeam)) {
+        liveAway += 1;
+      }
+    }
+  });
+
+  const rows = events.map(event => {
+    if (isGoalEvent(event)) {
+      if (sameTeam(event.Team, match.HomeTeam)) {
+        liveHome += 1;
+      }
+
+      if (sameTeam(event.Team, match.AwayTeam)) {
+        liveAway += 1;
+      }
+    }
+
+    return renderEventRow(event, match, liveHome, liveAway);
+  }).join('');
+
+  return `
+    <div class="half-block">
+      <div class="half-title">${escapeHTML(title)}</div>
+      ${rows}
+    </div>
+  `;
+}
+
+function renderEventRow(event, match, liveHome, liveAway) {
+  const isHome = sameTeam(event.Team, match.HomeTeam);
+  const sideClass = isHome ? 'event-home' : 'event-away';
+  const eventLabel = getEventLabel(event, liveHome, liveAway);
+
+  return `
+    <div class="event-row ${sideClass}">
+      <div class="event-minute">${escapeHTML(event.Minute)}'</div>
+      <div class="event-content">
+        ${eventLabel}
+      </div>
+    </div>
+  `;
+}
+
+function getEventLabel(event, liveHome, liveAway) {
+  const eventType = String(event.Event || '').toLowerCase();
+  const detail = String(event.Detail || '').trim();
+  const player = String(event.Player || '').trim();
+
+  if (eventType === 'goal') {
+    const detailText = detail ? ` (${escapeHTML(detail)})` : '';
+
+    return `
+      <span class="goal-pill">⚽ ${liveHome} - ${liveAway}</span>
+      <strong>${escapeHTML(player)}${detailText}</strong>
+    `;
+  }
+
+  if (eventType === 'red card') {
+    const detailText = detail ? ` (${escapeHTML(detail)})` : '';
+
+    return `
+      <span class="red-card-icon">■</span>
+      <strong>${escapeHTML(player)}${detailText}</strong>
+    `;
+  }
+
+  if (eventType === 'penalty missed') {
+    return `
+      <span class="penalty-missed-icon">⚽</span>
+      <strong>${escapeHTML(player)} (Penalty missed)</strong>
+    `;
+  }
+
+  const detailText = detail ? ` (${escapeHTML(detail)})` : '';
+
+  return `
+    <span class="event-dot">•</span>
+    <strong>${escapeHTML(player)}${detailText}</strong>
+  `;
+}
+
+function isGoalEvent(event) {
+  return String(event.Event || '').toLowerCase() === 'goal';
+}
+
+function sameTeam(a, b) {
+  return normaliseTeamName(a) === normaliseTeamName(b);
+}
+
+function getHalfNumber(value) {
+  const text = String(value || '').toLowerCase().trim();
+
+  if (text === '1' || text.includes('1st') || text.includes('first')) {
+    return 1;
+  }
+
+  if (text === '2' || text.includes('2nd') || text.includes('second')) {
+    return 2;
+  }
+
+  return 0;
 }
 
 function renderStandings() {
@@ -739,6 +960,13 @@ function formatDateTime(date, time) {
   }
 
   return cleanTime ? `${shortDate} ${cleanTime}` : shortDate;
+}
+
+function formatFullDateTime(date, time) {
+  const cleanDate = String(date || '').trim();
+  const cleanTime = String(time || '').trim();
+
+  return [cleanDate, cleanTime].filter(Boolean).join(' ');
 }
 
 function slugify(value) {
