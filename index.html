@@ -3,133 +3,115 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Calcium Sport | World Cup 2026</title>
+  <title>Calcium Sport</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header class="site-header">
+  <header class="topbar">
     <div class="brand">
       <div class="brand-mark">CS</div>
       <div>
-        <h1 id="siteTitle">Calcium Sport</h1>
-        <p id="siteTagline">World Cup 2026 results, fixtures, standings and stats</p>
+        <div class="brand-title">Calcium Sport</div>
+        <div class="brand-subtitle" id="seasonLabel">Football results centre</div>
       </div>
     </div>
-
-    <nav class="top-nav" aria-label="Primary navigation">
-      <button class="nav-btn active" data-view="summary">Summary</button>
-      <button class="nav-btn" data-view="results">Results</button>
-      <button class="nav-btn" data-view="fixtures">Fixtures</button>
-      <button class="nav-btn" data-view="standings">Standings</button>
-      <button class="nav-btn" data-view="stats">Stats</button>
-    </nav>
+    <div class="controls">
+      <label class="select-wrap">
+        <span>Competition</span>
+        <select id="competitionSelect"></select>
+      </label>
+      <label class="select-wrap">
+        <span>Jump to</span>
+        <select id="jumpSelect">
+          <option value="summary">Summary</option>
+          <option value="results">Past results</option>
+          <option value="fixtures">Scheduled games</option>
+          <option value="standings">Tables</option>
+          <option value="stats">Stats</option>
+        </select>
+      </label>
+    </div>
   </header>
 
   <main>
-    <section class="hero-card">
-      <div class="breadcrumb">⚽ Football <span>›</span> 🌍 World</div>
-      <div class="hero-content">
-        <div class="trophy-card">🏆</div>
-        <div class="hero-copy">
-          <p class="eyebrow">FIFA World Cup 2026</p>
-          <h2>World Championship</h2>
-          <p class="muted">Live-style hub for results, fixtures, tables and tournament leaders.</p>
-        </div>
-      </div>
-      <div class="progress-wrap">
-        <span>11.06</span>
-        <div class="progress-track"><div class="progress-fill"></div></div>
-        <span>19.07</span>
-      </div>
-    </section>
-
-    <section class="control-card">
-      <div class="control-grid">
-        <label>
-          Jump to
-          <select id="jumpSelect">
-            <option value="summary">Summary</option>
-            <option value="results">Past results</option>
-            <option value="fixtures">Scheduled games</option>
-            <option value="standings">Group tables</option>
-            <option value="stats">Player stats</option>
-          </select>
-        </label>
-        <label>
-          Group
-          <select id="groupFilter">
-            <option value="all">All groups</option>
-          </select>
-        </label>
-        <label>
-          Team search
-          <input id="searchInput" type="search" placeholder="Search team or player..." />
-        </label>
-      </div>
-    </section>
-
-    <section id="loading" class="state-card">Loading Calcium Sport data...</section>
-    <section id="error" class="state-card error hidden">Could not load data. Check your Apps Script deployment and refresh.</section>
-
-    <section id="summary" class="view-section active">
-      <div class="section-heading">
+    <section class="hero" id="summary">
+      <div class="crumb">FOOTBALL <span>›</span> <span id="regionLabel">WORLD</span></div>
+      <div class="hero-main">
+        <img id="competitionLogo" class="competition-logo" alt="Competition logo" />
         <div>
-          <p class="eyebrow">Overview</p>
-          <h2>Today and latest</h2>
+          <h1 id="competitionTitle">Loading...</h1>
+          <p id="competitionMeta">Loading competition data</p>
+          <div class="progress">
+            <span id="startDate">Start</span>
+            <div class="bar"><div id="progressBar"></div></div>
+            <span id="endDate">End</span>
+          </div>
         </div>
       </div>
-      <div class="dashboard-grid">
-        <article class="panel wide">
-          <div class="panel-title"><h3>Latest results</h3><button class="text-btn" data-view="results">View all</button></div>
-          <div id="latestResults" class="match-list"></div>
-        </article>
-        <article class="panel">
-          <div class="panel-title"><h3>Next fixtures</h3><button class="text-btn" data-view="fixtures">View all</button></div>
-          <div id="nextFixtures" class="mini-list"></div>
-        </article>
-        <article class="panel">
-          <div class="panel-title"><h3>Leaders</h3><button class="text-btn" data-view="stats">Stats</button></div>
-          <div id="leaders" class="leaders"></div>
-        </article>
+      <nav class="tabs">
+        <button data-target="summary" class="active">Summary</button>
+        <button data-target="results">Results</button>
+        <button data-target="fixtures">Fixtures</button>
+        <button data-target="standings">Standings</button>
+        <button data-target="stats">Stats</button>
+      </nav>
+    </section>
+
+    <section class="toolbar card">
+      <input id="searchInput" type="search" placeholder="Search team or player..." />
+      <select id="groupFilter"><option value="all">All groups/tables</option></select>
+      <button id="clearFilters">Clear</button>
+    </section>
+
+    <section class="grid-two">
+      <div class="card" id="latestCard">
+        <h2>Latest results</h2>
+        <div id="latestResults" class="match-list"></div>
+      </div>
+      <div class="card" id="upcomingCard">
+        <h2>Upcoming fixtures</h2>
+        <div id="upcomingFixtures" class="match-list"></div>
       </div>
     </section>
 
-    <section id="results" class="view-section">
-      <div class="section-heading">
-        <div><p class="eyebrow">Finished</p><h2>Past results</h2></div>
+    <section class="card section" id="results">
+      <div class="section-head">
+        <h2>Past results</h2>
+        <span id="resultsCount"></span>
       </div>
-      <div id="resultsList" class="match-list full"></div>
+      <div id="resultsList" class="match-list big"></div>
     </section>
 
-    <section id="fixtures" class="view-section">
-      <div class="section-heading">
-        <div><p class="eyebrow">Upcoming</p><h2>Scheduled games</h2></div>
+    <section class="card section" id="fixtures">
+      <div class="section-head">
+        <h2>Scheduled games</h2>
+        <span id="fixturesCount"></span>
       </div>
-      <div id="fixturesList" class="match-list full"></div>
+      <div id="fixturesList" class="match-list big"></div>
     </section>
 
-    <section id="standings" class="view-section">
-      <div class="section-heading">
-        <div><p class="eyebrow">Tables</p><h2>Group standings</h2></div>
+    <section class="card section" id="standings">
+      <div class="section-head">
+        <h2>Standings</h2>
+        <span>Sorted by points, goal difference, goals scored</span>
       </div>
-      <div id="standingsGrid" class="standings-grid"></div>
+      <div id="standingsWrap" class="standings-grid"></div>
     </section>
 
-    <section id="stats" class="view-section">
-      <div class="section-heading">
-        <div><p class="eyebrow">Players</p><h2>Tournament stats</h2></div>
+    <section class="card section" id="stats">
+      <div class="section-head">
+        <h2>Player stats</h2>
       </div>
       <div class="stats-grid">
-        <article class="panel"><h3>Top scorers</h3><div id="topGoals" class="stat-table"></div></article>
-        <article class="panel"><h3>Top assists</h3><div id="topAssists" class="stat-table"></div></article>
-        <article class="panel"><h3>Yellow cards</h3><div id="topYellows" class="stat-table"></div></article>
-        <article class="panel"><h3>Red cards</h3><div id="topReds" class="stat-table"></div></article>
+        <div><h3>Top scorers</h3><div id="topScorers"></div></div>
+        <div><h3>Top assists</h3><div id="topAssists"></div></div>
+        <div><h3>Yellow cards</h3><div id="yellowCards"></div></div>
+        <div><h3>Red cards</h3><div id="redCards"></div></div>
       </div>
     </section>
   </main>
 
-  <button id="backTop" class="back-top" aria-label="Back to top">↑</button>
-
+  <button id="toTop" title="Back to top">↑</button>
   <script src="script.js"></script>
 </body>
 </html>
