@@ -22,6 +22,10 @@ body {
   font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
+body.modal-open {
+  overflow: hidden;
+}
+
 .site-header {
   position: sticky;
   top: 0;
@@ -295,6 +299,14 @@ button {
   min-height: 74px;
   padding: 8px 0;
   border-bottom: 1px solid var(--line);
+}
+
+.scoreboard-row.is-clickable {
+  cursor: pointer;
+}
+
+.scoreboard-row.is-clickable:hover {
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .scoreboard-star {
@@ -573,6 +585,233 @@ button {
   background: #0a4652;
 }
 
+/* Match detail modal */
+.match-modal.hidden {
+  display: none;
+}
+
+.match-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 22px;
+}
+
+.match-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 10, 14, 0.76);
+  backdrop-filter: blur(8px);
+}
+
+.match-detail-card {
+  position: relative;
+  z-index: 101;
+  width: min(760px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+  background: #021b22;
+  border: 1px solid rgba(89, 220, 235, 0.25);
+  border-radius: 20px;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.5);
+}
+
+.match-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  z-index: 5;
+  border: 0;
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  font-size: 24px;
+  font-weight: 900;
+}
+
+.match-hero {
+  padding: 34px 26px 24px;
+  background: #021b22;
+  border-bottom: 1px solid var(--line);
+}
+
+.match-date-main {
+  text-align: center;
+  color: #d8e8ee;
+  font-size: 18px;
+  margin-bottom: 20px;
+}
+
+.match-main-teams {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 18px;
+}
+
+.match-main-team {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  text-align: center;
+  font-size: 20px;
+}
+
+.match-main-logo {
+  display: grid;
+  place-items: center;
+  width: 104px;
+  height: 104px;
+  border-radius: 16px;
+  background: white;
+}
+
+.match-main-logo img {
+  max-width: 82px !important;
+  max-height: 82px !important;
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain !important;
+}
+
+.match-main-score {
+  text-align: center;
+}
+
+.match-main-score div {
+  font-size: 60px;
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+}
+
+.match-main-score span {
+  display: block;
+  margin-top: 10px;
+  color: var(--muted);
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 13px;
+}
+
+.venue-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+  background: #04262d;
+  border-bottom: 1px solid var(--line);
+  color: #dfeef2;
+}
+
+.venue-row span {
+  color: var(--muted);
+  text-transform: uppercase;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.venue-row strong {
+  text-align: right;
+}
+
+.half-block {
+  border-bottom: 1px solid var(--line);
+}
+
+.half-title {
+  padding: 12px 18px;
+  background: #06303a;
+  color: #dcecf1;
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+
+.event-row {
+  display: grid;
+  grid-template-columns: 60px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  min-height: 54px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.event-row:last-child {
+  border-bottom: 0;
+}
+
+.event-minute {
+  color: #d8e8ee;
+  font-weight: 900;
+  font-size: 18px;
+}
+
+.event-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.event-away .event-content {
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.event-content strong {
+  font-size: 17px;
+}
+
+.goal-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 7px 10px;
+  font-weight: 900;
+}
+
+.red-card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 24px;
+  background: #ec1111;
+  color: #ec1111;
+  border-radius: 5px;
+}
+
+.penalty-missed-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #ff1b1b;
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(255, 0, 0, 0.25);
+  border-radius: 9px;
+  background: rgba(255, 0, 0, 0.08);
+  filter: grayscale(1);
+}
+
+.event-dot {
+  font-size: 22px;
+  color: var(--muted);
+}
+
+.match-empty {
+  padding: 14px 18px;
+}
+
 .empty {
   color: var(--muted);
   padding: 18px 0;
@@ -656,5 +895,21 @@ img {
 
   .stat-value {
     font-size: 20px;
+  }
+
+  .match-main-teams {
+    grid-template-columns: 1fr;
+  }
+
+  .match-main-score {
+    order: -1;
+  }
+
+  .venue-row {
+    flex-direction: column;
+  }
+
+  .venue-row strong {
+    text-align: left;
   }
 }
