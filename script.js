@@ -348,6 +348,7 @@ function renderStandings() {
 
   const html = Object.keys(groups).map(groupName => {
     const rows = groups[groupName];
+    const isGroupStage = isGroupStageCompetition();
 
     return `
       <section class="table-card">
@@ -378,9 +379,13 @@ function renderStandings() {
                   ? `<img src="${escapeAttr(team.Logo)}" alt="" style="${SMALL_LOGO_STYLE}">`
                   : '';
 
+                const rankClass = getRankClass(index, rows.length, isGroupStage);
+
                 return `
                   <tr>
-                    <td>${index + 1}</td>
+                    <td>
+                      <span class="rank-badge ${rankClass}">${index + 1}</span>
+                    </td>
                     <td class="team-cell">
                       ${logo}
                       <span>${escapeHTML(team.Team)}</span>
@@ -399,11 +404,38 @@ function renderStandings() {
             </tbody>
           </table>
         </div>
+
+        ${isGroupStage ? '<div class="qualification-note"><span class="note-dot qualified"></span> Top 2 qualify <span class="note-dot eliminated"></span> Bottom 2 eliminated</div>' : ''}
       </section>
     `;
   }).join('');
 
   setHTML('standingsContainer', html);
+}
+
+function getRankClass(index, groupSize, isGroupStage) {
+  if (!isGroupStage) {
+    return 'rank-neutral';
+  }
+
+  if (groupSize <= 2) {
+    return 'rank-neutral';
+  }
+
+  if (index <= 1) {
+    return 'rank-qualified';
+  }
+
+  return 'rank-eliminated';
+}
+
+function isGroupStageCompetition() {
+  const type = String(appData.competitionType || appData.site?.competitionType || '').toLowerCase();
+
+  return (
+    type.includes('group') ||
+    type.includes('groups')
+  );
 }
 
 function renderStats() {
