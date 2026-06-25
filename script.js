@@ -560,7 +560,7 @@ function renderHalfEvents(title, events, match) {
 function renderEventRow(event, match, liveHome, liveAway) {
   const isHome = sameTeam(event.Team, match.HomeTeam);
   const sideClass = isHome ? 'event-home' : 'event-away';
-  const eventLabel = getEventLabel(event, liveHome, liveAway);
+  const eventLabel = getEventLabel(event, liveHome, liveAway, isHome);
 
   return `
     <div class="event-row ${sideClass}">
@@ -572,12 +572,20 @@ function renderEventRow(event, match, liveHome, liveAway) {
   `;
 }
 
-function getEventLabel(event, liveHome, liveAway) {
-  const eventType = String(event.Event || '').toLowerCase();
+function getEventLabel(event, liveHome, liveAway, isHome) {
+  const eventType = String(event.Event || '').toLowerCase().trim();
   const detail = String(event.Detail || '').trim();
   const player = String(event.Player || '').trim();
+  const isPenaltyGoal = eventType === 'goal' && detail.toLowerCase() === 'penalty';
 
   if (eventType === 'goal') {
+    if (isPenaltyGoal && !isHome) {
+      return `
+        <strong>(Penalty) ${escapeHTML(player)}</strong>
+        <span class="goal-pill">${liveHome} - ${liveAway} ⚽</span>
+      `;
+    }
+
     const detailText = detail ? ` (${escapeHTML(detail)})` : '';
 
     return `
@@ -595,9 +603,20 @@ function getEventLabel(event, liveHome, liveAway) {
     `;
   }
 
-  if (eventType === 'penalty missed') {
+  if (eventType === 'penalty missed' || eventType === 'missed penalty') {
+    if (!isHome) {
+      return `
+        <strong>${escapeHTML(player)} (Penalty missed)</strong>
+        <span class="penalty-missed-icon" aria-label="Penalty missed">
+          <span class="penalty-missed-ball"></span>
+        </span>
+      `;
+    }
+
     return `
-      <span class="penalty-missed-icon">⚽</span>
+      <span class="penalty-missed-icon" aria-label="Penalty missed">
+        <span class="penalty-missed-ball"></span>
+      </span>
       <strong>${escapeHTML(player)} (Penalty missed)</strong>
     `;
   }
@@ -611,7 +630,7 @@ function getEventLabel(event, liveHome, liveAway) {
 }
 
 function isGoalEvent(event) {
-  return String(event.Event || '').toLowerCase() === 'goal';
+  return String(event.Event || '').toLowerCase().trim() === 'goal';
 }
 
 function sameTeam(a, b) {
@@ -643,7 +662,7 @@ function renderStandings() {
   const groups = groupBy(standings, row => row.Group || 'Table');
 
   const html = Object.keys(groups).map(groupName => {
-    const rows = groups[groupName];
+    const rows = [...groups[groupName]].sort(compareStandingRows);
     const isGroupStage = isGroupStageCompetition();
 
     return `
@@ -707,6 +726,107 @@ function renderStandings() {
   }).join('');
 
   setHTML('standingsContainer', html);
+}
+
+function compareStandingRows(a, b) {
+  const pointsA = safeNumber(a.Points);
+  const pointsB = safeNumber(b.Points);
+
+  if (pointsB !== pointsA) {
+    return pointsB - pointsA;
+  }
+
+  const headToHead = getHeadToHeadWinner(a.Team, b.Team);
+
+  if (headToHead === a.Team) {
+    return -1;
+  }
+
+  if (headToHead === b.Team) {
+    return 1;
+  }
+
+  const gdA = safeNumber(a.GoalDifference);
+  const gdB = safeNumber(b.GoalDifference);
+
+  if (gdB !== gdA) {
+    return gdB - gdA;
+  }
+
+  const gfA = safeNumber(a.GoalsFor);
+  const gfB = safeNumber(b.GoalsFor);
+
+  if (gfB !== gfA) {
+    return gfB - gfA;
+  }
+
+  const gaA = safeNumber(a.GoalsAgainst);
+  const gaB = safeNumber(b.GoalsAgainst);
+
+  if (gaA !== gaB) {
+    return gaA - gaB;
+  }
+
+  return String(a.Team || '').localeCompare(String(b.Team || ''));
+}
+
+function getHeadToHeadWinner(teamA, teamB) {
+  const teamAKey = normaliseTeamName(teamA);
+  const teamBKey = normaliseTeamName(teamB);
+
+  const directMatches = (appData.matches || []).filter(match => {
+    if (match.Status !== 'FT') {
+      return false;
+    }
+
+    const home = normaliseTeamName(match.HomeTeam);
+    const away = normaliseTeamName(match.AwayTeam);
+
+    return (
+      (home === teamAKey && away === teamBKey) ||
+      (home === teamBKey && away === teamAKey)
+    );
+  });
+
+  if (!directMatches.length) {
+    return '';
+  }
+
+  let teamAPoints = 0;
+  let teamBPoints = 0;
+
+  directMatches.forEach(match => {
+    const home = normaliseTeamName(match.HomeTeam);
+    const away = normaliseTeamName(match.AwayTeam);
+    const homeScore = safeNumber(match.HomeScore);
+    const awayScore = safeNumber(match.AwayScore);
+
+    if (homeScore === awayScore) {
+      teamAPoints += 1;
+      teamBPoints += 1;
+      return;
+    }
+
+    const winnerKey = homeScore > awayScore ? home : away;
+
+    if (winnerKey === teamAKey) {
+      teamAPoints += 3;
+    }
+
+    if (winnerKey === teamBKey) {
+      teamBPoints += 3;
+    }
+  });
+
+  if (teamAPoints > teamBPoints) {
+    return teamA;
+  }
+
+  if (teamBPoints > teamAPoints) {
+    return teamB;
+  }
+
+  return '';
 }
 
 function getRankClass(index, groupSize, isGroupStage) {
