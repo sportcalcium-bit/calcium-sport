@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Calcium Sport Results Centre</title>
-  <link rel="stylesheet" href="./style.css?v=6700" />
+  <link rel="stylesheet" href="./style.css?v=6900" />
 </head>
 <body>
   <header class="site-header">
@@ -85,7 +85,17 @@
         </div>
 
         <div class="hero-copy">
-          <h2 id="competitionTitle">Loading...</h2>
+          <div class="competition-title-row">
+            <h2 id="competitionTitle">Loading...</h2>
+
+            <label class="season-switcher-wrap" id="seasonSwitcherWrap">
+              <span>Season</span>
+              <select id="seasonSelect">
+                <option>Loading...</option>
+              </select>
+            </label>
+          </div>
+
           <p id="competitionSubtitle">Loading competition data</p>
 
           <div class="date-row">
@@ -193,6 +203,6 @@
 
   <button id="backToTop" class="back-to-top" type="button">↑</button>
 
-  <script src="./script.js?v=6700"></script>
+  <script src="./script.js?v=6900"></script>
 </body>
 </html>
