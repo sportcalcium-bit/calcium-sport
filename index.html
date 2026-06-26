@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Calcium Sport Results Centre</title>
-  <link rel="stylesheet" href="./style.css?v=6500" />
+  <link rel="stylesheet" href="./style.css?v=6600" />
 </head>
 <body>
   <header class="site-header">
@@ -16,25 +16,31 @@
       </div>
     </div>
 
-    <div class="header-controls">
-      <label>
-        <span>Competition</span>
-        <select id="competitionSelect">
-          <option>Loading...</option>
-        </select>
-      </label>
+    <div class="top-nav-area">
+      <nav id="competitionCategoryNav" class="competition-category-nav">
+        <div class="category-loading">Loading competitions...</div>
+      </nav>
 
-      <label>
-        <span>Jump to</span>
-        <select id="jumpSelect">
-          <option value="home">All games</option>
-          <option value="summary">Summary</option>
-          <option value="results">Results</option>
-          <option value="fixtures">Fixtures</option>
-          <option value="standings">Standings</option>
-          <option value="stats">Stats</option>
-        </select>
-      </label>
+      <div class="header-controls compact-controls">
+        <label class="hidden-competition-select">
+          <span>Competition</span>
+          <select id="competitionSelect">
+            <option>Loading...</option>
+          </select>
+        </label>
+
+        <label>
+          <span>Jump to</span>
+          <select id="jumpSelect">
+            <option value="home">All games</option>
+            <option value="summary">Summary</option>
+            <option value="results">Results</option>
+            <option value="fixtures">Fixtures</option>
+            <option value="standings">Standings</option>
+            <option value="stats">Stats</option>
+          </select>
+        </label>
+      </div>
     </div>
   </header>
 
@@ -187,6 +193,6 @@
 
   <button id="backToTop" class="back-to-top" type="button">↑</button>
 
-  <script src="./script.js?v=6500"></script>
+  <script src="./script.js?v=6600"></script>
 </body>
 </html>
