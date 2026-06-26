@@ -24,12 +24,16 @@ async function init() {
   setLoadingState();
 
   try {
-    await loadCompetition(currentCompetition);
+    await loadCompetition(resolveInitialCompetition());
     bindEvents();
   } catch (error) {
     console.error(error);
     showError('Could not load competition data. Please check the Apps Script backend.');
   }
+}
+
+function resolveInitialCompetition() {
+  return currentCompetition || '';
 }
 
 async function loadCompetition(competitionParam) {
@@ -65,11 +69,13 @@ async function loadCompetition(competitionParam) {
 
   populateCompetitionDropdown();
   populateGroupDropdown();
+  populateSeasonDropdown();
   renderAll();
 }
 
 function bindEvents() {
   const competitionSelect = $('competitionSelect');
+  const seasonSelect = $('seasonSelect');
   const jumpSelect = $('jumpSelect');
   const searchInput = $('searchInput');
   const groupFilter = $('groupFilter');
@@ -78,18 +84,16 @@ function bindEvents() {
   if (competitionSelect) {
     competitionSelect.addEventListener('change', async event => {
       const selected = event.target.value;
+      resetFilters();
+      updateUrlCompetition(selected);
+      await loadCompetition(selected);
+    });
+  }
 
-      currentSearch = '';
-      currentGroup = '';
-
-      if (searchInput) {
-        searchInput.value = '';
-      }
-
-      if (groupFilter) {
-        groupFilter.value = '';
-      }
-
+  if (seasonSelect) {
+    seasonSelect.addEventListener('change', async event => {
+      const selected = event.target.value;
+      resetFilters();
       updateUrlCompetition(selected);
       await loadCompetition(selected);
     });
@@ -118,17 +122,7 @@ function bindEvents() {
 
   if (clearBtn) {
     clearBtn.addEventListener('click', () => {
-      currentSearch = '';
-      currentGroup = '';
-
-      if (searchInput) {
-        searchInput.value = '';
-      }
-
-      if (groupFilter) {
-        groupFilter.value = '';
-      }
-
+      resetFilters();
       renderAll();
     });
   }
@@ -147,6 +141,22 @@ function bindEvents() {
     backTop.addEventListener('click', () => {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     });
+  }
+}
+
+function resetFilters() {
+  currentSearch = '';
+  currentGroup = '';
+
+  const searchInput = $('searchInput');
+  const groupFilter = $('groupFilter');
+
+  if (searchInput) {
+    searchInput.value = '';
+  }
+
+  if (groupFilter) {
+    groupFilter.value = '';
   }
 }
 
@@ -221,6 +231,44 @@ function populateCompetitionDropdown() {
   }
 
   renderCompetitionCategoryNav();
+}
+
+function populateSeasonDropdown() {
+  const seasonSelect = $('seasonSelect');
+  const seasonWrap = $('seasonSwitcherWrap');
+
+  if (!seasonSelect || !seasonWrap || !appData || !appData.selectedCompetition) {
+    return;
+  }
+
+  const selected = appData.selectedCompetition;
+  const selectedName = normaliseCompetitionName(selected['Competition Name']);
+  const selectedRegion = normaliseRegion(selected.Region);
+
+  const seasons = (appData.competitions || [])
+    .filter(comp => {
+      return (
+        normaliseCompetitionName(comp['Competition Name']) === selectedName &&
+        normaliseRegion(comp.Region) === selectedRegion
+      );
+    })
+    .sort((a, b) => compareSeasonsDesc(a.Year, b.Year));
+
+  if (seasons.length <= 1) {
+    seasonWrap.classList.add('is-hidden');
+    seasonSelect.innerHTML = '';
+    return;
+  }
+
+  seasonWrap.classList.remove('is-hidden');
+
+  seasonSelect.innerHTML = seasons.map(comp => {
+    const value = makeCompetitionSlug(comp);
+    const label = comp.Year || 'Season';
+    const selectedOption = value === currentCompetition ? 'selected' : '';
+
+    return `<option value="${escapeHTML(value)}" ${selectedOption}>${escapeHTML(label)}</option>`;
+  }).join('');
 }
 
 function populateGroupDropdown() {
@@ -1355,6 +1403,39 @@ function isGroupStageCompetition() {
   return type.includes('group') || type.includes('groups');
 }
 
+function normaliseCompetitionName(value) {
+  return String(value || '')
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
+function normaliseRegion(value) {
+  return String(value || '')
+    .toLowerCase()
+    .trim()
+    .replace(/_/g, ' ')
+    .replace(/\s+/g, ' ');
+}
+
+function compareSeasonsDesc(a, b) {
+  const aYear = extractSeasonStartYear(a);
+  const bYear = extractSeasonStartYear(b);
+
+  if (bYear !== aYear) {
+    return bYear - aYear;
+  }
+
+  return String(b || '').localeCompare(String(a || ''));
+}
+
+function extractSeasonStartYear(value) {
+  const text = String(value || '');
+  const match = text.match(/\d{4}/);
+
+  return match ? Number(match[0]) : 0;
+}
+
 function slugify(value) {
   return String(value || '')
     .toLowerCase()
@@ -1448,10 +1529,7 @@ function escapeAttr(value) {
   return escapeHTML(value);
 }
 
-/* ================================
-   Clean competition category menus
-   Uses Hub sheet Region as source of truth
-================================ */
+/* Competition region menus */
 
 function renderCompetitionCategoryNav() {
   const nav = $('competitionCategoryNav');
@@ -1463,10 +1541,14 @@ function renderCompetitionCategoryNav() {
   const categories = getCompetitionCategories();
 
   nav.innerHTML = categories.map(category => {
-    const competitions = getCompetitionsForCategory(category.key);
+    const competitions = getUniqueCompetitionsForCategory(category.key);
 
     const activeCategory = competitions.some(comp => {
-      return makeCompetitionSlug(comp) === currentCompetition;
+      const active = appData.selectedCompetition || {};
+      return (
+        normaliseCompetitionName(comp['Competition Name']) === normaliseCompetitionName(active['Competition Name']) &&
+        getCompetitionCategoryKey(comp) === getCompetitionCategoryKey(active)
+      );
     });
 
     const activeClass = activeCategory ? 'is-active' : '';
@@ -1474,13 +1556,18 @@ function renderCompetitionCategoryNav() {
 
     const items = competitions.length
       ? competitions.map(comp => {
-          const slug = makeCompetitionSlug(comp);
-          const label = `${comp['Competition Name'] || 'Competition'} ${comp.Year || ''}`.trim();
-          const activeItem = slug === currentCompetition ? 'active-item' : '';
+          const latest = getLatestSeasonForCompetition(comp);
+          const slug = makeCompetitionSlug(latest);
+          const active = appData.selectedCompetition || {};
+          const activeItem =
+            normaliseCompetitionName(comp['Competition Name']) === normaliseCompetitionName(active['Competition Name']) &&
+            getCompetitionCategoryKey(comp) === getCompetitionCategoryKey(active)
+              ? 'active-item'
+              : '';
 
           return `
             <button type="button" class="category-menu-item ${activeItem}" onclick="selectCompetitionFromCategory('${escapeAttr(slug)}')">
-              <span>${escapeHTML(label)}</span>
+              <span>${escapeHTML(comp['Competition Name'] || 'Competition')}</span>
               ${activeItem ? '<strong>Current</strong>' : ''}
             </button>
           `;
@@ -1513,7 +1600,7 @@ function getCompetitionCategories() {
     {
       key: 'england',
       label: 'England',
-      icon: '🏴'
+      icon: '🏴󠁧󠁢󠁥󠁮󠁧󠁿'
     },
     {
       key: 'italy',
@@ -1553,14 +1640,50 @@ function getCompetitionCategories() {
   ];
 }
 
-function getCompetitionsForCategory(categoryKey) {
-  const competitions = appData.competitions || [];
+function getUniqueCompetitionsForCategory(categoryKey) {
+  const competitions = (appData.competitions || [])
+    .filter(comp => getCompetitionCategoryKey(comp) === categoryKey);
 
-  return competitions
-    .filter(comp => getCompetitionCategoryKey(comp) === categoryKey)
-    .sort((a, b) => {
-      return getCompetitionPriority(categoryKey, a) - getCompetitionPriority(categoryKey, b);
-    });
+  const map = new Map();
+
+  competitions.forEach(comp => {
+    const key = `${getCompetitionCategoryKey(comp)}|${normaliseCompetitionName(comp['Competition Name'])}`;
+
+    if (!map.has(key)) {
+      map.set(key, comp);
+      return;
+    }
+
+    const existing = map.get(key);
+    const latest = compareSeasonsDesc(comp.Year, existing.Year) < 0 ? comp : existing;
+    map.set(key, latest);
+  });
+
+  return Array.from(map.values()).sort((a, b) => {
+    const priority = getCompetitionPriority(categoryKey, a) - getCompetitionPriority(categoryKey, b);
+
+    if (priority !== 0) {
+      return priority;
+    }
+
+    return String(a['Competition Name'] || '').localeCompare(String(b['Competition Name'] || ''));
+  });
+}
+
+function getLatestSeasonForCompetition(comp) {
+  const categoryKey = getCompetitionCategoryKey(comp);
+  const competitionName = normaliseCompetitionName(comp['Competition Name']);
+
+  const seasons = (appData.competitions || [])
+    .filter(item => {
+      return (
+        getCompetitionCategoryKey(item) === categoryKey &&
+        normaliseCompetitionName(item['Competition Name']) === competitionName
+      );
+    })
+    .sort((a, b) => compareSeasonsDesc(a.Year, b.Year));
+
+  return seasons[0] || comp;
 }
 
 function getCompetitionCategoryKey(comp) {
@@ -1607,14 +1730,6 @@ function getCompetitionCategoryKey(comp) {
   }
 
   return 'world';
-}
-
-function normaliseRegion(value) {
-  return String(value || '')
-    .toLowerCase()
-    .trim()
-    .replace(/_/g, ' ')
-    .replace(/\s+/g, ' ');
 }
 
 function getCompetitionPriority(categoryKey, comp) {
@@ -1718,20 +1833,7 @@ async function selectCompetitionFromCategory(slug) {
     });
   }
 
-  currentSearch = '';
-  currentGroup = '';
-
-  const searchInput = $('searchInput');
-  const groupFilter = $('groupFilter');
-
-  if (searchInput) {
-    searchInput.value = '';
-  }
-
-  if (groupFilter) {
-    groupFilter.value = '';
-  }
-
+  resetFilters();
   updateUrlCompetition(slug);
   await loadCompetition(slug);
 }
