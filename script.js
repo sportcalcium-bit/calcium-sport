@@ -208,19 +208,19 @@ function renderHeader() {
 function populateCompetitionDropdown() {
   const select = $('competitionSelect');
 
-  if (!select) {
-    return;
+  if (select) {
+    const competitions = appData.competitions || [];
+
+    select.innerHTML = competitions.map(comp => {
+      const value = makeCompetitionSlug(comp);
+      const label = `${comp['Competition Name'] || 'Competition'} ${comp.Year || ''}`.trim();
+      const selected = value === currentCompetition ? 'selected' : '';
+
+      return `<option value="${escapeHTML(value)}" ${selected}>${escapeHTML(label)}</option>`;
+    }).join('');
   }
 
-  const competitions = appData.competitions || [];
-
-  select.innerHTML = competitions.map(comp => {
-    const value = makeCompetitionSlug(comp);
-    const label = `${comp['Competition Name'] || 'Competition'} ${comp.Year || ''}`.trim();
-    const selected = value === currentCompetition ? 'selected' : '';
-
-    return `<option value="${escapeHTML(value)}" ${selected}>${escapeHTML(label)}</option>`;
-  }).join('');
+  renderCompetitionCategoryNav();
 }
 
 function populateGroupDropdown() {
@@ -576,7 +576,7 @@ function getMatchEvents(matchId) {
         event.Event,
         event.Player,
         event.Detail
-      ].join('|');
+      ].join('|').toLowerCase();
 
       if (seen.has(key)) {
         return false;
@@ -1447,28 +1447,11 @@ function escapeHTML(value) {
 function escapeAttr(value) {
   return escapeHTML(value);
 }
+
 /* ================================
    Clean competition category menus
-   England / Italy / Spain / Germany / France / Europe / World / National Teams
+   Uses Hub sheet Region as source of truth
 ================================ */
-
-function populateCompetitionDropdown() {
-  const select = $('competitionSelect');
-
-  if (select) {
-    const competitions = appData.competitions || [];
-
-    select.innerHTML = competitions.map(comp => {
-      const value = makeCompetitionSlug(comp);
-      const label = `${comp['Competition Name'] || 'Competition'} ${comp.Year || ''}`.trim();
-      const selected = value === currentCompetition ? 'selected' : '';
-
-      return `<option value="${escapeHTML(value)}" ${selected}>${escapeHTML(label)}</option>`;
-    }).join('');
-  }
-
-  renderCompetitionCategoryNav();
-}
 
 function renderCompetitionCategoryNav() {
   const nav = $('competitionCategoryNav');
@@ -1563,7 +1546,7 @@ function getCompetitionCategories() {
       icon: '🌍'
     },
     {
-      key: 'national',
+      key: 'national-teams',
       label: 'National Teams',
       icon: '🏆'
     }
@@ -1581,94 +1564,57 @@ function getCompetitionsForCategory(categoryKey) {
 }
 
 function getCompetitionCategoryKey(comp) {
-  const name = String(comp['Competition Name'] || '').toLowerCase();
-  const region = String(comp.Region || '').toLowerCase();
+  const region = normaliseRegion(comp.Region);
 
-  if (
-    region.includes('england') ||
-    name.includes('premier league') ||
-    name.includes('fa cup') ||
-    name.includes('carabao') ||
-    name.includes('community shield') ||
-    name.includes('championship') ||
-    name.includes('league one') ||
-    name.includes('league two')
-  ) {
+  if (region === 'england') {
     return 'england';
   }
 
-  if (
-    region.includes('italy') ||
-    name.includes('serie a') ||
-    name.includes('coppa italia') ||
-    name.includes('italian super cup') ||
-    name.includes('supercoppa')
-  ) {
+  if (region === 'italy') {
     return 'italy';
   }
 
-  if (
-    region.includes('spain') ||
-    name.includes('la liga') ||
-    name.includes('copa del rey') ||
-    name.includes('supercopa')
-  ) {
+  if (region === 'spain') {
     return 'spain';
   }
 
-  if (
-    region.includes('germany') ||
-    name.includes('bundesliga') ||
-    name.includes('dfb') ||
-    name.includes('dfl')
-  ) {
+  if (region === 'germany') {
     return 'germany';
   }
 
-  if (
-    region.includes('france') ||
-    name.includes('ligue 1') ||
-    name.includes('coupe de france') ||
-    name.includes('troph')
-  ) {
+  if (region === 'france') {
     return 'france';
   }
 
-  if (
-    region.includes('europe') ||
-    name.includes('champions league') ||
-    name.includes('europa league') ||
-    name.includes('conference league') ||
-    name.includes('uefa super cup')
-  ) {
+  if (region === 'europe') {
     return 'europe';
   }
 
-  if (
-    region.includes('national') ||
-    name.includes('world cup') ||
-    name.includes('world championship') ||
-    name.includes('euro ') ||
-    name === 'euro' ||
-    name.includes('nations league') ||
-    name.includes('copa america') ||
-    name.includes('afcon') ||
-    name.includes('africa cup') ||
-    name.includes('asian cup') ||
-    name.includes('gold cup')
-  ) {
-    return 'national';
-  }
-
-  if (
-    region.includes('world') ||
-    name.includes('club world cup') ||
-    name.includes('intercontinental')
-  ) {
+  if (region === 'world') {
     return 'world';
   }
 
+  if (
+    region === 'national teams' ||
+    region === 'national-teams' ||
+    region === 'international' ||
+    region === 'africa' ||
+    region === 'south america' ||
+    region === 'north america' ||
+    region === 'asia'
+  ) {
+    return 'national-teams';
+  }
+
   return 'world';
+}
+
+function normaliseRegion(value) {
+  return String(value || '')
+    .toLowerCase()
+    .trim()
+    .replace(/_/g, ' ')
+    .replace(/\s+/g, ' ');
 }
 
 function getCompetitionPriority(categoryKey, comp) {
@@ -1712,17 +1658,18 @@ function getCompetitionPriority(categoryKey, comp) {
       'uefa super cup'
     ],
     world: [
+      'world cup',
       'club world cup',
+      'world championship',
       'intercontinental cup'
     ],
-    national: [
+    'national-teams': [
       'world cup',
-      'world championship',
       'euro',
       'nations league',
-      'copa america',
       'afcon',
       'africa cup',
+      'copa america',
       'asian cup',
       'gold cup'
     ]
@@ -1736,7 +1683,7 @@ function getCompetitionPriority(categoryKey, comp) {
     }
   }
 
-  return 999 + name.localeCompare('');
+  return 999;
 }
 
 function toggleCompetitionCategory(categoryKey) {
