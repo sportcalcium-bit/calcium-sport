@@ -1735,3 +1735,224 @@ img {
     font-size: 13px;
   }
 }
+/* ================================
+   Clean top competition categories
+================================ */
+
+.top-nav-area {
+  display: flex;
+  align-items: flex-end;
+  gap: 18px;
+  margin-left: auto;
+}
+
+.compact-controls {
+  align-items: flex-end;
+}
+
+.hidden-competition-select {
+  display: none !important;
+}
+
+.competition-category-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-width: 980px;
+}
+
+.category-loading {
+  color: var(--muted);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 12px;
+}
+
+.competition-category {
+  position: relative;
+}
+
+.category-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(89, 220, 235, 0.25);
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(5, 45, 53, 0.92), rgba(3, 36, 43, 0.96));
+  color: var(--text);
+  padding: 11px 13px;
+  font-weight: 900;
+  min-height: 46px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.category-button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 19, 97, 0.75);
+  background: linear-gradient(135deg, rgba(7, 64, 73, 0.96), rgba(5, 45, 53, 0.96));
+}
+
+.competition-category.is-active .category-button {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(255, 19, 97, 0.12), 0 14px 40px rgba(255, 19, 97, 0.08);
+}
+
+.competition-category.is-empty .category-button {
+  opacity: 0.55;
+}
+
+.category-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.category-name {
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.category-arrow {
+  color: var(--muted);
+  font-size: 16px;
+  margin-left: 2px;
+}
+
+.category-menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 80;
+  width: 290px;
+  display: none;
+  overflow: hidden;
+  background: #021b22;
+  border: 1px solid rgba(89, 220, 235, 0.28);
+  border-radius: 16px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.46);
+}
+
+.category-menu.open {
+  display: block;
+}
+
+.category-menu-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  background: #052f38;
+  border-bottom: 1px solid var(--line);
+}
+
+.category-menu-title strong {
+  font-size: 16px;
+}
+
+.category-menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  color: var(--text);
+  padding: 14px 16px;
+  text-align: left;
+  font-weight: 900;
+}
+
+.category-menu-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.category-menu-item.active-item {
+  background: rgba(255, 19, 97, 0.12);
+  color: #ffffff;
+}
+
+.category-menu-item strong {
+  color: var(--accent);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.category-empty {
+  padding: 16px;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+/* Tablet top category nav */
+@media (max-width: 1100px) {
+  .top-nav-area {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .competition-category-nav {
+    justify-content: flex-start;
+    max-width: 100%;
+  }
+
+  .compact-controls {
+    width: 100%;
+  }
+}
+
+/* Mobile category nav */
+@media (max-width: 600px) {
+  .top-nav-area {
+    width: 100%;
+    gap: 12px;
+  }
+
+  .competition-category-nav {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .category-button {
+    width: 100%;
+    justify-content: space-between;
+    padding: 10px 11px;
+    min-height: 44px;
+    border-radius: 12px;
+  }
+
+  .category-name {
+    font-size: 13px;
+  }
+
+  .category-icon {
+    font-size: 16px;
+  }
+
+  .category-menu {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    top: 130px;
+    width: auto;
+    max-height: calc(100vh - 160px);
+    overflow-y: auto;
+    border-radius: 18px;
+  }
+
+  .category-menu-item {
+    padding: 15px 16px;
+    font-size: 15px;
+  }
+
+  .compact-controls label {
+    width: 100%;
+  }
+}
