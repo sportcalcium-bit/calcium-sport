@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Calcium Sport Results Centre</title>
-  <link rel="stylesheet" href="./style.css?v=5200" />
+  <link rel="stylesheet" href="./style.css?v=6000" />
 </head>
 <body>
   <header class="site-header">
@@ -27,6 +27,7 @@
       <label>
         <span>Jump to</span>
         <select id="jumpSelect">
+          <option value="home">All games</option>
           <option value="summary">Summary</option>
           <option value="results">Results</option>
           <option value="fixtures">Fixtures</option>
@@ -38,6 +39,33 @@
   </header>
 
   <main class="page-shell">
+    <section class="mobile-home" id="homeSection">
+      <div class="mobile-title-row">
+        <div class="football-title">
+          <span class="football-icon">⚽</span>
+          <strong>Football</strong>
+        </div>
+
+        <div class="home-icons">
+          <span>🎁</span>
+          <span>🔍</span>
+          <span>👤</span>
+        </div>
+      </div>
+
+      <div id="dateTabs" class="date-tabs"></div>
+
+      <div class="all-games-header">
+        <span class="list-icon">☷</span>
+        <strong>All games</strong>
+        <span id="homeMatchCount" class="match-count-pill">0</span>
+      </div>
+
+      <div id="homeGamesList" class="home-games-list">
+        <div class="empty">Loading games...</div>
+      </div>
+    </section>
+
     <section class="hero-card" id="summarySection">
       <div class="hero-top">
         <span>Football</span>
@@ -65,7 +93,8 @@
       </div>
 
       <nav class="section-tabs">
-        <button type="button" class="active" data-view="summary">Summary</button>
+        <button type="button" class="active" data-view="home">All games</button>
+        <button type="button" data-view="summary">Summary</button>
         <button type="button" data-view="results">Results</button>
         <button type="button" data-view="fixtures">Fixtures</button>
         <button type="button" data-view="standings">Standings</button>
@@ -113,7 +142,7 @@
     <section class="panel" id="standingsSection">
       <div class="panel-header">
         <h2>Standings</h2>
-        <span>Sorted by points, goal difference, goals scored</span>
+        <span>Sorted by points, head-to-head, goal difference, goals scored</span>
       </div>
       <div id="standingsContainer"></div>
     </section>
@@ -158,6 +187,6 @@
 
   <button id="backToTop" class="back-to-top" type="button">↑</button>
 
-  <script src="./script.js?v=5200"></script>
+  <script src="./script.js?v=6000"></script>
 </body>
 </html>
