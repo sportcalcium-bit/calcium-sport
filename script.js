@@ -460,7 +460,24 @@ function renderScoreboardRow(match) {
 
 function openMatchDetail(matchId) {
   const allMatches = (appData.allMatches || []).concat(appData.matches || []);
-  const match = allMatches.find(item => item.MatchID === matchId || item.ID === matchId);
+  const seen = new Set();
+
+  const uniqueMatches = allMatches.filter(match => {
+    const key = match.MatchID || match.ID;
+
+    if (!key) {
+      return false;
+    }
+
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
+
+  const match = uniqueMatches.find(item => item.MatchID === matchId || item.ID === matchId);
 
   if (!match) {
     return;
@@ -546,10 +563,28 @@ function renderMatchDetail(match) {
 }
 
 function getMatchEvents(matchId) {
-  const allEvents = (appData.allEvents || []).concat(appData.events || []);
+  const seen = new Set();
 
-  return allEvents
+  return (appData.allEvents || [])
     .filter(event => event.MatchID === matchId)
+    .filter(event => {
+      const key = [
+        event.MatchID,
+        event.Half,
+        event.Minute,
+        event.Team,
+        event.Event,
+        event.Player,
+        event.Detail
+      ].join('|');
+
+      if (seen.has(key)) {
+        return false;
+      }
+
+      seen.add(key);
+      return true;
+    })
     .sort((a, b) => Number(a.Minute || 0) - Number(b.Minute || 0));
 }
 
