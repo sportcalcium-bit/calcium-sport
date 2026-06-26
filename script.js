@@ -1447,3 +1447,360 @@ function escapeHTML(value) {
 function escapeAttr(value) {
   return escapeHTML(value);
 }
+/* ================================
+   Clean competition category menus
+   England / Italy / Spain / Germany / France / Europe / World / National Teams
+================================ */
+
+function populateCompetitionDropdown() {
+  const select = $('competitionSelect');
+
+  if (select) {
+    const competitions = appData.competitions || [];
+
+    select.innerHTML = competitions.map(comp => {
+      const value = makeCompetitionSlug(comp);
+      const label = `${comp['Competition Name'] || 'Competition'} ${comp.Year || ''}`.trim();
+      const selected = value === currentCompetition ? 'selected' : '';
+
+      return `<option value="${escapeHTML(value)}" ${selected}>${escapeHTML(label)}</option>`;
+    }).join('');
+  }
+
+  renderCompetitionCategoryNav();
+}
+
+function renderCompetitionCategoryNav() {
+  const nav = $('competitionCategoryNav');
+
+  if (!nav || !appData || !appData.competitions) {
+    return;
+  }
+
+  const categories = getCompetitionCategories();
+
+  nav.innerHTML = categories.map(category => {
+    const competitions = getCompetitionsForCategory(category.key);
+
+    const activeCategory = competitions.some(comp => {
+      return makeCompetitionSlug(comp) === currentCompetition;
+    });
+
+    const activeClass = activeCategory ? 'is-active' : '';
+    const disabledClass = competitions.length ? '' : 'is-empty';
+
+    const items = competitions.length
+      ? competitions.map(comp => {
+          const slug = makeCompetitionSlug(comp);
+          const label = `${comp['Competition Name'] || 'Competition'} ${comp.Year || ''}`.trim();
+          const activeItem = slug === currentCompetition ? 'active-item' : '';
+
+          return `
+            <button type="button" class="category-menu-item ${activeItem}" onclick="selectCompetitionFromCategory('${escapeAttr(slug)}')">
+              <span>${escapeHTML(label)}</span>
+              ${activeItem ? '<strong>Current</strong>' : ''}
+            </button>
+          `;
+        }).join('')
+      : `<div class="category-empty">No competitions yet</div>`;
+
+    return `
+      <div class="competition-category ${activeClass} ${disabledClass}">
+        <button type="button" class="category-button" onclick="toggleCompetitionCategory('${escapeAttr(category.key)}')">
+          <span class="category-icon">${category.icon}</span>
+          <span class="category-name">${escapeHTML(category.label)}</span>
+          <span class="category-arrow">⌄</span>
+        </button>
+
+        <div class="category-menu" data-category-menu="${escapeAttr(category.key)}">
+          <div class="category-menu-title">
+            <span>${category.icon}</span>
+            <strong>${escapeHTML(category.label)}</strong>
+          </div>
+
+          ${items}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function getCompetitionCategories() {
+  return [
+    {
+      key: 'england',
+      label: 'England',
+      icon: '🏴'
+    },
+    {
+      key: 'italy',
+      label: 'Italy',
+      icon: '🇮🇹'
+    },
+    {
+      key: 'spain',
+      label: 'Spain',
+      icon: '🇪🇸'
+    },
+    {
+      key: 'germany',
+      label: 'Germany',
+      icon: '🇩🇪'
+    },
+    {
+      key: 'france',
+      label: 'France',
+      icon: '🇫🇷'
+    },
+    {
+      key: 'europe',
+      label: 'Europe',
+      icon: '🇪🇺'
+    },
+    {
+      key: 'world',
+      label: 'World',
+      icon: '🌍'
+    },
+    {
+      key: 'national',
+      label: 'National Teams',
+      icon: '🏆'
+    }
+  ];
+}
+
+function getCompetitionsForCategory(categoryKey) {
+  const competitions = appData.competitions || [];
+
+  return competitions
+    .filter(comp => getCompetitionCategoryKey(comp) === categoryKey)
+    .sort((a, b) => {
+      return getCompetitionPriority(categoryKey, a) - getCompetitionPriority(categoryKey, b);
+    });
+}
+
+function getCompetitionCategoryKey(comp) {
+  const name = String(comp['Competition Name'] || '').toLowerCase();
+  const region = String(comp.Region || '').toLowerCase();
+
+  if (
+    region.includes('england') ||
+    name.includes('premier league') ||
+    name.includes('fa cup') ||
+    name.includes('carabao') ||
+    name.includes('community shield') ||
+    name.includes('championship') ||
+    name.includes('league one') ||
+    name.includes('league two')
+  ) {
+    return 'england';
+  }
+
+  if (
+    region.includes('italy') ||
+    name.includes('serie a') ||
+    name.includes('coppa italia') ||
+    name.includes('italian super cup') ||
+    name.includes('supercoppa')
+  ) {
+    return 'italy';
+  }
+
+  if (
+    region.includes('spain') ||
+    name.includes('la liga') ||
+    name.includes('copa del rey') ||
+    name.includes('supercopa')
+  ) {
+    return 'spain';
+  }
+
+  if (
+    region.includes('germany') ||
+    name.includes('bundesliga') ||
+    name.includes('dfb') ||
+    name.includes('dfl')
+  ) {
+    return 'germany';
+  }
+
+  if (
+    region.includes('france') ||
+    name.includes('ligue 1') ||
+    name.includes('coupe de france') ||
+    name.includes('troph')
+  ) {
+    return 'france';
+  }
+
+  if (
+    region.includes('europe') ||
+    name.includes('champions league') ||
+    name.includes('europa league') ||
+    name.includes('conference league') ||
+    name.includes('uefa super cup')
+  ) {
+    return 'europe';
+  }
+
+  if (
+    region.includes('national') ||
+    name.includes('world cup') ||
+    name.includes('world championship') ||
+    name.includes('euro ') ||
+    name === 'euro' ||
+    name.includes('nations league') ||
+    name.includes('copa america') ||
+    name.includes('afcon') ||
+    name.includes('africa cup') ||
+    name.includes('asian cup') ||
+    name.includes('gold cup')
+  ) {
+    return 'national';
+  }
+
+  if (
+    region.includes('world') ||
+    name.includes('club world cup') ||
+    name.includes('intercontinental')
+  ) {
+    return 'world';
+  }
+
+  return 'world';
+}
+
+function getCompetitionPriority(categoryKey, comp) {
+  const name = String(comp['Competition Name'] || '').toLowerCase();
+
+  const priorityMap = {
+    england: [
+      'premier league',
+      'fa cup',
+      'carabao cup',
+      'community shield',
+      'championship',
+      'league one',
+      'league two'
+    ],
+    italy: [
+      'serie a',
+      'coppa italia',
+      'italian super cup',
+      'supercoppa'
+    ],
+    spain: [
+      'la liga',
+      'copa del rey',
+      'supercopa'
+    ],
+    germany: [
+      'bundesliga',
+      'dfb-pokal',
+      'dfl-supercup'
+    ],
+    france: [
+      'ligue 1',
+      'coupe de france',
+      'trophee des champions'
+    ],
+    europe: [
+      'champions league',
+      'europa league',
+      'conference league',
+      'uefa super cup'
+    ],
+    world: [
+      'club world cup',
+      'intercontinental cup'
+    ],
+    national: [
+      'world cup',
+      'world championship',
+      'euro',
+      'nations league',
+      'copa america',
+      'afcon',
+      'africa cup',
+      'asian cup',
+      'gold cup'
+    ]
+  };
+
+  const list = priorityMap[categoryKey] || [];
+
+  for (let i = 0; i < list.length; i++) {
+    if (name.includes(list[i])) {
+      return i;
+    }
+  }
+
+  return 999 + name.localeCompare('');
+}
+
+function toggleCompetitionCategory(categoryKey) {
+  const nav = $('competitionCategoryNav');
+
+  if (!nav) {
+    return;
+  }
+
+  const allMenus = nav.querySelectorAll('.category-menu');
+  const clickedMenu = nav.querySelector(`[data-category-menu="${categoryKey}"]`);
+
+  allMenus.forEach(menu => {
+    if (menu !== clickedMenu) {
+      menu.classList.remove('open');
+    }
+  });
+
+  if (clickedMenu) {
+    clickedMenu.classList.toggle('open');
+  }
+}
+
+window.toggleCompetitionCategory = toggleCompetitionCategory;
+
+async function selectCompetitionFromCategory(slug) {
+  const nav = $('competitionCategoryNav');
+
+  if (nav) {
+    nav.querySelectorAll('.category-menu').forEach(menu => {
+      menu.classList.remove('open');
+    });
+  }
+
+  currentSearch = '';
+  currentGroup = '';
+
+  const searchInput = $('searchInput');
+  const groupFilter = $('groupFilter');
+
+  if (searchInput) {
+    searchInput.value = '';
+  }
+
+  if (groupFilter) {
+    groupFilter.value = '';
+  }
+
+  updateUrlCompetition(slug);
+  await loadCompetition(slug);
+}
+
+window.selectCompetitionFromCategory = selectCompetitionFromCategory;
+
+document.addEventListener('click', event => {
+  const nav = $('competitionCategoryNav');
+
+  if (!nav) {
+    return;
+  }
+
+  if (!nav.contains(event.target)) {
+    nav.querySelectorAll('.category-menu').forEach(menu => {
+      menu.classList.remove('open');
+    });
+  }
+});
