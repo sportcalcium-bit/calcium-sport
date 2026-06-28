@@ -4,6 +4,7 @@ let appData = null;
 let currentCompetition = new URLSearchParams(window.location.search).get('competition') || '';
 let currentSearch = '';
 let currentGroup = '';
+let currentRound = '';
 let selectedDateKey = '';
 
 let expandedStats = {
@@ -69,6 +70,7 @@ async function loadCompetition(competitionParam) {
 
   populateCompetitionDropdown();
   populateGroupDropdown();
+  populateRoundDropdown();
   populateSeasonDropdown();
   renderAll();
 }
@@ -79,6 +81,7 @@ function bindEvents() {
   const jumpSelect = $('jumpSelect');
   const searchInput = $('searchInput');
   const groupFilter = $('groupFilter');
+  const roundFilter = $('roundFilter');
   const clearBtn = $('clearFilters');
 
   if (competitionSelect) {
@@ -120,6 +123,13 @@ function bindEvents() {
     });
   }
 
+  if (roundFilter) {
+    roundFilter.addEventListener('change', event => {
+      currentRound = event.target.value;
+      renderAll();
+    });
+  }
+
   if (clearBtn) {
     clearBtn.addEventListener('click', () => {
       resetFilters();
@@ -147,9 +157,11 @@ function bindEvents() {
 function resetFilters() {
   currentSearch = '';
   currentGroup = '';
+  currentRound = '';
 
   const searchInput = $('searchInput');
   const groupFilter = $('groupFilter');
+  const roundFilter = $('roundFilter');
 
   if (searchInput) {
     searchInput.value = '';
@@ -157,6 +169,10 @@ function resetFilters() {
 
   if (groupFilter) {
     groupFilter.value = '';
+  }
+
+  if (roundFilter) {
+    roundFilter.value = '';
   }
 }
 
@@ -286,6 +302,33 @@ function populateGroupDropdown() {
   `;
 }
 
+function populateRoundDropdown() {
+  const select = $('roundFilter');
+
+  if (!select) {
+    return;
+  }
+
+  const rounds = [...new Set((appData.matches || [])
+    .map(match => String(match.Round || '').trim())
+    .filter(Boolean))]
+    .sort((a, b) => roundSortValue(a) - roundSortValue(b));
+
+  select.innerHTML = `
+    <option value="">All rounds</option>
+    ${rounds.map(round => `<option value="${escapeHTML(round)}">${escapeHTML(formatRoundLabel(round))}</option>`).join('')}
+  `;
+
+  if (currentRound && rounds.includes(currentRound)) {
+    select.value = currentRound;
+  }
+
+  if (currentRound && !rounds.includes(currentRound)) {
+    currentRound = '';
+    select.value = '';
+  }
+}
+
 function renderDateTabs() {
   const container = $('dateTabs');
 
@@ -401,18 +444,8 @@ function renderScoreboard() {
     return;
   }
 
-  const ordered = [...matches].sort((a, b) => {
-    const roundA = roundSortValue(a.Round);
-    const roundB = roundSortValue(b.Round);
-
-    if (roundA !== roundB) {
-      return roundB - roundA;
-    }
-
-    return matchDateSortValue(b) - matchDateSortValue(a);
-  });
-
-  setHTML('scoreboardList', renderGroupedScoreboard(ordered));
+  const ordered = sortMatchesByNextOrLatest(matches);
+  setHTML('scoreboardList', renderSmartScoreboard(ordered));
 }
 
 function renderResults() {
@@ -451,6 +484,49 @@ function renderFixtures() {
   }
 }
 
+
+function renderSmartScoreboard(matches) {
+  const grouped = groupBy(matches, match => formatRoundLabel(match.Round));
+
+  return Object.keys(grouped).map(round => {
+    return `
+      <section class="round-block">
+        <div class="round-heading">${escapeHTML(round)}</div>
+        ${grouped[round].map(renderScoreboardRow).join('')}
+      </section>
+    `;
+  }).join('');
+}
+
+function sortMatchesByNextOrLatest(matches) {
+  const now = Date.now();
+
+  return [...matches].sort((a, b) => {
+    const aTime = matchDateSortValue(a);
+    const bTime = matchDateSortValue(b);
+    const aPlayed = a.Status === 'FT';
+    const bPlayed = b.Status === 'FT';
+
+    if (!aPlayed && !bPlayed) {
+      return aTime - bTime;
+    }
+
+    if (aPlayed && bPlayed) {
+      return bTime - aTime;
+    }
+
+    if (!aPlayed && bPlayed) {
+      return -1;
+    }
+
+    if (aPlayed && !bPlayed) {
+      return 1;
+    }
+
+    return Math.abs(aTime - now) - Math.abs(bTime - now);
+  });
+}
+
 function renderGroupedScoreboard(matches) {
   const grouped = groupBy(matches, match => formatRoundLabel(match.Round));
 
@@ -481,8 +557,6 @@ function renderScoreboardRow(match) {
 
   return `
     <article class="scoreboard-row ${clickableClass}" ${clickHandler}>
-      <div class="scoreboard-star">☆</div>
-
       <div class="scoreboard-date">
         ${escapeHTML(dateTime)}
       </div>
@@ -1074,6 +1148,11 @@ function getFilteredMatches() {
         match.Time
       ].join(' ').toLowerCase().includes(currentSearch);
     });
+  }
+
+  if (currentRound) {
+    const selectedRoundKey = normaliseText(currentRound);
+    matches = matches.filter(match => normaliseText(match.Round) === selectedRoundKey);
   }
 
   if (currentGroup) {
