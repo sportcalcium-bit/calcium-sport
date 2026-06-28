@@ -2099,3 +2099,272 @@ img {
     max-height: 50px !important;
   }
 }
+
+
+/* =========================================
+   Calcium Sport update 6903
+   - Removes unused progress bar
+   - Removes stars and pin
+   - Moves round selector into hero top-right
+   - Fixes scoreboard layout without star column
+========================================= */
+
+.progress-track,
+.progress-fill,
+.star,
+.pin,
+.scoreboard-star {
+  display: none !important;
+}
+
+.hero-main {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.hero-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.competition-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  color: var(--muted);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.hero-round-control {
+  flex: 0 0 220px;
+  align-self: center;
+  padding: 16px;
+  border: 1px solid rgba(89, 220, 235, 0.18);
+  border-radius: 16px;
+  background: rgba(0, 17, 22, 0.22);
+}
+
+.hero-round-control label {
+  display: grid;
+  gap: 8px;
+}
+
+.hero-round-control span {
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.13em;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.hero-round-control select {
+  width: 100%;
+  min-width: 0;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-weight: 900;
+}
+
+.scoreboard-row {
+  grid-template-columns: 145px minmax(0, 1fr) 90px !important;
+  padding-left: 18px;
+  padding-right: 18px;
+}
+
+.competition-strip {
+  background: #062f59;
+}
+
+@media (max-width: 900px) {
+  .hero-main {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .hero-round-control {
+    width: 100%;
+    flex-basis: auto;
+  }
+
+  .scoreboard-row {
+    grid-template-columns: 92px minmax(0, 1fr) 70px !important;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+}
+
+@media (max-width: 600px) {
+  .hero-round-control {
+    padding: 12px;
+    border-radius: 14px;
+  }
+
+  .scoreboard-row {
+    grid-template-columns: 74px minmax(0, 1fr) 58px !important;
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+}
+
+@media (max-width: 390px) {
+  .scoreboard-row {
+    grid-template-columns: 64px minmax(0, 1fr) 52px !important;
+  }
+}
+
+
+/* =========================================
+   Results layout fix 6904
+   Clean, aligned rows for Results/Fixtures/All games
+========================================= */
+
+.competition-strip .star,
+.competition-strip .world-icon,
+.competition-strip .pin,
+.scoreboard-star {
+  display: none !important;
+}
+
+.competition-strip {
+  padding: 18px 24px !important;
+  background: #062f59 !important;
+}
+
+.competition-strip strong {
+  font-size: 18px !important;
+}
+
+.scoreboard-row {
+  display: grid !important;
+  grid-template-columns: 190px minmax(0, 1fr) 120px !important;
+  align-items: center !important;
+  gap: 22px !important;
+  min-height: 86px !important;
+  padding: 14px 24px !important;
+}
+
+.scoreboard-date {
+  display: grid !important;
+  gap: 4px !important;
+  align-content: center !important;
+  color: #d3e2e8 !important;
+  font-weight: 900 !important;
+  white-space: nowrap !important;
+  line-height: 1.1 !important;
+}
+
+.scoreboard-date-main {
+  display: block !important;
+  font-size: 19px !important;
+  letter-spacing: 0.01em !important;
+}
+
+.scoreboard-time-main {
+  display: block !important;
+  color: var(--muted) !important;
+  font-size: 15px !important;
+  font-weight: 800 !important;
+}
+
+.scoreboard-teams {
+  min-width: 0 !important;
+  display: grid !important;
+  gap: 8px !important;
+}
+
+.score-team-line {
+  min-width: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  font-size: 19px !important;
+  font-weight: 900 !important;
+  line-height: 1.15 !important;
+}
+
+.score-team-line span {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.scoreboard-score.single-score {
+  justify-self: end !important;
+  text-align: right !important;
+  white-space: nowrap !important;
+  font-size: 22px !important;
+  font-weight: 950 !important;
+  min-width: 86px !important;
+}
+
+.round-heading {
+  margin: 16px 0 0 !important;
+}
+
+@media (max-width: 900px) {
+  .scoreboard-row {
+    grid-template-columns: 120px minmax(0, 1fr) 80px !important;
+    gap: 14px !important;
+    padding: 12px 14px !important;
+  }
+
+  .scoreboard-date-main {
+    font-size: 16px !important;
+  }
+
+  .scoreboard-time-main {
+    font-size: 13px !important;
+  }
+
+  .score-team-line {
+    font-size: 16px !important;
+  }
+
+  .scoreboard-score.single-score {
+    font-size: 18px !important;
+    min-width: 62px !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .scoreboard-row {
+    grid-template-columns: 82px minmax(0, 1fr) 56px !important;
+    gap: 10px !important;
+    min-height: 78px !important;
+    padding: 10px 12px !important;
+  }
+
+  .scoreboard-date {
+    white-space: normal !important;
+  }
+
+  .scoreboard-date-main {
+    font-size: 14px !important;
+  }
+
+  .scoreboard-time-main {
+    font-size: 12px !important;
+  }
+
+  .score-team-line {
+    gap: 8px !important;
+    font-size: 15px !important;
+  }
+
+  .scoreboard-score.single-score {
+    font-size: 16px !important;
+    min-width: 50px !important;
+  }
+}
+
+@media (max-width: 390px) {
+  .scoreboard-row {
+    grid-template-columns: 70px minmax(0, 1fr) 50px !important;
+  }
+
+  .score-team-line {
+    font-size: 14px !important;
+  }
+}
