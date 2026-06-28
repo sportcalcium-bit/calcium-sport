@@ -541,7 +541,7 @@ function renderGroupedScoreboard(matches) {
 }
 
 function renderScoreboardRow(match) {
-  const dateTime = formatDateTime(match.Date, match.Time);
+  const dateParts = formatScoreboardDateParts(match.Date, match.Time);
   const score = match.Status === 'FT' ? renderScoreText(match) : '- : -';
 
   const homeLogo = match.HomeLogo
@@ -558,7 +558,8 @@ function renderScoreboardRow(match) {
   return `
     <article class="scoreboard-row ${clickableClass}" ${clickHandler}>
       <div class="scoreboard-date">
-        ${escapeHTML(dateTime)}
+        <span class="scoreboard-date-main">${escapeHTML(dateParts.date)}</span>
+        <span class="scoreboard-time-main">${escapeHTML(dateParts.time)}</span>
       </div>
 
       <div class="scoreboard-teams">
@@ -1393,6 +1394,17 @@ function formatDateTime(date, time) {
   const shortDate = parsed ? formatShortDateFromDate(parsed) : String(date || '').trim();
 
   return cleanTime ? `${shortDate} ${cleanTime}` : shortDate;
+}
+
+function formatScoreboardDateParts(date, time) {
+  const parsed = parseDateOnly(date);
+  const cleanTime = String(time || '').trim();
+  const dateText = parsed ? formatShortDateFromDate(parsed).replace(/\.$/, '') : String(date || '').trim();
+
+  return {
+    date: dateText,
+    time: cleanTime || ''
+  };
 }
 
 function formatFullDateTime(date, time) {
