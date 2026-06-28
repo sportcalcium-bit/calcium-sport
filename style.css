@@ -1979,3 +1979,123 @@ img {
     border-radius: 15px;
   }
 }
+
+/* =========================================
+   Professional unified logo styling
+   Keeps all team crests/flags the same size,
+   centred, readable, and consistent.
+========================================= */
+
+.brand-logo {
+  width: 76px !important;
+  height: 76px !important;
+  object-fit: contain !important;
+  border-radius: 18px !important;
+  padding: 5px !important;
+  background: rgba(255, 255, 255, 0.96) !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.42) !important;
+  flex-shrink: 0 !important;
+}
+
+.home-icons {
+  display: none !important;
+}
+
+.home-match-teams img,
+.score-team-line img,
+.team-cell img,
+.stat-player img {
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  max-width: 32px !important;
+  min-height: 32px !important;
+  max-height: 32px !important;
+  padding: 4px !important;
+  object-fit: contain !important;
+  object-position: center !important;
+  display: inline-block !important;
+  border-radius: 999px !important;
+  background: radial-gradient(circle at 35% 25%, #ffffff 0%, #eef4f6 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.26) !important;
+}
+
+.home-match-teams div,
+.score-team-line,
+.team-cell,
+.stat-player {
+  gap: 12px !important;
+}
+
+.scoreboard-card img,
+.panel img,
+.table-card img,
+.stats-grid img {
+  max-width: 32px !important;
+  max-height: 32px !important;
+}
+
+.competition-logo-wrap {
+  background: radial-gradient(circle at 35% 25%, #ffffff 0%, #eef4f6 100%) !important;
+  border-radius: 24px !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.26) !important;
+}
+
+.competition-logo-wrap img {
+  max-width: 82px !important;
+  max-height: 82px !important;
+  object-fit: contain !important;
+  object-position: center !important;
+}
+
+.match-main-logo {
+  background: radial-gradient(circle at 35% 25%, #ffffff 0%, #eef4f6 100%) !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28) !important;
+}
+
+.match-main-logo img {
+  max-width: 78px !important;
+  max-height: 78px !important;
+  object-fit: contain !important;
+  object-position: center !important;
+}
+
+@media (max-width: 600px) {
+  .brand-logo {
+    width: 62px !important;
+    height: 62px !important;
+    border-radius: 16px !important;
+    padding: 4px !important;
+  }
+
+  .home-match-teams img,
+  .score-team-line img,
+  .team-cell img,
+  .stat-player img {
+    width: 28px !important;
+    height: 28px !important;
+    min-width: 28px !important;
+    max-width: 28px !important;
+    min-height: 28px !important;
+    max-height: 28px !important;
+    padding: 3px !important;
+  }
+
+  .scoreboard-card img,
+  .panel img,
+  .table-card img,
+  .stats-grid img {
+    max-width: 28px !important;
+    max-height: 28px !important;
+  }
+
+  .match-main-logo img {
+    max-width: 50px !important;
+    max-height: 50px !important;
+  }
+}
