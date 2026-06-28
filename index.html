@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Calcium Sport Results Centre</title>
-  <link rel="stylesheet" href="./style.css?v=6901" />
+  <link rel="stylesheet" href="./style.css?v=6903" />
 </head>
 <body>
   <header class="site-header">
@@ -93,13 +93,19 @@
 
           <p id="competitionSubtitle">Loading competition data</p>
 
-          <div class="date-row">
+          <div class="competition-meta-row">
             <span id="startDate">Start</span>
-            <div class="progress-track">
-              <div class="progress-fill"></div>
-            </div>
             <span id="endDate">End</span>
           </div>
+        </div>
+
+        <div class="hero-round-control">
+          <label>
+            <span>Round</span>
+            <select id="roundFilter">
+              <option value="">All rounds</option>
+            </select>
+          </label>
         </div>
       </div>
 
@@ -115,18 +121,17 @@
 
     <section class="filters-card">
       <input id="searchInput" type="search" placeholder="Search team or player..." />
+
       <select id="groupFilter">
         <option value="">All groups/tables</option>
       </select>
+
       <button id="clearFilters" type="button">Clear</button>
     </section>
 
     <section class="scoreboard-card">
       <div class="competition-strip">
-        <span class="star">☆</span>
-        <span class="world-icon">🌐</span>
         <strong id="scoreboardTitle">WORLD: World Championship</strong>
-        <span class="pin">📌</span>
       </div>
 
       <div id="scoreboardList">
@@ -198,6 +203,6 @@
 
   <button id="backToTop" class="back-to-top" type="button">↑</button>
 
-  <script src="./script.js?v=6901"></script>
+  <script src="./script.js?v=6903"></script>
 </body>
 </html>
