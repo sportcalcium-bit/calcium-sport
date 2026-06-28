@@ -13,6 +13,11 @@
   --blue: #07345d;
   --qualified: #16c75d;
   --eliminated: #e32828;
+  --ucl: #1f6bff;
+  --uel: #ff9800;
+  --uecl: #11b861;
+  --playout: #f6c400;
+  --relegation: #d80000;
 }
 
 body {
@@ -2367,4 +2372,65 @@ img {
   .score-team-line {
     font-size: 14px !important;
   }
+}
+
+
+/* =========================================
+   Standings qualification colours 6905
+   Champions League / Europa League / Conference League
+   Play-out relegation / Relegation
+========================================= */
+
+.rank-ucl {
+  background: var(--ucl) !important;
+}
+
+.rank-uel {
+  background: var(--uel) !important;
+}
+
+.rank-uecl {
+  background: var(--uecl) !important;
+}
+
+.rank-playout {
+  background: var(--playout) !important;
+  color: #111 !important;
+}
+
+.rank-relegation {
+  background: var(--relegation) !important;
+}
+
+.rank-neutral {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+.note-dot.ucl {
+  background: var(--ucl) !important;
+}
+
+.note-dot.uel {
+  background: var(--uel) !important;
+}
+
+.note-dot.uecl {
+  background: var(--uecl) !important;
+}
+
+.note-dot.playout {
+  background: var(--playout) !important;
+}
+
+.note-dot.relegation {
+  background: var(--relegation) !important;
+}
+
+.qualification-note {
+  gap: 10px !important;
+  line-height: 1.6 !important;
+}
+
+.qualification-note .note-dot:first-child {
+  margin-left: 0 !important;
 }
