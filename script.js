@@ -963,7 +963,7 @@ function renderStandings() {
           </table>
         </div>
 
-        ${isGroupStage ? '<div class="qualification-note"><span class="note-dot qualified"></span> Top 2 qualify <span class="note-dot eliminated"></span> Bottom 2 eliminated</div>' : ''}
+        ${isGroupStage ? '<div class="qualification-note"><span class="note-dot qualified"></span> Top 2 qualify <span class="note-dot eliminated"></span> Bottom 2 eliminated</div>' : renderLeagueLegend()}
       </section>
     `;
   }).join('');
@@ -1473,19 +1473,160 @@ function getHalfNumber(value) {
 }
 
 function getRankClass(index, groupSize, isGroupStage) {
-  if (!isGroupStage) {
+  if (isGroupStage) {
+    if (groupSize <= 2) {
+      return 'rank-neutral';
+    }
+
+    if (index <= 1) {
+      return 'rank-qualified';
+    }
+
+    return 'rank-eliminated';
+  }
+
+  const pos = index + 1;
+  const league = getLeagueKeyForStandings();
+
+  if (league === 'premier-league' || league === 'serie-a' || league === 'la-liga') {
+    if (pos <= 4) {
+      return 'rank-ucl';
+    }
+
+    if (pos <= 6) {
+      return 'rank-uel';
+    }
+
+    if (pos <= 8) {
+      return 'rank-uecl';
+    }
+
+    if (pos >= 18) {
+      return 'rank-relegation';
+    }
+
     return 'rank-neutral';
   }
 
-  if (groupSize <= 2) {
+  if (league === 'bundesliga') {
+    if (pos <= 4) {
+      return 'rank-ucl';
+    }
+
+    if (pos <= 6) {
+      return 'rank-uel';
+    }
+
+    if (pos <= 8) {
+      return 'rank-uecl';
+    }
+
+    if (pos === 16) {
+      return 'rank-playout';
+    }
+
+    if (pos >= 17) {
+      return 'rank-relegation';
+    }
+
     return 'rank-neutral';
   }
 
-  if (index <= 1) {
-    return 'rank-qualified';
+  if (league === 'ligue-1') {
+    if (pos <= 3) {
+      return 'rank-ucl';
+    }
+
+    if (pos <= 5) {
+      return 'rank-uel';
+    }
+
+    if (pos <= 7) {
+      return 'rank-uecl';
+    }
+
+    if (pos === 16) {
+      return 'rank-playout';
+    }
+
+    if (pos >= 17) {
+      return 'rank-relegation';
+    }
+
+    return 'rank-neutral';
   }
 
-  return 'rank-eliminated';
+  return 'rank-neutral';
+}
+
+
+function getLeagueKeyForStandings() {
+  const selected = appData && appData.selectedCompetition ? appData.selectedCompetition : {};
+  const site = appData && appData.site ? appData.site : {};
+
+  const name = normaliseCompetitionName(
+    selected['Competition Name'] ||
+    selected.competition ||
+    site.competition ||
+    currentCompetition ||
+    ''
+  );
+
+  const slug = slugify(name);
+
+  if (slug.includes('premier-league')) {
+    return 'premier-league';
+  }
+
+  if (slug === 'serie-a' || slug.includes('serie-a')) {
+    return 'serie-a';
+  }
+
+  if (slug.includes('la-liga') || slug.includes('laliga')) {
+    return 'la-liga';
+  }
+
+  if (slug.includes('bundesliga')) {
+    return 'bundesliga';
+  }
+
+  if (slug.includes('ligue-1')) {
+    return 'ligue-1';
+  }
+
+  return '';
+}
+
+function renderLeagueLegend() {
+  const league = getLeagueKeyForStandings();
+
+  const standardLeagues = ['premier-league', 'serie-a', 'la-liga'];
+  const playoffLeagues = ['bundesliga', 'ligue-1'];
+
+  if (!standardLeagues.includes(league) && !playoffLeagues.includes(league)) {
+    return '';
+  }
+
+  const items = [
+    ['ucl', 'Champions League'],
+    ['uel', 'Europa League'],
+    ['uecl', 'Conference League']
+  ];
+
+  if (playoffLeagues.includes(league)) {
+    items.push(['playout', 'Play-out relegation']);
+  }
+
+  items.push(['relegation', 'Relegation']);
+
+  return `
+    <div class="qualification-note">
+      ${items.map(item => `
+        <span class="note-dot ${item[0]}"></span>
+        ${escapeHTML(item[1])}
+      `).join('')}
+    </div>
+  `;
 }
 
 function isGroupStageCompetition() {
