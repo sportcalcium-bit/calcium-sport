@@ -448,32 +448,40 @@ function renderScoreboard() {
     return;
   }
 
-  const nextUp = getNextUpMatch(matches);
+  const targetRound = getNextUpRound(matches);
 
-  if (!nextUp) {
+  if (!targetRound) {
     setHTML('scoreboardList', '<div class="empty">No matches found.</div>');
     return;
   }
 
-  const targetRound = normaliseText(nextUp.Round || '');
-
   const roundMatches = matches
-    .filter(match => normaliseText(match.Round || '') === targetRound)
+    .filter(match => normaliseText(match.Round || '') === normaliseText(targetRound))
     .sort((a, b) => matchDateSortValue(a) - matchDateSortValue(b));
 
-  const note = nextUp.Status === 'FT'
-    ? '<div class="season-complete-note">Season completed. Showing the last round played.</div>'
-    : '';
-
   setHTML('scoreboardList', `
-    ${note}
+    <div class="season-complete-note">Season completed. Showing the last round played.</div>
     <section class="round-block">
-      <div class="round-heading">${escapeHTML(formatRoundLabel(nextUp.Round || 'Next Up'))}</div>
+      <div class="round-heading">${escapeHTML(formatRoundLabel(targetRound))}</div>
       ${roundMatches.map(renderScoreboardRow).join('')}
     </section>
   `);
 }
+function getNextUpRound(matches) {
+  const ordered = [...matches].sort((a, b) => matchDateSortValue(a) - matchDateSortValue(b));
 
+  const nextScheduled = ordered.find(match => match.Status !== 'FT' && matchDateSortValue(match) > 0);
+
+  if (nextScheduled) {
+    return nextScheduled.Round || '';
+  }
+
+  const completed = ordered
+    .filter(match => match.Status === 'FT' && matchDateSortValue(match) > 0)
+    .sort((a, b) => matchDateSortValue(b) - matchDateSortValue(a));
+
+  return completed.length ? completed[0].Round || '' : '';
+}
 function renderResults() {
   const results = getFilteredMatches()
     .filter(match => match.Status === 'FT')
