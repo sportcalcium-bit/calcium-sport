@@ -1,4 +1,5 @@
 const API_URL = 'https://script.google.com/macros/s/AKfycbyFU-9M16UBls1YvTZfXxCDGLFBT2CL1qvTH7S_pmdHCD6kSeQpHQlQW_gg6r5vhfjOZA/exec';
+const FRONTEND_VERSION = '6908-global-home';
 
 let appData = null;
 let currentCompetition = new URLSearchParams(window.location.search).get('competition') || '';
@@ -39,8 +40,8 @@ function resolveInitialCompetition() {
 
 async function loadCompetition(competitionParam) {
   const url = competitionParam
-    ? `${API_URL}?competition=${encodeURIComponent(competitionParam)}`
-    : `${API_URL}?mode=home`;
+    ? `${API_URL}?competition=${encodeURIComponent(competitionParam)}&v=${encodeURIComponent(FRONTEND_VERSION)}`
+    : `${API_URL}?mode=home&v=${encodeURIComponent(FRONTEND_VERSION)}`;
 
   const response = await fetch(url);
 
@@ -2122,8 +2123,8 @@ function dedupeMatchArray(matches) {
 
 async function loadCompetition(competitionParam) {
   const url = competitionParam
-    ? `${API_URL}?competition=${encodeURIComponent(competitionParam)}`
-    : `${API_URL}?mode=home`;
+    ? `${API_URL}?competition=${encodeURIComponent(competitionParam)}&v=${encodeURIComponent(FRONTEND_VERSION)}`
+    : `${API_URL}?mode=home&v=${encodeURIComponent(FRONTEND_VERSION)}`;
 
   const response = await fetch(url);
 
