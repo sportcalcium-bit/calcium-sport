@@ -2348,11 +2348,11 @@ function renderDateTabs() {
 
   container.innerHTML = `
     ${buttons}
-    <button type="button" class="date-picker-button ${customDateActive}" onclick="openHomeDatePicker()" aria-label="Pick a date">
+    <label class="date-picker-button ${customDateActive}" aria-label="Pick a date">
       <span class="calendar-icon">📅</span>
       <span class="calendar-label">Pick a date</span>
-    </button>
-    <input id="homeDatePicker" class="home-date-picker-input" type="date" value="${escapeAttr(pickedValue)}" onchange="pickHomeDate(this.value)" aria-label="Pick a date">
+      <input id="homeDatePicker" class="home-date-picker-native" type="date" value="${escapeAttr(pickedValue)}" onchange="pickHomeDate(this.value)" aria-label="Pick a date">
+    </label>
   `;
 }
 
@@ -2873,4 +2873,4 @@ async function selectCompetitionFromCategory(slug) {
 window.selectCompetitionFromCategory = selectCompetitionFromCategory;
 
 
-window.CALCIUM_SCRIPT_VERSION = '6912-calendar-fix';
+window.CALCIUM_SCRIPT_VERSION = '6913-native-date-input';
