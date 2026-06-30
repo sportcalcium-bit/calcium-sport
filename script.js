@@ -2347,11 +2347,11 @@ function renderDateTabs() {
 
   container.innerHTML = `
     ${buttons}
-    <button type="button" class="date-picker-button ${dates.some(item => item.key === selectedDateKey) ? '' : 'active'}">
+    <label class="date-picker-button ${dates.some(item => item.key === selectedDateKey) ? '' : 'active'}" for="homeDatePicker">
       <span class="calendar-icon">📅</span>
       <span class="calendar-label">Pick a date</span>
       <input id="homeDatePicker" type="date" value="${escapeAttr(pickedValue)}" onchange="pickHomeDate(this.value)" aria-label="Pick a date">
-    </button>
+    </label>
   `;
 }
 
