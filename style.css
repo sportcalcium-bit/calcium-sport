@@ -2662,3 +2662,54 @@ body.is-competition-page #homeSection {
 .scoreboard-row.calcium-row-layout .scoreboard-score {
   justify-self: center !important;
 }
+.scoreboard-row.calcium-row-layout {
+  grid-template-columns: 120px minmax(160px, 1fr) 46px 90px 46px minmax(160px, 1fr) !important;
+  gap: 16px !important;
+  align-items: center !important;
+}
+
+.score-team-home-name {
+  text-align: right !important;
+  font-size: 20px !important;
+  font-weight: 950 !important;
+}
+
+.score-team-away-name {
+  text-align: left !important;
+  font-size: 20px !important;
+  font-weight: 950 !important;
+}
+
+.score-team-home-logo,
+.score-team-away-logo {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
+
+.scoreboard-row.calcium-row-layout .scoreboard-score {
+  justify-self: center !important;
+  text-align: center !important;
+}
+
+@media (max-width: 700px) {
+  .scoreboard-row.calcium-row-layout {
+    grid-template-columns: 72px minmax(0, 1fr) 56px !important;
+  }
+
+  .score-team-home-name,
+  .score-team-away-name,
+  .score-team-home-logo,
+  .score-team-away-logo {
+    display: none !important;
+  }
+
+  .scoreboard-row.calcium-row-layout .scoreboard-date {
+    grid-column: 1;
+  }
+
+  .scoreboard-row.calcium-row-layout .scoreboard-score {
+    grid-column: 3;
+    justify-self: end !important;
+  }
+}
