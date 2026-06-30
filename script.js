@@ -2891,8 +2891,6 @@ async function selectCompetitionFromCategory(slug) {
 window.selectCompetitionFromCategory = selectCompetitionFromCategory;
 
 window.CALCIUM_SCRIPT_VERSION = '6913-native-date-input';
-
-give me the new full one for all these edits I told you to do
 .hero-top,
 .hero-copy > p,
 .competition-meta-row,
