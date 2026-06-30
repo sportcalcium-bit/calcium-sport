@@ -587,17 +587,11 @@ function renderScoreboardRow(match) {
         <span class="scoreboard-time-main">${escapeHTML(dateParts.time)}</span>
       </div>
 
-      <div class="score-team-line score-team-home">
-        ${homeLogo}
-        <span>${escapeHTML(match.HomeTeam)}</span>
-      </div>
-
+      <div class="score-team-home-name">${escapeHTML(match.HomeTeam)}</div>
+      <div class="score-team-home-logo">${homeLogo}</div>
       <div class="scoreboard-score single-score">${score}</div>
-
-      <div class="score-team-line score-team-away">
-        ${awayLogo}
-        <span>${escapeHTML(match.AwayTeam)}</span>
-      </div>
+      <div class="score-team-away-logo">${awayLogo}</div>
+      <div class="score-team-away-name">${escapeHTML(match.AwayTeam)}</div>
     </article>
   `;
 }
