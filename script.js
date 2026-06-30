@@ -356,27 +356,6 @@ window.selectDateTab = function selectDateTab(key) {
   renderHomeGames();
 };
 
-window.openHomeDatePicker = function openHomeDatePicker() {
-  const picker = $('homeDatePicker');
-
-  if (!picker) {
-    return;
-  }
-
-  try {
-    if (typeof picker.showPicker === 'function') {
-      picker.showPicker();
-      return;
-    }
-  } catch (error) {
-    // Some browsers block showPicker unless called from a direct click.
-  }
-
-  picker.focus();
-  picker.click();
-};
-
-
 function renderHomeGames() {
   const allMatches = appData.allMatches || [];
   const matches = allMatches
@@ -2383,27 +2362,6 @@ window.selectDateTab = function selectDateTab(key) {
   renderHomeGames();
 };
 
-window.openHomeDatePicker = function openHomeDatePicker() {
-  const picker = $('homeDatePicker');
-
-  if (!picker) {
-    return;
-  }
-
-  try {
-    if (typeof picker.showPicker === 'function') {
-      picker.showPicker();
-      return;
-    }
-  } catch (error) {
-    // Some browsers block showPicker unless called from a direct click.
-  }
-
-  picker.focus();
-  picker.click();
-};
-
-
 window.pickHomeDate = function pickHomeDate(value) {
   if (!value) {
     return;
@@ -2413,6 +2371,28 @@ window.pickHomeDate = function pickHomeDate(value) {
   renderDateTabs();
   renderHomeGames();
 };
+
+window.openHomeDatePicker = function openHomeDatePicker() {
+  const picker = document.getElementById('homeDatePicker');
+
+  if (!picker) {
+    console.warn('homeDatePicker input was not found');
+    return;
+  }
+
+  try {
+    if (typeof picker.showPicker === 'function') {
+      picker.showPicker();
+      return;
+    }
+  } catch (error) {
+    console.warn('showPicker failed, using click fallback', error);
+  }
+
+  picker.focus();
+  picker.click();
+};
+
 
 function renderHomeGames() {
   const allMatches = getGlobalMatches();
@@ -2891,3 +2871,6 @@ async function selectCompetitionFromCategory(slug) {
 }
 
 window.selectCompetitionFromCategory = selectCompetitionFromCategory;
+
+
+window.CALCIUM_SCRIPT_VERSION = '6912-calendar-fix';
