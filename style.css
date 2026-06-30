@@ -2465,6 +2465,15 @@ body.is-competition-page #homeSection {
   place-items: center;
   gap: 3px;
   min-height: 72px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 14px 12px;
+  text-align: center;
+  font-weight: 900;
+  text-transform: uppercase;
+  border-bottom: 5px solid transparent;
+  cursor: pointer;
 }
 
 .date-picker-button .calendar-icon {
@@ -2485,11 +2494,14 @@ body.is-competition-page #homeSection {
 .date-picker-button input[type="date"] {
   position: absolute;
   inset: 0;
+  z-index: 5;
   width: 100% !important;
   min-width: 0 !important;
   height: 100%;
   opacity: 0;
   cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 .home-time-block {
