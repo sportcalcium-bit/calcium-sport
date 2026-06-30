@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Calcium Sport Results Centre</title>
-  <link rel="stylesheet" href="./style.css?v=6905" />
+  <link rel="stylesheet" href="./style.css?v=6906" />
 </head>
 <body>
   <header class="site-header">
@@ -33,8 +33,7 @@
         <label>
           <span>Jump to</span>
           <select id="jumpSelect">
-            <option value="home">All games</option>
-            <option value="summary">Summary</option>
+            <option value="nextUp">Next Up</option>
             <option value="results">Results</option>
             <option value="fixtures">Fixtures</option>
             <option value="standings">Standings</option>
@@ -54,11 +53,11 @@
         </div>
       </div>
 
-      <div id="dateTabs" class="date-tabs"></div>
+      <div id="dateTabs" class="date-tabs home-date-tabs"></div>
 
       <div class="all-games-header">
         <span class="list-icon">☷</span>
-        <strong>All games</strong>
+        <strong id="homeAllGamesTitle">All games</strong>
         <span id="homeMatchCount" class="match-count-pill">0</span>
       </div>
 
@@ -101,8 +100,7 @@
       </div>
 
       <nav class="section-tabs">
-        <button type="button" class="active" data-view="home">All games</button>
-        <button type="button" data-view="summary">Summary</button>
+        <button type="button" class="active" data-view="nextUp">Next Up</button>
         <button type="button" data-view="results">Results</button>
         <button type="button" data-view="fixtures">Fixtures</button>
         <button type="button" data-view="standings">Standings</button>
@@ -124,9 +122,9 @@
       <button id="clearFilters" type="button">Clear</button>
     </section>
 
-    <section class="scoreboard-card">
+    <section class="scoreboard-card" id="nextUpSection">
       <div class="competition-strip">
-        <strong id="scoreboardTitle">WORLD: World Championship</strong>
+        <strong id="scoreboardTitle">Next Up</strong>
       </div>
 
       <div id="scoreboardList">
@@ -175,6 +173,11 @@
         </article>
 
         <article>
+          <h3>Clean sheets</h3>
+          <div id="cleanSheets"></div>
+        </article>
+
+        <article>
           <h3>Yellow cards</h3>
           <div id="yellowCards"></div>
         </article>
@@ -198,6 +201,6 @@
 
   <button id="backToTop" class="back-to-top" type="button">↑</button>
 
-  <script src="./script.js?v=6905"></script>
+  <script src="./script.js?v=6906"></script>
 </body>
 </html>
