@@ -2347,13 +2347,13 @@ function renderDateTabs() {
   const customDateActive = dates.some(item => item.key === selectedDateKey) ? '' : 'active';
 
   container.innerHTML = `
-    ${buttons}
-    <label class="date-picker-button ${customDateActive}" aria-label="Pick a date">
-      <span class="calendar-icon">📅</span>
-      <span class="calendar-label">Pick a date</span>
-      <input id="homeDatePicker" type="date" value="${escapeAttr(pickedValue)}" onchange="pickHomeDate(this.value)" aria-label="Pick a date">
-    </label>
-  `;
+  ${buttons}
+  <div class="date-picker-button ${customDateActive}">
+    <span class="calendar-icon">📅</span>
+    <span class="calendar-label">Pick a date</span>
+    <input id="homeDatePicker" type="date" value="${escapeAttr(pickedValue)}" onchange="pickHomeDate(this.value)" aria-label="Pick a date" style="position:static; opacity:1; width:120px; min-width:120px; height:auto; padding:4px; margin-top:4px; cursor:pointer;">
+  </div>
+`;
 }
 
 window.selectDateTab = function selectDateTab(key) {
