@@ -40,7 +40,7 @@ function resolveInitialCompetition() {
 async function loadCompetition(competitionParam) {
   const url = competitionParam
     ? `${API_URL}?competition=${encodeURIComponent(competitionParam)}`
-    : API_URL;
+    : `${API_URL}?mode=home`;
 
   const response = await fetch(url);
 
@@ -2123,7 +2123,7 @@ function dedupeMatchArray(matches) {
 async function loadCompetition(competitionParam) {
   const url = competitionParam
     ? `${API_URL}?competition=${encodeURIComponent(competitionParam)}`
-    : API_URL;
+    : `${API_URL}?mode=home`;
 
   const response = await fetch(url);
 
