@@ -2085,3 +2085,766 @@ document.addEventListener('click', event => {
     });
   }
 });
+
+
+/* =========================================
+   Calcium Sport update 6906
+   Home landing page + global daily games
+   Competition pages: Next Up / Results / Fixtures / Standings / Stats
+========================================= */
+
+function isHomePage() {
+  return !new URLSearchParams(window.location.search).get('competition');
+}
+
+function getCompetitionMatches() {
+  const main = Array.isArray(appData && appData.matches) ? appData.matches : [];
+  const playoffs = Array.isArray(appData && appData.playoffs) ? appData.playoffs : [];
+  return dedupeMatchArray(main.concat(playoffs));
+}
+
+function getGlobalMatches() {
+  const all = Array.isArray(appData && appData.allMatches) ? appData.allMatches : [];
+  return dedupeMatchArray(all);
+}
+
+function dedupeMatchArray(matches) {
+  const seen = new Set();
+  return (matches || []).filter(match => {
+    const key = String(match.MatchID || match.ID || '').trim();
+    if (!key || seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
+async function loadCompetition(competitionParam) {
+  const url = competitionParam
+    ? `${API_URL}?competition=${encodeURIComponent(competitionParam)}`
+    : API_URL;
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error(`Backend error: ${response.status}`);
+  }
+
+  appData = await response.json();
+
+  if (appData.error) {
+    throw new Error(appData.error);
+  }
+
+  const selected = appData.selectedCompetition || appData.site || {};
+  currentCompetition = makeCompetitionSlug(selected);
+
+  if (!selectedDateKey) {
+    selectedDateKey = getTodayKey();
+  }
+
+  expandedStats = {
+    topScorers: false,
+    topAssists: false,
+    cleanSheets: false,
+    yellowCards: false,
+    redCards: false
+  };
+
+  populateCompetitionDropdown();
+  populateGroupDropdown();
+  populateRoundDropdown();
+  populateSeasonDropdown();
+  renderAll();
+}
+
+function bindEvents() {
+  const competitionSelect = $('competitionSelect');
+  const seasonSelect = $('seasonSelect');
+  const jumpSelect = $('jumpSelect');
+  const searchInput = $('searchInput');
+  const groupFilter = $('groupFilter');
+  const roundFilter = $('roundFilter');
+  const clearBtn = $('clearFilters');
+
+  if (competitionSelect) {
+    competitionSelect.addEventListener('change', async event => {
+      const selected = event.target.value;
+      resetFilters();
+      updateUrlCompetition(selected);
+      await loadCompetition(selected);
+    });
+  }
+
+  if (seasonSelect) {
+    seasonSelect.addEventListener('change', async event => {
+      const selected = event.target.value;
+      resetFilters();
+      updateUrlCompetition(selected);
+      await loadCompetition(selected);
+    });
+  }
+
+  if (jumpSelect) {
+    jumpSelect.addEventListener('change', event => {
+      if (isHomePage()) {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+
+      jumpToSection(event.target.value);
+      setActiveTab(event.target.value);
+    });
+  }
+
+  if (searchInput) {
+    searchInput.addEventListener('input', event => {
+      currentSearch = event.target.value.toLowerCase().trim();
+      renderAll();
+    });
+  }
+
+  if (groupFilter) {
+    groupFilter.addEventListener('change', event => {
+      currentGroup = event.target.value;
+      renderAll();
+    });
+  }
+
+  if (roundFilter) {
+    roundFilter.addEventListener('change', event => {
+      currentRound = event.target.value;
+      renderAll();
+    });
+  }
+
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      resetFilters();
+      renderAll();
+    });
+  }
+
+  document.querySelectorAll('[data-view]').forEach(button => {
+    button.addEventListener('click', () => {
+      const view = button.getAttribute('data-view');
+      setActiveTab(view);
+      jumpToSection(view);
+    });
+  });
+
+  const backTop = $('backToTop');
+
+  if (backTop) {
+    backTop.addEventListener('click', () => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  }
+}
+
+function renderAll() {
+  if (!appData) {
+    return;
+  }
+
+  document.body.classList.toggle('is-home-page', isHomePage());
+  document.body.classList.toggle('is-competition-page', !isHomePage());
+
+  renderHeader();
+  renderDateTabs();
+
+  if (isHomePage()) {
+    renderHomeGames();
+    return;
+  }
+
+  renderScoreboard();
+  renderResults();
+  renderFixtures();
+  renderStandings();
+  renderStats();
+}
+
+function renderHeader() {
+  const site = appData.site || {};
+  const selected = appData.selectedCompetition || {};
+
+  if (isHomePage()) {
+    setText('siteSubtitle', 'Football results centre');
+    setText('competitionTitle', 'Football');
+    setText('competitionSubtitle', 'All games across every competition');
+    setText('regionLabel', 'Home');
+    setText('startDate', '');
+    setText('endDate', '');
+
+    const jumpSelect = $('jumpSelect');
+    if (jumpSelect) {
+      jumpSelect.value = 'nextUp';
+    }
+
+    return;
+  }
+
+  const name = selected['Competition Name'] || site.competition || 'Competition';
+  const year = selected.Year || site.year || '';
+  const region = selected.Region || site.region || 'Football';
+  const logo = selected['Logo URL'] || site.logoUrl || '';
+
+  setText('competitionTitle', name);
+  setText('competitionSubtitle', year ? `${name} ${year}` : name);
+  setText('siteSubtitle', year ? `${name} ${year}` : 'Football results centre');
+  setText('regionLabel', region);
+  setText('startDate', selected.StartDate || site.startDate || 'Start');
+  setText('endDate', selected.EndDate || site.endDate || 'End');
+
+  const scoreboardTitle = $('scoreboardTitle');
+
+  if (scoreboardTitle) {
+    scoreboardTitle.textContent = 'Next Up';
+  }
+
+  const logoEl = $('competitionLogo');
+
+  if (logoEl && logo) {
+    logoEl.src = logo;
+    logoEl.alt = `${name} logo`;
+  }
+}
+
+function renderDateTabs() {
+  const container = $('dateTabs');
+
+  if (!container) {
+    return;
+  }
+
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+
+  const dates = [
+    { key: dateToKey(yesterday), dayLabel: 'Yesterday', shortDate: formatShortDateFromDate(yesterday) },
+    { key: dateToKey(today), dayLabel: 'Today', shortDate: formatShortDateFromDate(today) },
+    { key: dateToKey(tomorrow), dayLabel: 'Tomorrow', shortDate: formatShortDateFromDate(tomorrow) }
+  ];
+
+  const buttons = dates.map(item => {
+    const active = item.key === selectedDateKey ? 'active' : '';
+
+    return `
+      <button type="button" class="${active}" onclick="selectDateTab('${escapeAttr(item.key)}')">
+        <span>${escapeHTML(item.dayLabel)}</span>
+        <strong>${escapeHTML(item.shortDate)}</strong>
+      </button>
+    `;
+  }).join('');
+
+  const picked = parseDateOnly(selectedDateKey);
+  const pickedValue = picked ? dateToKey(picked) : selectedDateKey;
+
+  container.innerHTML = `
+    ${buttons}
+    <button type="button" class="date-picker-button ${dates.some(item => item.key === selectedDateKey) ? '' : 'active'}">
+      <span class="calendar-icon">📅</span>
+      <span class="calendar-label">Pick a date</span>
+      <input id="homeDatePicker" type="date" value="${escapeAttr(pickedValue)}" onchange="pickHomeDate(this.value)" aria-label="Pick a date">
+    </button>
+  `;
+}
+
+window.selectDateTab = function selectDateTab(key) {
+  selectedDateKey = key;
+  renderDateTabs();
+  renderHomeGames();
+};
+
+window.pickHomeDate = function pickHomeDate(value) {
+  if (!value) {
+    return;
+  }
+
+  selectedDateKey = value;
+  renderDateTabs();
+  renderHomeGames();
+};
+
+function renderHomeGames() {
+  const allMatches = getGlobalMatches();
+  const matches = allMatches
+    .filter(match => getDateKey(match.Date) === selectedDateKey)
+    .sort(compareHomeMatches);
+
+  const countEl = $('homeMatchCount');
+  const titleEl = $('homeAllGamesTitle');
+
+  if (countEl) {
+    countEl.textContent = matches.length;
+  }
+
+  if (titleEl) {
+    titleEl.textContent = `All games (${matches.length})`;
+  }
+
+  if (!matches.length) {
+    setHTML('homeGamesList', '<div class="empty home-empty">No games scheduled on this date.</div>');
+    return;
+  }
+
+  const timeGroups = groupBy(matches, match => normaliseKickoffTime(match.Time));
+
+  const html = Object.keys(timeGroups)
+    .sort((a, b) => timeSortValue(a) - timeSortValue(b))
+    .map(time => {
+      const timeMatches = timeGroups[time].sort((a, b) => compareCompetitionPriority(a, b));
+      const competitionGroups = groupBy(timeMatches, match => match.CompetitionLabel || match.Competition || 'Competition');
+
+      const competitionHtml = Object.keys(competitionGroups)
+        .sort((a, b) => compareCompetitionNamePriority(a, b, competitionGroups))
+        .map(competitionName => {
+          const compMatches = competitionGroups[competitionName];
+
+          return `
+            <section class="home-competition-block">
+              <div class="home-competition-mini-title">
+                <span>${escapeHTML(getRegionForCompetition(compMatches[0]))}</span>
+                <strong>${escapeHTML(competitionName)}</strong>
+              </div>
+              ${compMatches.map(renderHomeMatchRow).join('')}
+            </section>
+          `;
+        }).join('');
+
+      return `
+        <section class="home-time-block">
+          <div class="home-time-heading">${escapeHTML(time || 'Scheduled')}</div>
+          ${competitionHtml}
+        </section>
+      `;
+    }).join('');
+
+  setHTML('homeGamesList', html);
+}
+
+function renderHomeMatchRow(match) {
+  const isFinished = match.Status === 'FT';
+  const scoreLabel = isFinished ? renderScoreText(match) : '- : -';
+
+  const homeLogo = match.HomeLogo
+    ? `<img src="${escapeAttr(match.HomeLogo)}" alt="">`
+    : '';
+
+  const awayLogo = match.AwayLogo
+    ? `<img src="${escapeAttr(match.AwayLogo)}" alt="">`
+    : '';
+
+  const clickHandler = match.MatchID ? `onclick="openMatchDetail('${escapeAttr(match.MatchID)}')"` : '';
+
+  return `
+    <article class="home-match-row" ${clickHandler}>
+      <div class="home-match-time">${escapeHTML(match.Time || '')}</div>
+
+      <div class="home-match-teams">
+        <div>
+          ${homeLogo}
+          <span>${escapeHTML(match.HomeTeam)}</span>
+        </div>
+
+        <div>
+          ${awayLogo}
+          <span>${escapeHTML(match.AwayTeam)}</span>
+        </div>
+      </div>
+
+      <div class="home-match-score">${scoreLabel}</div>
+    </article>
+  `;
+}
+
+function compareHomeMatches(a, b) {
+  const timeDiff = timeSortValue(normaliseKickoffTime(a.Time)) - timeSortValue(normaliseKickoffTime(b.Time));
+  if (timeDiff !== 0) {
+    return timeDiff;
+  }
+
+  const compDiff = compareCompetitionPriority(a, b);
+  if (compDiff !== 0) {
+    return compDiff;
+  }
+
+  return String(a.HomeTeam || '').localeCompare(String(b.HomeTeam || ''));
+}
+
+function compareCompetitionPriority(a, b) {
+  const aCategory = getCompetitionCategoryKey(a);
+  const bCategory = getCompetitionCategoryKey(b);
+  const categoryOrder = ['england', 'italy', 'spain', 'germany', 'france', 'europe', 'world', 'national-teams'];
+
+  const categoryDiff = (categoryOrder.indexOf(aCategory) === -1 ? 999 : categoryOrder.indexOf(aCategory)) -
+    (categoryOrder.indexOf(bCategory) === -1 ? 999 : categoryOrder.indexOf(bCategory));
+
+  if (categoryDiff !== 0) {
+    return categoryDiff;
+  }
+
+  return getCompetitionPriority(aCategory, { 'Competition Name': a.Competition || a.CompetitionLabel || '' }) -
+    getCompetitionPriority(bCategory, { 'Competition Name': b.Competition || b.CompetitionLabel || '' });
+}
+
+function compareCompetitionNamePriority(aName, bName, grouped) {
+  const aMatch = grouped[aName][0] || {};
+  const bMatch = grouped[bName][0] || {};
+  return compareCompetitionPriority(aMatch, bMatch) || aName.localeCompare(bName);
+}
+
+function normaliseKickoffTime(value) {
+  const text = String(value || '').trim();
+  return text || 'Scheduled';
+}
+
+function timeSortValue(value) {
+  const text = String(value || '').trim();
+  const match = text.match(/^(\d{1,2}):(\d{2})$/);
+
+  if (!match) {
+    return 99999;
+  }
+
+  return Number(match[1]) * 60 + Number(match[2]);
+}
+
+function populateRoundDropdown() {
+  const select = $('roundFilter');
+
+  if (!select) {
+    return;
+  }
+
+  const rounds = [...new Set(getCompetitionMatches()
+    .map(match => String(match.Round || '').trim())
+    .filter(Boolean))]
+    .sort((a, b) => roundSortValue(a) - roundSortValue(b));
+
+  select.innerHTML = `
+    <option value="">All rounds</option>
+    ${rounds.map(round => `<option value="${escapeHTML(round)}">${escapeHTML(formatRoundLabel(round))}</option>`).join('')}
+  `;
+
+  if (currentRound && rounds.includes(currentRound)) {
+    select.value = currentRound;
+  }
+
+  if (currentRound && !rounds.includes(currentRound)) {
+    currentRound = '';
+    select.value = '';
+  }
+}
+
+function renderScoreboard() {
+  const matches = getFilteredMatches();
+
+  if (!matches.length) {
+    setHTML('scoreboardList', '<div class="empty">No matches found.</div>');
+    return;
+  }
+
+  const nextUp = getNextUpMatch(matches);
+  const html = nextUp
+    ? `
+      ${nextUp.Status === 'FT' ? '<div class="season-complete-note">Season completed. Showing the last match played.</div>' : ''}
+      <section class="round-block">
+        <div class="round-heading">${escapeHTML(formatRoundLabel(nextUp.Round || 'Next Up'))}</div>
+        ${renderScoreboardRow(nextUp)}
+      </section>
+    `
+    : '<div class="empty">No matches found.</div>';
+
+  setHTML('scoreboardList', html);
+}
+
+function getNextUpMatch(matches) {
+  const ordered = [...matches].sort((a, b) => matchDateSortValue(a) - matchDateSortValue(b));
+  const scheduled = ordered.filter(match => match.Status !== 'FT' && matchDateSortValue(match) > 0);
+
+  if (scheduled.length) {
+    return scheduled[0];
+  }
+
+  const completed = ordered
+    .filter(match => match.Status === 'FT' && matchDateSortValue(match) > 0)
+    .sort((a, b) => matchDateSortValue(b) - matchDateSortValue(a));
+
+  return completed[0] || ordered[0] || null;
+}
+
+function renderResults() {
+  const results = getFilteredMatches()
+    .filter(match => match.Status === 'FT')
+    .sort((a, b) => matchDateSortValue(b) - matchDateSortValue(a));
+
+  const html = results.length
+    ? renderGroupedScoreboard(results)
+    : '<div class="empty">No results found.</div>';
+
+  setHTML('resultsList', html);
+
+  const countEl = $('resultsCount');
+
+  if (countEl) {
+    countEl.textContent = `${results.length} matches`;
+  }
+}
+
+function renderFixtures() {
+  const fixtures = getFilteredMatches()
+    .filter(match => match.Status !== 'FT')
+    .sort((a, b) => matchDateSortValue(a) - matchDateSortValue(b));
+
+  const html = fixtures.length
+    ? renderGroupedScoreboard(fixtures)
+    : '<div class="empty">No scheduled games found.</div>';
+
+  setHTML('fixturesList', html);
+
+  const countEl = $('fixturesCount');
+
+  if (countEl) {
+    countEl.textContent = `${fixtures.length} matches`;
+  }
+}
+
+function getFilteredMatches() {
+  let matches = getCompetitionMatches();
+
+  if (currentSearch) {
+    matches = matches.filter(match => {
+      return [
+        match.HomeTeam,
+        match.AwayTeam,
+        match.Round,
+        match.Competition,
+        match.Date,
+        match.Time
+      ].join(' ').toLowerCase().includes(currentSearch);
+    });
+  }
+
+  if (currentRound) {
+    const selectedRoundKey = normaliseText(currentRound);
+    matches = matches.filter(match => normaliseText(match.Round) === selectedRoundKey);
+  }
+
+  if (currentGroup) {
+    const selectedGroupKey = normaliseText(currentGroup);
+
+    const teamsInGroup = (appData.standings || [])
+      .filter(row => normaliseText(row.Group) === selectedGroupKey)
+      .map(row => normaliseTeamName(row.Team))
+      .filter(Boolean);
+
+    matches = matches.filter(match => {
+      const home = normaliseTeamName(match.HomeTeam);
+      const away = normaliseTeamName(match.AwayTeam);
+      const round = normaliseText(match.Round);
+
+      return (
+        teamsInGroup.includes(home) ||
+        teamsInGroup.includes(away) ||
+        round === selectedGroupKey ||
+        round.includes(selectedGroupKey)
+      );
+    });
+  }
+
+  return matches;
+}
+
+function openMatchDetail(matchId) {
+  const allMatches = getGlobalMatches().concat(getCompetitionMatches());
+  const seen = new Set();
+
+  const uniqueMatches = allMatches.filter(match => {
+    const key = match.MatchID || match.ID;
+
+    if (!key) {
+      return false;
+    }
+
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
+
+  const match = uniqueMatches.find(item => item.MatchID === matchId || item.ID === matchId);
+
+  if (!match) {
+    return;
+  }
+
+  const modal = $('matchModal');
+  const content = $('matchDetailContent');
+
+  if (!modal || !content) {
+    return;
+  }
+
+  content.innerHTML = renderMatchDetail(match);
+  modal.classList.remove('hidden');
+  document.body.classList.add('modal-open');
+}
+
+window.openMatchDetail = openMatchDetail;
+
+function renderStats() {
+  const stats = getFilteredStats();
+
+  renderStatList('topScorers', stats, 'Goals', 'topScorers');
+  renderStatList('topAssists', stats, 'Assists', 'topAssists');
+  renderStatList('cleanSheets', stats, 'CleanSheets', 'cleanSheets');
+  renderStatList('yellowCards', stats, 'YellowCards', 'yellowCards');
+  renderStatList('redCards', stats, 'RedCards', 'redCards');
+}
+
+function jumpToSection(section) {
+  const map = {
+    home: 'homeSection',
+    nextUp: 'nextUpSection',
+    summary: 'summarySection',
+    results: 'resultsSection',
+    fixtures: 'fixturesSection',
+    standings: 'standingsSection',
+    stats: 'statsSection'
+  };
+
+  const id = map[section] || section;
+  const el = $(id);
+
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+function updateUrlCompetition(slug) {
+  const url = new URL(window.location.href);
+
+  if (!slug || slug === 'home') {
+    url.searchParams.delete('competition');
+  } else {
+    url.searchParams.set('competition', slug);
+  }
+
+  window.history.replaceState({}, '', url.toString());
+}
+
+function renderCompetitionCategoryNav() {
+  const nav = $('competitionCategoryNav');
+
+  if (!nav || !appData || !appData.competitions) {
+    return;
+  }
+
+  const categories = getCompetitionCategories();
+
+  const homeButton = `
+    <div class="competition-category ${isHomePage() ? 'is-active' : ''}">
+      <button type="button" class="category-button" onclick="goHomePage()">
+        <span class="category-icon">🏠</span>
+        <span class="category-name">Home</span>
+      </button>
+    </div>
+  `;
+
+  nav.innerHTML = homeButton + categories.map(category => {
+    const competitions = getUniqueCompetitionsForCategory(category.key);
+
+    const activeCategory = !isHomePage() && competitions.some(comp => {
+      const active = appData.selectedCompetition || {};
+      return (
+        normaliseCompetitionName(comp['Competition Name']) === normaliseCompetitionName(active['Competition Name']) &&
+        getCompetitionCategoryKey(comp) === getCompetitionCategoryKey(active)
+      );
+    });
+
+    const activeClass = activeCategory ? 'is-active' : '';
+    const disabledClass = competitions.length ? '' : 'is-empty';
+
+    const items = competitions.length
+      ? competitions.map(comp => {
+          const latest = getLatestSeasonForCompetition(comp);
+          const slug = makeCompetitionSlug(latest);
+          const active = appData.selectedCompetition || {};
+          const activeItem = !isHomePage() &&
+            normaliseCompetitionName(comp['Competition Name']) === normaliseCompetitionName(active['Competition Name']) &&
+            getCompetitionCategoryKey(comp) === getCompetitionCategoryKey(active)
+              ? 'active-item'
+              : '';
+
+          return `
+            <button type="button" class="category-menu-item ${activeItem}" onclick="selectCompetitionFromCategory('${escapeAttr(slug)}')">
+              <span>${escapeHTML(comp['Competition Name'] || 'Competition')}</span>
+              ${activeItem ? '<strong>Current</strong>' : ''}
+            </button>
+          `;
+        }).join('')
+      : `<div class="category-empty">No competitions yet</div>`;
+
+    return `
+      <div class="competition-category ${activeClass} ${disabledClass}">
+        <button type="button" class="category-button" onclick="toggleCompetitionCategory('${escapeAttr(category.key)}')">
+          <span class="category-icon">${category.icon}</span>
+          <span class="category-name">${escapeHTML(category.label)}</span>
+          <span class="category-arrow">⌄</span>
+        </button>
+
+        <div class="category-menu" data-category-menu="${escapeAttr(category.key)}">
+          <div class="category-menu-title">
+            <span>${category.icon}</span>
+            <strong>${escapeHTML(category.label)}</strong>
+          </div>
+
+          ${items}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function goHomePage() {
+  const nav = $('competitionCategoryNav');
+
+  if (nav) {
+    nav.querySelectorAll('.category-menu').forEach(menu => {
+      menu.classList.remove('open');
+    });
+  }
+
+  resetFilters();
+  updateUrlCompetition('');
+  await loadCompetition('');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+window.goHomePage = goHomePage;
+
+async function selectCompetitionFromCategory(slug) {
+  const nav = $('competitionCategoryNav');
+
+  if (nav) {
+    nav.querySelectorAll('.category-menu').forEach(menu => {
+      menu.classList.remove('open');
+    });
+  }
+
+  resetFilters();
+  updateUrlCompetition(slug);
+  await loadCompetition(slug);
+  setActiveTab('nextUp');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+window.selectCompetitionFromCategory = selectCompetitionFromCategory;
