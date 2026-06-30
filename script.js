@@ -1,5 +1,4 @@
 const API_URL = 'https://script.google.com/macros/s/AKfycbyFU-9M16UBls1YvTZfXxCDGLFBT2CL1qvTH7S_pmdHCD6kSeQpHQlQW_gg6r5vhfjOZA/exec';
-const FRONTEND_VERSION = '6908-global-home';
 
 let appData = null;
 let currentCompetition = new URLSearchParams(window.location.search).get('competition') || '';
@@ -40,8 +39,8 @@ function resolveInitialCompetition() {
 
 async function loadCompetition(competitionParam) {
   const url = competitionParam
-    ? `${API_URL}?competition=${encodeURIComponent(competitionParam)}&v=${encodeURIComponent(FRONTEND_VERSION)}`
-    : `${API_URL}?mode=home&v=${encodeURIComponent(FRONTEND_VERSION)}`;
+    ? `${API_URL}?competition=${encodeURIComponent(competitionParam)}`
+    : `${API_URL}?mode=home`;
 
   const response = await fetch(url);
 
@@ -356,6 +355,27 @@ window.selectDateTab = function selectDateTab(key) {
   renderDateTabs();
   renderHomeGames();
 };
+
+window.openHomeDatePicker = function openHomeDatePicker() {
+  const picker = $('homeDatePicker');
+
+  if (!picker) {
+    return;
+  }
+
+  try {
+    if (typeof picker.showPicker === 'function') {
+      picker.showPicker();
+      return;
+    }
+  } catch (error) {
+    // Some browsers block showPicker unless called from a direct click.
+  }
+
+  picker.focus();
+  picker.click();
+};
+
 
 function renderHomeGames() {
   const allMatches = appData.allMatches || [];
@@ -2123,8 +2143,8 @@ function dedupeMatchArray(matches) {
 
 async function loadCompetition(competitionParam) {
   const url = competitionParam
-    ? `${API_URL}?competition=${encodeURIComponent(competitionParam)}&v=${encodeURIComponent(FRONTEND_VERSION)}`
-    : `${API_URL}?mode=home&v=${encodeURIComponent(FRONTEND_VERSION)}`;
+    ? `${API_URL}?competition=${encodeURIComponent(competitionParam)}`
+    : `${API_URL}?mode=home`;
 
   const response = await fetch(url);
 
@@ -2345,14 +2365,15 @@ function renderDateTabs() {
 
   const picked = parseDateOnly(selectedDateKey);
   const pickedValue = picked ? dateToKey(picked) : selectedDateKey;
+  const customDateActive = dates.some(item => item.key === selectedDateKey) ? '' : 'active';
 
   container.innerHTML = `
     ${buttons}
-    <label class="date-picker-button ${dates.some(item => item.key === selectedDateKey) ? '' : 'active'}" for="homeDatePicker">
+    <button type="button" class="date-picker-button ${customDateActive}" onclick="openHomeDatePicker()" aria-label="Pick a date">
       <span class="calendar-icon">📅</span>
       <span class="calendar-label">Pick a date</span>
-      <input id="homeDatePicker" type="date" value="${escapeAttr(pickedValue)}" onchange="pickHomeDate(this.value)" aria-label="Pick a date">
-    </label>
+    </button>
+    <input id="homeDatePicker" class="home-date-picker-input" type="date" value="${escapeAttr(pickedValue)}" onchange="pickHomeDate(this.value)" aria-label="Pick a date">
   `;
 }
 
@@ -2361,6 +2382,27 @@ window.selectDateTab = function selectDateTab(key) {
   renderDateTabs();
   renderHomeGames();
 };
+
+window.openHomeDatePicker = function openHomeDatePicker() {
+  const picker = $('homeDatePicker');
+
+  if (!picker) {
+    return;
+  }
+
+  try {
+    if (typeof picker.showPicker === 'function') {
+      picker.showPicker();
+      return;
+    }
+  } catch (error) {
+    // Some browsers block showPicker unless called from a direct click.
+  }
+
+  picker.focus();
+  picker.click();
+};
+
 
 window.pickHomeDate = function pickHomeDate(value) {
   if (!value) {
