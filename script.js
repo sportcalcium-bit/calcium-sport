@@ -205,32 +205,36 @@ function renderHeader() {
   const site = appData.site || {};
   const selected = appData.selectedCompetition || {};
 
+  if (isHomePage()) {
+    setText('siteSubtitle', 'Football results centre');
+    setText('competitionTitle', 'Football');
+    setText('competitionSubtitle', '');
+    setText('regionLabel', '');
+    setText('startDate', '');
+    setText('endDate', '');
+    return;
+  }
+
   const name = selected['Competition Name'] || site.competition || 'Competition';
   const year = selected.Year || site.year || '';
-  const region = selected.Region || site.region || 'Football';
   const logo = selected['Logo URL'] || site.logoUrl || '';
 
   setText('competitionTitle', name);
-  setText('competitionSubtitle', year ? `${name} ${year}` : name);
+  setText('competitionSubtitle', '');
   setText('siteSubtitle', year ? `${name} ${year}` : 'Football results centre');
-  setText('regionLabel', region);
-  setText('startDate', selected.StartDate || site.startDate || 'Start');
-  setText('endDate', selected.EndDate || site.endDate || 'End');
+  setText('regionLabel', '');
+  setText('startDate', '');
+  setText('endDate', '');
 
   const scoreboardTitle = $('scoreboardTitle');
-
-  if (scoreboardTitle) {
-    scoreboardTitle.textContent = `${String(region || 'World').toUpperCase()}: ${name}`;
-  }
+  if (scoreboardTitle) scoreboardTitle.textContent = 'Next Up';
 
   const logoEl = $('competitionLogo');
-
   if (logoEl && logo) {
     logoEl.src = logo;
     logoEl.alt = `${name} logo`;
   }
 }
-
 function populateCompetitionDropdown() {
   const select = $('competitionSelect');
 
@@ -444,8 +448,30 @@ function renderScoreboard() {
     return;
   }
 
-  const ordered = sortMatchesByNextOrLatest(matches);
-  setHTML('scoreboardList', renderSmartScoreboard(ordered));
+  const nextUp = getNextUpMatch(matches);
+
+  if (!nextUp) {
+    setHTML('scoreboardList', '<div class="empty">No matches found.</div>');
+    return;
+  }
+
+  const targetRound = normaliseText(nextUp.Round || '');
+
+  const roundMatches = matches
+    .filter(match => normaliseText(match.Round || '') === targetRound)
+    .sort((a, b) => matchDateSortValue(a) - matchDateSortValue(b));
+
+  const note = nextUp.Status === 'FT'
+    ? '<div class="season-complete-note">Season completed. Showing the last round played.</div>'
+    : '';
+
+  setHTML('scoreboardList', `
+    ${note}
+    <section class="round-block">
+      <div class="round-heading">${escapeHTML(formatRoundLabel(nextUp.Round || 'Next Up'))}</div>
+      ${roundMatches.map(renderScoreboardRow).join('')}
+    </section>
+  `);
 }
 
 function renderResults() {
@@ -555,26 +581,22 @@ function renderScoreboardRow(match) {
   const clickHandler = match.MatchID ? `onclick="openMatchDetail('${escapeAttr(match.MatchID)}')"` : '';
 
   return `
-    <article class="scoreboard-row ${clickableClass}" ${clickHandler}>
+    <article class="scoreboard-row calcium-row-layout ${clickableClass}" ${clickHandler}>
       <div class="scoreboard-date">
         <span class="scoreboard-date-main">${escapeHTML(dateParts.date)}</span>
         <span class="scoreboard-time-main">${escapeHTML(dateParts.time)}</span>
       </div>
 
-      <div class="scoreboard-teams">
-        <div class="score-team-line">
-          ${homeLogo}
-          <span>${escapeHTML(match.HomeTeam)}</span>
-        </div>
-
-        <div class="score-team-line">
-          ${awayLogo}
-          <span>${escapeHTML(match.AwayTeam)}</span>
-        </div>
+      <div class="score-team-line score-team-home">
+        ${homeLogo}
+        <span>${escapeHTML(match.HomeTeam)}</span>
       </div>
 
-      <div class="scoreboard-score single-score">
-        ${score}
+      <div class="scoreboard-score single-score">${score}</div>
+
+      <div class="score-team-line score-team-away">
+        ${awayLogo}
+        <span>${escapeHTML(match.AwayTeam)}</span>
       </div>
     </article>
   `;
@@ -2871,3 +2893,28 @@ window.selectCompetitionFromCategory = selectCompetitionFromCategory;
 window.CALCIUM_SCRIPT_VERSION = '6913-native-date-input';
 
 give me the new full one for all these edits I told you to do
+.hero-top,
+.hero-copy > p,
+.competition-meta-row,
+.date-row {
+  display: none !important;
+}
+
+.scoreboard-row.calcium-row-layout {
+  grid-template-columns: 130px minmax(180px, 1fr) 90px minmax(180px, 1fr) !important;
+  gap: 22px !important;
+}
+
+.scoreboard-row.calcium-row-layout .score-team-home {
+  justify-content: flex-end !important;
+  text-align: right !important;
+}
+
+.scoreboard-row.calcium-row-layout .score-team-away {
+  justify-content: flex-start !important;
+  text-align: left !important;
+}
+
+.scoreboard-row.calcium-row-layout .scoreboard-score {
+  justify-self: center !important;
+}
