@@ -2890,4 +2890,4 @@ async function selectCompetitionFromCategory(slug) {
 
 window.selectCompetitionFromCategory = selectCompetitionFromCategory;
 
-window.CALCIUM_SCRIPT_VERSION = '6913-native-date-input';
+window.CALCIUM_SCRIPT_VERSION = '6915-native-date-input';
