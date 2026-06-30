@@ -2434,3 +2434,194 @@ img {
 .qualification-note .note-dot:first-child {
   margin-left: 0 !important;
 }
+
+
+/* =========================================
+   Calcium Sport update 6906
+   Home landing page + competition pages
+========================================= */
+
+body.is-home-page .hero-card,
+body.is-home-page .filters-card,
+body.is-home-page .scoreboard-card,
+body.is-home-page #resultsSection,
+body.is-home-page #fixturesSection,
+body.is-home-page #standingsSection,
+body.is-home-page #statsSection {
+  display: none !important;
+}
+
+body.is-competition-page #homeSection {
+  display: none !important;
+}
+
+.home-date-tabs {
+  grid-template-columns: repeat(4, minmax(120px, 1fr)) !important;
+}
+
+.date-tabs .date-picker-button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  gap: 3px;
+  min-height: 72px;
+}
+
+.date-picker-button .calendar-icon {
+  display: block;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.date-picker-button .calendar-label {
+  display: block;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.date-picker-button input[type="date"] {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  min-width: 0 !important;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.home-time-block {
+  border-top: 1px solid var(--line);
+}
+
+.home-time-heading {
+  padding: 14px 26px;
+  background: #001116;
+  color: #f3fbff;
+  font-size: 22px;
+  font-weight: 950;
+  letter-spacing: 0.03em;
+}
+
+.home-competition-mini-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 26px 8px;
+  background: #052f38;
+}
+
+.home-competition-mini-title span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 950;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  min-width: 78px;
+}
+
+.home-competition-mini-title strong {
+  font-size: 20px;
+  font-weight: 950;
+}
+
+.home-time-block .home-match-row {
+  grid-template-columns: minmax(0, 1fr) 90px;
+  padding-left: 118px;
+}
+
+.home-time-block .home-match-time {
+  display: none;
+}
+
+.home-picked-date-note {
+  color: var(--muted);
+  padding: 0 26px 18px;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.scoreboard-card#nextUpSection .competition-strip {
+  background: #062f59 !important;
+}
+
+.nextup-label {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 950;
+  text-transform: uppercase;
+  letter-spacing: 0.13em;
+  margin-bottom: 10px;
+}
+
+.season-complete-note {
+  padding: 14px 24px 0;
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.section-tabs button[data-view="nextUp"] {
+  color: #fff;
+}
+
+.filters-card {
+  grid-template-columns: minmax(0, 1fr) 210px 210px auto !important;
+}
+
+@media (max-width: 900px) {
+  .filters-card {
+    grid-template-columns: 1fr !important;
+  }
+
+  .home-time-block .home-match-row {
+    padding-left: 74px;
+  }
+
+  .home-competition-mini-title span {
+    min-width: 58px;
+  }
+}
+
+@media (max-width: 600px) {
+  .home-date-tabs {
+    grid-template-columns: repeat(4, minmax(92px, 1fr)) !important;
+  }
+
+  .date-tabs .date-picker-button {
+    min-height: 68px;
+  }
+
+  .date-picker-button .calendar-icon {
+    font-size: 22px;
+  }
+
+  .date-picker-button .calendar-label {
+    font-size: 10px;
+  }
+
+  .home-time-heading {
+    padding: 13px 16px;
+    font-size: 19px;
+  }
+
+  .home-competition-mini-title {
+    padding: 13px 16px 7px;
+  }
+
+  .home-competition-mini-title span {
+    min-width: 58px;
+    font-size: 11px;
+  }
+
+  .home-competition-mini-title strong {
+    font-size: 17px;
+  }
+
+  .home-time-block .home-match-row {
+    grid-template-columns: minmax(0, 1fr) 70px;
+    padding-left: 74px;
+  }
+}
