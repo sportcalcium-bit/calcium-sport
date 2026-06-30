@@ -2891,28 +2891,3 @@ async function selectCompetitionFromCategory(slug) {
 window.selectCompetitionFromCategory = selectCompetitionFromCategory;
 
 window.CALCIUM_SCRIPT_VERSION = '6913-native-date-input';
-.hero-top,
-.hero-copy > p,
-.competition-meta-row,
-.date-row {
-  display: none !important;
-}
-
-.scoreboard-row.calcium-row-layout {
-  grid-template-columns: 130px minmax(180px, 1fr) 90px minmax(180px, 1fr) !important;
-  gap: 22px !important;
-}
-
-.scoreboard-row.calcium-row-layout .score-team-home {
-  justify-content: flex-end !important;
-  text-align: right !important;
-}
-
-.scoreboard-row.calcium-row-layout .score-team-away {
-  justify-content: flex-start !important;
-  text-align: left !important;
-}
-
-.scoreboard-row.calcium-row-layout .scoreboard-score {
-  justify-self: center !important;
-}
