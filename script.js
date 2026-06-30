@@ -2351,7 +2351,7 @@ function renderDateTabs() {
     <label class="date-picker-button ${customDateActive}" aria-label="Pick a date">
       <span class="calendar-icon">📅</span>
       <span class="calendar-label">Pick a date</span>
-      <input id="homeDatePicker" class="home-date-picker-native" type="date" value="${escapeAttr(pickedValue)}" onchange="pickHomeDate(this.value)" aria-label="Pick a date">
+      <input id="homeDatePicker" type="date" value="${escapeAttr(pickedValue)}" onchange="pickHomeDate(this.value)" aria-label="Pick a date">
     </label>
   `;
 }
