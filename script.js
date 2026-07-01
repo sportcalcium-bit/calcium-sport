@@ -399,11 +399,7 @@ function renderHomeGames() {
 
 function renderHomeMatchRow(match) {
   const isFinished = match.Status === 'FT';
-  const timeLabel = isFinished ? 'FT' : (match.Time || 'Scheduled');
-
-  const scoreLabel = isFinished
-    ? renderScoreText(match)
-    : '- : -';
+  const scoreLabel = isFinished ? renderScoreText(match) : '- : -';
 
   const homeLogo = match.HomeLogo
     ? `<img src="${escapeAttr(match.HomeLogo)}" alt="">`
@@ -416,26 +412,15 @@ function renderHomeMatchRow(match) {
   const clickHandler = match.MatchID ? `onclick="openMatchDetail('${escapeAttr(match.MatchID)}')"` : '';
 
   return `
-    <article class="home-match-row" ${clickHandler}>
-      <div class="home-match-time">${escapeHTML(timeLabel)}</div>
-
-      <div class="home-match-teams">
-        <div>
-          ${homeLogo}
-          <span>${escapeHTML(match.HomeTeam)}</span>
-        </div>
-
-        <div>
-          ${awayLogo}
-          <span>${escapeHTML(match.AwayTeam)}</span>
-        </div>
-      </div>
-
+    <article class="home-match-row home-row-layout" ${clickHandler}>
+      <div class="score-team-home-name">${escapeHTML(match.HomeTeam)}</div>
+      <div class="score-team-home-logo">${homeLogo}</div>
       <div class="home-match-score">${scoreLabel}</div>
+      <div class="score-team-away-logo">${awayLogo}</div>
+      <div class="score-team-away-name">${escapeHTML(match.AwayTeam)}</div>
     </article>
   `;
 }
-
 function getRegionForCompetition(match) {
   return String(match.Region || 'World').toUpperCase();
 }
