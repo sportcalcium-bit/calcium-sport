@@ -2713,3 +2713,36 @@ body.is-competition-page #homeSection {
     justify-self: end !important;
   }
 }
+.home-match-row.home-row-layout {
+  grid-template-columns: minmax(160px, 1fr) 46px 90px 46px minmax(160px, 1fr) !important;
+  gap: 16px !important;
+  align-items: center !important;
+  padding-left: 26px !important;
+}
+
+.home-match-row.home-row-layout .home-match-score {
+  justify-self: center !important;
+  text-align: center !important;
+  font-size: 22px !important;
+  font-weight: 950 !important;
+}
+
+@media (max-width: 700px) {
+  .home-match-row.home-row-layout {
+    grid-template-columns: minmax(0, 1fr) 56px !important;
+  }
+
+  .home-match-row.home-row-layout .score-team-home-logo,
+  .home-match-row.home-row-layout .score-team-away-logo,
+  .home-match-row.home-row-layout .score-team-away-name {
+    display: none !important;
+  }
+
+  .home-match-row.home-row-layout .score-team-home-name {
+    text-align: left !important;
+  }
+
+  .home-match-row.home-row-layout .home-match-score {
+    justify-self: end !important;
+  }
+}
