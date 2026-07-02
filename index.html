@@ -4,8 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Calcium Sport Results Centre</title>
-  <link rel="stylesheet" href="./style.css?v=6922" />
+  <link rel="stylesheet" href="./style.css?v=6924" />
 </head>
+
 <body>
   <header class="site-header">
     <div class="brand">
@@ -21,77 +22,65 @@
         <div class="category-loading">Loading competitions...</div>
       </nav>
 
-      <div class="header-controls compact-controls">
-        <label class="hidden-competition-select">
-          <span>Competition</span>
-          <select id="competitionSelect">
-            <option>Loading...</option>
-          </select>
-        </label>
-
-        <label>
-          <span>Jump to</span>
-          <select id="jumpSelect">
-            <option value="nextUp">Next Up</option>
-            <option value="myGames">My Games</option>
-            <option value="results">Results</option>
-            <option value="fixtures">Fixtures</option>
-            <option value="standings">Standings</option>
-            <option value="stats">Stats</option>
-          </select>
-        </label>
-      </div>
+      <label class="jump-control">
+        <span>Jump to</span>
+        <select id="jumpSelect">
+          <option value="nextUp">Next Up</option>
+          <option value="myGames">My Games</option>
+          <option value="results">Results</option>
+          <option value="fixtures">Fixtures</option>
+          <option value="standings">Standings</option>
+          <option value="stats">Stats</option>
+        </select>
+      </label>
     </div>
   </header>
 
   <main class="page-shell">
-    <section class="mobile-home" id="homeSection">
-      <div class="mobile-title-row">
+    <section class="home-card" id="homeSection">
+      <div class="home-title-row">
         <div class="football-title">
-          <span class="football-icon">⚽</span>
+          <span>⚽</span>
           <strong>Football</strong>
         </div>
       </div>
 
-      <div id="dateTabs" class="date-tabs home-date-tabs"></div>
+      <div id="dateTabs" class="date-tabs"></div>
 
-      <div class="home-switch-tabs" id="homeSwitchTabs">
+      <div class="home-switch-tabs">
         <button type="button" class="active" data-home-tab="allGames">All Games</button>
         <button type="button" data-home-tab="myGames">My Games</button>
       </div>
 
-      <div class="all-games-header" id="allGamesHeader">
-        <span class="list-icon">☷</span>
-        <strong id="homeAllGamesTitle">All games</strong>
-        <span id="homeMatchCount" class="match-count-pill">0</span>
+      <div id="allGamesPanel">
+        <div class="section-count-header">
+          <span>☷</span>
+          <strong id="homeAllGamesTitle">All games</strong>
+          <b id="homeMatchCount">0</b>
+        </div>
+
+        <div id="homeGamesList">
+          <div class="empty">Loading games...</div>
+        </div>
       </div>
 
-      <div id="homeGamesList" class="home-games-list">
-        <div class="empty">Loading games...</div>
-      </div>
-
-      <div id="myGamesPanel" class="my-games-panel hidden">
+      <div id="myGamesPanel" class="hidden">
         <div class="my-games-header">
           <div>
             <span class="eyebrow">My Games</span>
             <h2 id="myGamesTitle">Current week</h2>
             <p id="myGamesSubtitle">Games to play this week</p>
           </div>
-          <span id="myGamesCount" class="match-count-pill">0</span>
+          <b id="myGamesCount">0</b>
         </div>
-        <div id="myGamesList" class="my-games-list">
+
+        <div id="myGamesList">
           <div class="empty">Loading my games...</div>
         </div>
       </div>
     </section>
 
     <section class="hero-card" id="summarySection">
-      <div class="hero-top">
-        <span>Football</span>
-        <span>›</span>
-        <span id="regionLabel">World</span>
-      </div>
-
       <div class="hero-main">
         <div class="competition-logo-wrap">
           <img id="competitionLogo" src="" alt="Competition logo" />
@@ -101,7 +90,7 @@
           <div class="competition-title-row">
             <h2 id="competitionTitle">Loading...</h2>
 
-            <label class="season-switcher-wrap" id="seasonSwitcherWrap">
+            <label id="seasonSwitcherWrap" class="season-switcher-wrap">
               <span>Season</span>
               <select id="seasonSelect">
                 <option>Loading...</option>
@@ -110,11 +99,6 @@
           </div>
 
           <p id="competitionSubtitle">Loading competition data</p>
-
-          <div class="competition-meta-row">
-            <span id="startDate">Start</span>
-            <span id="endDate">End</span>
-          </div>
         </div>
       </div>
 
@@ -220,6 +204,6 @@
 
   <button id="backToTop" class="back-to-top" type="button">↑</button>
 
-  <script src="./script.js?v=6922"></script>
+  <script src="./script.js?v=6924"></script>
 </body>
 </html>
