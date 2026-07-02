@@ -2746,3 +2746,336 @@ body.is-competition-page #homeSection {
     justify-self: end !important;
   }
 }
+
+/* =========================================
+   Calcium Sport 6920
+   My Games home tab + fully responsive polish
+========================================= */
+
+.hidden { display: none !important; }
+
+.home-switch-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: #001116;
+  border-bottom: 1px solid var(--line);
+}
+
+.home-switch-tabs button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 18px 14px;
+  font-weight: 950;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  border-bottom: 5px solid transparent;
+}
+
+.home-switch-tabs button.active {
+  color: #fff;
+  border-bottom-color: var(--accent);
+}
+
+.my-games-panel {
+  background: linear-gradient(180deg, rgba(5,45,53,.92), rgba(0,17,22,.96));
+}
+
+.my-games-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 24px 26px;
+  background: #001116;
+  border-bottom: 1px solid var(--line);
+}
+
+.my-games-header h2 {
+  margin: 3px 0;
+  font-size: clamp(28px, 4vw, 42px);
+  line-height: 1;
+}
+
+.my-games-header p {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.eyebrow {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 950;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.my-games-league-card {
+  border-top: 1px solid var(--line);
+  background: rgba(3, 36, 43, 0.74);
+}
+
+.my-games-league-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 26px;
+  background: #052f38;
+}
+
+.my-games-region {
+  min-width: 96px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 950;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+}
+
+.my-games-league-name {
+  font-size: 22px;
+  font-weight: 950;
+}
+
+.my-games-match {
+  display: grid;
+  grid-template-columns: 90px minmax(150px, 1fr) 46px 90px 46px minmax(150px, 1fr) 96px;
+  gap: 14px;
+  align-items: center;
+  min-height: 78px;
+  padding: 12px 26px;
+  border-top: 1px solid var(--line);
+  cursor: pointer;
+}
+
+.my-games-match:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.my-games-date {
+  display: grid;
+  gap: 3px;
+  color: #d3e2e8;
+  font-weight: 950;
+  line-height: 1.05;
+}
+
+.my-games-date span:last-child {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.my-games-team-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 19px;
+  font-weight: 950;
+}
+
+.my-games-team-name.home {
+  text-align: right;
+}
+
+.my-games-logo {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.my-games-logo img,
+.team-logo {
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  max-width: 32px !important;
+  min-height: 32px !important;
+  max-height: 32px !important;
+  padding: 4px !important;
+  object-fit: contain !important;
+  object-position: center !important;
+  border-radius: 999px !important;
+  background: radial-gradient(circle at 35% 25%, #ffffff 0%, #eef4f6 100%) !important;
+  border: 1px solid rgba(255,255,255,.18) !important;
+  box-shadow: 0 3px 10px rgba(0,0,0,.26) !important;
+}
+
+.my-games-score {
+  justify-self: center;
+  min-width: 70px;
+  text-align: center;
+  font-size: 21px;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.my-games-status {
+  justify-self: end;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 950;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+
+.site-header,
+.page-shell,
+.mobile-home,
+.hero-card,
+.filters-card,
+.scoreboard-card,
+.panel,
+match-detail-card {
+  max-width: 100%;
+}
+
+img {
+  max-width: 100%;
+}
+
+@media (max-width: 900px) {
+  .site-header {
+    position: relative;
+  }
+
+  .page-shell {
+    width: min(100%, calc(100% - 24px));
+  }
+
+  .my-games-match {
+    grid-template-columns: 76px minmax(0, 1fr) 40px 70px 40px minmax(0, 1fr);
+  }
+
+  .my-games-status {
+    display: none;
+  }
+
+  .my-games-team-name {
+    font-size: 16px;
+  }
+
+  .my-games-score {
+    min-width: 58px;
+    font-size: 18px;
+  }
+}
+
+@media (max-width: 600px) {
+  .page-shell {
+    width: 100%;
+    padding: 0 10px;
+  }
+
+  .site-header {
+    overflow: visible;
+  }
+
+  .competition-category-nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .category-menu {
+    top: 120px;
+  }
+
+  .home-switch-tabs button {
+    padding: 15px 10px;
+    font-size: 12px;
+  }
+
+  .my-games-header {
+    padding: 18px 16px;
+  }
+
+  .my-games-header h2 {
+    font-size: 27px;
+  }
+
+  .my-games-header p {
+    font-size: 13px;
+  }
+
+  .my-games-league-head {
+    padding: 14px 16px;
+  }
+
+  .my-games-region {
+    min-width: 74px;
+    font-size: 10px;
+  }
+
+  .my-games-league-name {
+    font-size: 18px;
+  }
+
+  .my-games-match {
+    grid-template-columns: 58px minmax(0, 1fr) 54px;
+    gap: 10px;
+    min-height: 72px;
+    padding: 10px 16px;
+  }
+
+  .my-games-date {
+    font-size: 13px;
+  }
+
+  .my-games-date span:last-child {
+    font-size: 11px;
+  }
+
+  .my-games-team-name.home {
+    text-align: left;
+  }
+
+  .my-games-team-name.away,
+  .my-games-logo {
+    display: none;
+  }
+
+  .my-games-score {
+    justify-self: end;
+    min-width: 48px;
+    font-size: 16px;
+  }
+
+  .home-time-block .home-match-row,
+  .home-match-row.home-row-layout {
+    grid-template-columns: minmax(0, 1fr) 58px !important;
+    padding-left: 16px !important;
+  }
+
+  .home-match-row.home-row-layout .score-team-home-name {
+    display: block !important;
+    text-align: left !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .home-match-row.home-row-layout .score-team-home-logo,
+  .home-match-row.home-row-layout .score-team-away-logo,
+  .home-match-row.home-row-layout .score-team-away-name {
+    display: none !important;
+  }
+
+  .scoreboard-row.calcium-row-layout {
+    grid-template-columns: 70px minmax(0, 1fr) 54px !important;
+  }
+
+  .scoreboard-row.calcium-row-layout .score-team-home-name {
+    display: block !important;
+    text-align: left !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 15px !important;
+  }
+
+  .scoreboard-row.calcium-row-layout .score-team-away-name,
+  .scoreboard-row.calcium-row-layout .score-team-home-logo,
+  .scoreboard-row.calcium-row-layout .score-team-away-logo {
+    display: none !important;
+  }
+}
