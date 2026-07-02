@@ -3092,3 +3092,64 @@ img {
     display: none !important;
   }
 }
+/* FINAL LOGO FIX - always keep at bottom */
+
+.team-logo {
+  width: 42px !important;
+  height: 42px !important;
+  min-width: 42px !important;
+  min-height: 42px !important;
+  max-width: 42px !important;
+  max-height: 42px !important;
+
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  background: #ffffff !important;
+  border-radius: 50% !important;
+  padding: 6px !important;
+  box-sizing: border-box !important;
+  box-shadow: 0 3px 10px rgba(0,0,0,.26) !important;
+  overflow: hidden !important;
+  flex-shrink: 0 !important;
+}
+
+.team-logo img {
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+
+  object-fit: contain !important;
+  object-position: center !important;
+
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+
+.my-games-logo img,
+.score-team-home-logo img,
+.score-team-away-logo img {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+@media (max-width: 600px) {
+  .team-logo {
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+    min-height: 34px !important;
+    max-width: 34px !important;
+    max-height: 34px !important;
+    padding: 5px !important;
+  }
+}
