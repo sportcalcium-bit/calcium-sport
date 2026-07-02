@@ -385,8 +385,7 @@ window.pickHomeDate = function pickHomeDate(value) {
 };
 
 function renderHomeTab() {
-  const allHeader = $('allGamesHeader');
-  const allList = $('homeGamesList');
+  const allPanel = $('allGamesPanel');
   const myPanel = $('myGamesPanel');
   const jumpSelect = $('jumpSelect');
 
@@ -394,8 +393,7 @@ function renderHomeTab() {
     button.classList.toggle('active', button.getAttribute('data-home-tab') === currentHomeTab);
   });
 
-  if (allHeader) allHeader.classList.toggle('hidden', currentHomeTab !== 'allGames');
-  if (allList) allList.classList.toggle('hidden', currentHomeTab !== 'allGames');
+  if (allPanel) allPanel.classList.toggle('hidden', currentHomeTab !== 'allGames');
   if (myPanel) myPanel.classList.toggle('hidden', currentHomeTab !== 'myGames');
 
   if (jumpSelect && isHomePage()) {
@@ -403,93 +401,34 @@ function renderHomeTab() {
   }
 }
 
-function renderHomeGames() {
-  const matches = getGlobalMatches()
-    .filter(match => getDateKey(match.Date) === selectedDateKey)
-    .sort(compareHomeMatches);
-
-  const countEl = $('homeMatchCount');
-  const titleEl = $('homeAllGamesTitle');
-
-  if (countEl) countEl.textContent = matches.length;
-  if (titleEl) titleEl.textContent = `All games (${matches.length})`;
-
-  if (!matches.length) {
-    setHTML('homeGamesList', '<div class="empty">No games scheduled on this date.</div>');
-    return;
-  }
-
-  const timeGroups = groupBy(matches, match => normaliseKickoffTime(match.Time));
-
-  const html = Object.keys(timeGroups)
-    .sort((a, b) => timeSortValue(a) - timeSortValue(b))
-    .map(time => {
-      const timeMatches = timeGroups[time].sort(compareCompetitionPriority);
-      const competitionGroups = groupBy(timeMatches, match => match.CompetitionLabel || match.Competition || 'Competition');
-
-      const competitionsHtml = Object.keys(competitionGroups)
-        .sort((a, b) => compareCompetitionNamePriority(a, b, competitionGroups))
-        .map(competitionName => {
-          const compMatches = competitionGroups[competitionName];
-
-          return `
-            <section class="home-competition-block">
-              <div class="home-competition-mini-title">
-                <span>${escapeHTML(getRegionForCompetition(compMatches[0]))}</span>
-                <strong>${escapeHTML(competitionName)}</strong>
-              </div>
-              ${compMatches.map(renderHomeMatchRow).join('')}
-            </section>
-          `;
-        }).join('');
-
-      return `
-        <section class="home-time-block">
-          <div class="home-time-heading">${escapeHTML(time || 'Scheduled')}</div>
-          ${competitionsHtml}
-        </section>
-      `;
-    }).join('');
-
-  setHTML('homeGamesList', html);
-}
-
-function renderHomeMatchRow(match) {
-  const scoreLabel = match.Status === 'FT' ? renderScoreText(match) : '- : -';
-  const clickHandler = match.MatchID ? `onclick="openMatchDetail('${escapeAttr(match.MatchID)}')"` : '';
-
-  return `
-    <article class="home-match-row" ${clickHandler}>
-      <div class="score-team-home-name">${escapeHTML(match.HomeTeam)}</div>
-      <div class="score-team-home-logo">${renderTeamLogo(match.HomeLogo, match.HomeTeam)}</div>
-      <div class="home-match-score">${scoreLabel}</div>
-      <div class="score-team-away-logo">${renderTeamLogo(match.AwayLogo, match.AwayTeam)}</div>
-      <div class="score-team-away-name">${escapeHTML(match.AwayTeam)}</div>
-    </article>
-  `;
-}
-
 function renderMyGames() {
   const all = Array.isArray(appData && appData.myGames) ? appData.myGames : [];
   const selected = parseDateOnly(selectedDateKey) || new Date();
 
+  const weekStart = getMonday(selected);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+
   const weekMatches = all
-    .filter(match => isDateInsideWeekText(selected, match.WeekDates) || getDateKey(match.Date) === selectedDateKey)
+    .filter(match => {
+      const matchDate = parseDateOnly(match.Date);
+      if (!matchDate) return false;
+
+      const cleanMatchDate = new Date(matchDate.getFullYear(), matchDate.getMonth(), matchDate.getDate());
+      return cleanMatchDate >= weekStart && cleanMatchDate <= weekEnd;
+    })
     .sort(compareMyGamesMatches);
 
   const titleEl = $('myGamesTitle');
   const subtitleEl = $('myGamesSubtitle');
   const countEl = $('myGamesCount');
 
-  const weekLabel = weekMatches[0]?.Week || getSeasonWeekLabel(selected);
-  const weekDates = weekMatches[0]?.WeekDates || getWeekRangeLabel(selected);
-
-  if (titleEl) titleEl.textContent = weekLabel;
-  if (subtitleEl) subtitleEl.textContent = weekDates;
+  if (titleEl) titleEl.textContent = getSeasonWeekLabel(selected);
+  if (subtitleEl) subtitleEl.textContent = getWeekRangeLabel(selected);
   if (countEl) countEl.textContent = weekMatches.length;
 
   if (!weekMatches.length) {
-    setHTML('myGamesList', '<div class="empty">No My Games found for this week.</div>');
+    setHTML('myGamesList', '<div class="empty home-empty">No My Games found for this week.</div>');
     return;
   }
 
@@ -525,25 +464,34 @@ function renderMyGames() {
   setHTML('myGamesList', html);
 }
 
-function renderMyGamesRow(match) {
-  const dateParts = formatScoreboardDateParts(match.Date, match.Time);
-  const score = match.Status === 'FT' ? renderScoreText(match) : '- : -';
-  const clickHandler = match.MatchID ? `onclick="openMatchDetail('${escapeAttr(match.MatchID)}')"` : '';
+function getMonday(date) {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  return d;
+}
 
-  return `
-    <article class="my-games-match" ${clickHandler}>
-      <div class="my-games-date">
-        <span>${escapeHTML(dateParts.date)}</span>
-        <span>${escapeHTML(dateParts.time)}</span>
-      </div>
-      <div class="my-games-team-name home">${escapeHTML(match.HomeTeam)}</div>
-      <div class="my-games-logo">${renderTeamLogo(match.HomeLogo, match.HomeTeam)}</div>
-      <div class="my-games-score">${score}</div>
-      <div class="my-games-logo">${renderTeamLogo(match.AwayLogo, match.AwayTeam)}</div>
-      <div class="my-games-team-name away">${escapeHTML(match.AwayTeam)}</div>
-      <div class="my-games-status">${escapeHTML(match.Status || 'Scheduled')}</div>
-    </article>
-  `;
+function getWeekRangeLabel(date) {
+  const monday = getMonday(date);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+
+  return `${formatMyGamesDate(monday)} - ${formatMyGamesDate(sunday)}`;
+}
+
+function getSeasonWeekLabel(date) {
+  const selected = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  let seasonStartYear = selected.getMonth() >= 7 ? selected.getFullYear() : selected.getFullYear() - 1;
+  let firstMonday = getFirstMondayOfAugust(seasonStartYear);
+
+  if (selected < firstMonday) {
+    seasonStartYear -= 1;
+    firstMonday = getFirstMondayOfAugust(seasonStartYear);
+  }
+
+  const diff = Math.floor((selected - firstMonday) / 604800000);
+  return `Week ${Math.max(1, diff + 1)}`;
 }
 
 function renderScoreboard() {
@@ -1738,29 +1686,6 @@ function getPenaltyWinnerText(match) {
   if (hp > ap) return `${match.HomeTeam} win ${hp}-${ap} on penalties`;
   if (ap > hp) return `${match.AwayTeam} win ${ap}-${hp} on penalties`;
   return '';
-}
-
-function isDateInsideWeekText(date, weekText) {
-  const text = String(weekText || '').trim();
-  const match = text.match(/(\d{1,2})[\/.-](\d{1,2})\s*-\s*(\d{1,2})[\/.-](\d{1,2})/);
-
-  if (!match) return false;
-
-  const selectedYear = date.getFullYear();
-  let start = new Date(selectedYear, Number(match[2]) - 1, Number(match[1]));
-  let end = new Date(selectedYear, Number(match[4]) - 1, Number(match[3]));
-
-  if (end < start) {
-    end = new Date(selectedYear + 1, Number(match[4]) - 1, Number(match[3]));
-  }
-
-  const selected = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-
-  if (selected < start && start.getMonth() > 7 && selected.getMonth() < 2) {
-    start = new Date(selectedYear - 1, start.getMonth(), start.getDate());
-  }
-
-  return selected >= start && selected <= end;
 }
 
 function getWeekRangeLabel(date) {
