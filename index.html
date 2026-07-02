@@ -4,13 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Calcium Sport Results Centre</title>
-  <link rel="stylesheet" href="./style.css?v=6918" />
+  <link rel="stylesheet" href="./style.css?v=6921" />
 </head>
 <body>
   <header class="site-header">
     <div class="brand">
       <img class="brand-logo" src="./calcium-logo.jpeg" alt="Calcium Sport logo" />
-
       <div>
         <h1>Calcium Sport</h1>
         <p id="siteSubtitle">Football results centre</p>
@@ -34,6 +33,7 @@
           <span>Jump to</span>
           <select id="jumpSelect">
             <option value="nextUp">Next Up</option>
+            <option value="myGames">My Games</option>
             <option value="results">Results</option>
             <option value="fixtures">Fixtures</option>
             <option value="standings">Standings</option>
@@ -55,7 +55,12 @@
 
       <div id="dateTabs" class="date-tabs home-date-tabs"></div>
 
-      <div class="all-games-header">
+      <div class="home-switch-tabs" id="homeSwitchTabs">
+        <button type="button" class="active" data-home-tab="allGames">All Games</button>
+        <button type="button" data-home-tab="myGames">My Games</button>
+      </div>
+
+      <div class="all-games-header" id="allGamesHeader">
         <span class="list-icon">☷</span>
         <strong id="homeAllGamesTitle">All games</strong>
         <span id="homeMatchCount" class="match-count-pill">0</span>
@@ -63,6 +68,20 @@
 
       <div id="homeGamesList" class="home-games-list">
         <div class="empty">Loading games...</div>
+      </div>
+
+      <div id="myGamesPanel" class="my-games-panel hidden">
+        <div class="my-games-header">
+          <div>
+            <span class="eyebrow">My Games</span>
+            <h2 id="myGamesTitle">Current week</h2>
+            <p id="myGamesSubtitle">Games to play this week</p>
+          </div>
+          <span id="myGamesCount" class="match-count-pill">0</span>
+        </div>
+        <div id="myGamesList" class="my-games-list">
+          <div class="empty">Loading my games...</div>
+        </div>
       </div>
     </section>
 
@@ -201,6 +220,6 @@
 
   <button id="backToTop" class="back-to-top" type="button">↑</button>
 
-  <script src="./script.js?v=6918"></script>
+  <script src="./script.js?v=6921"></script>
 </body>
 </html>
