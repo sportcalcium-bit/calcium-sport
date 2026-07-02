@@ -6,27 +6,17 @@ let currentSearch = '';
 let currentGroup = '';
 let currentRound = '';
 let selectedDateKey = '';
+let currentHomeTab = 'allGames';
 
 let expandedStats = {
   topScorers: false,
   topAssists: false,
+  cleanSheets: false,
   yellowCards: false,
   redCards: false
 };
 
 const $ = id => document.getElementById(id);
-
-function renderTeamLogo(url, teamName, extraClass = '') {
-  if (!url) {
-    return `<span class="team-logo ${extraClass} team-logo-empty"></span>`;
-  }
-
-  return `
-    <span class="team-logo ${extraClass}">
-      <img src="${escapeAttr(url)}" alt="${escapeAttr(teamName || 'Team logo')}" loading="lazy">
-    </span>
-  `;
-}
 
 init();
 
@@ -34,7 +24,7 @@ async function init() {
   setLoadingState();
 
   try {
-    await loadCompetition(resolveInitialCompetition());
+    await loadCompetition(currentCompetition);
     bindEvents();
   } catch (error) {
     console.error(error);
@@ -42,16 +32,12 @@ async function init() {
   }
 }
 
-function resolveInitialCompetition() {
-  return currentCompetition || '';
-}
-
 async function loadCompetition(competitionParam) {
   const url = competitionParam
     ? `${API_URL}?competition=${encodeURIComponent(competitionParam)}`
     : `${API_URL}?mode=home`;
 
-  const response = await fetch(url);
+  const response = await fetch(url, { cache: 'no-store' });
 
   if (!response.ok) {
     throw new Error(`Backend error: ${response.status}`);
@@ -73,34 +59,24 @@ async function loadCompetition(competitionParam) {
   expandedStats = {
     topScorers: false,
     topAssists: false,
+    cleanSheets: false,
     yellowCards: false,
     redCards: false
   };
 
-  populateCompetitionDropdown();
-  populateGroupDropdown();
-  populateRoundDropdown();
-  populateSeasonDropdown();
+  populateCompetitionDropdowns();
+  populateFilters();
   renderAll();
 }
 
 function bindEvents() {
-  const competitionSelect = $('competitionSelect');
   const seasonSelect = $('seasonSelect');
   const jumpSelect = $('jumpSelect');
   const searchInput = $('searchInput');
   const groupFilter = $('groupFilter');
   const roundFilter = $('roundFilter');
   const clearBtn = $('clearFilters');
-
-  if (competitionSelect) {
-    competitionSelect.addEventListener('change', async event => {
-      const selected = event.target.value;
-      resetFilters();
-      updateUrlCompetition(selected);
-      await loadCompetition(selected);
-    });
-  }
+  const backTop = $('backToTop');
 
   if (seasonSelect) {
     seasonSelect.addEventListener('change', async event => {
@@ -114,7 +90,6 @@ function bindEvents() {
   if (jumpSelect) {
     jumpSelect.addEventListener('change', event => {
       jumpToSection(event.target.value);
-      setActiveTab(event.target.value);
     });
   }
 
@@ -154,35 +129,43 @@ function bindEvents() {
     });
   });
 
-  const backTop = $('backToTop');
+  document.querySelectorAll('[data-home-tab]').forEach(button => {
+    button.addEventListener('click', () => {
+      currentHomeTab = button.getAttribute('data-home-tab') || 'allGames';
+      renderHomeTab();
+    });
+  });
 
   if (backTop) {
     backTop.addEventListener('click', () => {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     });
   }
+
+  document.addEventListener('click', event => {
+    const nav = $('competitionCategoryNav');
+
+    if (!nav) {
+      return;
+    }
+
+    if (!nav.contains(event.target)) {
+      nav.querySelectorAll('.category-menu').forEach(menu => {
+        menu.classList.remove('open');
+      });
+    }
+  });
 }
 
-function resetFilters() {
-  currentSearch = '';
-  currentGroup = '';
-  currentRound = '';
-
-  const searchInput = $('searchInput');
-  const groupFilter = $('groupFilter');
-  const roundFilter = $('roundFilter');
-
-  if (searchInput) {
-    searchInput.value = '';
-  }
-
-  if (groupFilter) {
-    groupFilter.value = '';
-  }
-
-  if (roundFilter) {
-    roundFilter.value = '';
-  }
+function setLoadingState() {
+  setText('competitionTitle', 'Loading...');
+  setText('competitionSubtitle', 'Loading competition data');
+  setHTML('homeGamesList', '<div class="empty">Loading games...</div>');
+  setHTML('myGamesList', '<div class="empty">Loading my games...</div>');
+  setHTML('scoreboardList', '<div class="empty">Loading matches...</div>');
+  setHTML('resultsList', '<div class="empty">Loading results...</div>');
+  setHTML('fixturesList', '<div class="empty">Loading fixtures...</div>');
+  setHTML('standingsContainer', '<div class="empty">Loading standings...</div>');
 }
 
 function renderAll() {
@@ -190,9 +173,19 @@ function renderAll() {
     return;
   }
 
+  document.body.classList.toggle('is-home-page', isHomePage());
+  document.body.classList.toggle('is-competition-page', !isHomePage());
+
   renderHeader();
   renderDateTabs();
-  renderHomeGames();
+
+  if (isHomePage()) {
+    renderHomeGames();
+    renderMyGames();
+    renderHomeTab();
+    return;
+  }
+
   renderScoreboard();
   renderResults();
   renderFixtures();
@@ -200,14 +193,8 @@ function renderAll() {
   renderStats();
 }
 
-function setLoadingState() {
-  setText('competitionTitle', 'Loading...');
-  setText('competitionSubtitle', 'Loading competition data');
-  setHTML('homeGamesList', '<div class="empty">Loading games...</div>');
-  setHTML('scoreboardList', '<div class="empty">Loading matches...</div>');
-  setHTML('resultsList', '<div class="empty">Loading results...</div>');
-  setHTML('fixturesList', '<div class="empty">Loading fixtures...</div>');
-  setHTML('standingsContainer', '<div class="empty">Loading standings...</div>');
+function isHomePage() {
+  return !new URLSearchParams(window.location.search).get('competition');
 }
 
 function renderHeader() {
@@ -217,10 +204,7 @@ function renderHeader() {
   if (isHomePage()) {
     setText('siteSubtitle', 'Football results centre');
     setText('competitionTitle', 'Football');
-    setText('competitionSubtitle', '');
-    setText('regionLabel', '');
-    setText('startDate', '');
-    setText('endDate', '');
+    setText('competitionSubtitle', 'All games across every competition');
     return;
   }
 
@@ -229,44 +213,30 @@ function renderHeader() {
   const logo = selected['Logo URL'] || site.logoUrl || '';
 
   setText('competitionTitle', name);
-  setText('competitionSubtitle', '');
+  setText('competitionSubtitle', year ? `${name} ${year}` : name);
   setText('siteSubtitle', year ? `${name} ${year}` : 'Football results centre');
-  setText('regionLabel', '');
-  setText('startDate', '');
-  setText('endDate', '');
-
-  const scoreboardTitle = $('scoreboardTitle');
-  if (scoreboardTitle) scoreboardTitle.textContent = 'Next Up';
 
   const logoEl = $('competitionLogo');
+
   if (logoEl && logo) {
     logoEl.src = logo;
     logoEl.alt = `${name} logo`;
   }
 }
-function populateCompetitionDropdown() {
-  const select = $('competitionSelect');
 
-  if (select) {
-    const competitions = appData.competitions || [];
-
-    select.innerHTML = competitions.map(comp => {
-      const value = makeCompetitionSlug(comp);
-      const label = `${comp['Competition Name'] || 'Competition'} ${comp.Year || ''}`.trim();
-      const selected = value === currentCompetition ? 'selected' : '';
-
-      return `<option value="${escapeHTML(value)}" ${selected}>${escapeHTML(label)}</option>`;
-    }).join('');
-  }
-
+function populateCompetitionDropdowns() {
   renderCompetitionCategoryNav();
+  populateSeasonDropdown();
 }
 
 function populateSeasonDropdown() {
   const seasonSelect = $('seasonSelect');
   const seasonWrap = $('seasonSwitcherWrap');
 
-  if (!seasonSelect || !seasonWrap || !appData || !appData.selectedCompetition) {
+  if (!seasonSelect || !seasonWrap || isHomePage() || !appData || !appData.selectedCompetition) {
+    if (seasonWrap) {
+      seasonWrap.classList.add('is-hidden');
+    }
     return;
   }
 
@@ -296,8 +266,13 @@ function populateSeasonDropdown() {
     const label = comp.Year || 'Season';
     const selectedOption = value === currentCompetition ? 'selected' : '';
 
-    return `<option value="${escapeHTML(value)}" ${selectedOption}>${escapeHTML(label)}</option>`;
+    return `<option value="${escapeAttr(value)}" ${selectedOption}>${escapeHTML(label)}</option>`;
   }).join('');
+}
+
+function populateFilters() {
+  populateGroupDropdown();
+  populateRoundDropdown();
 }
 
 function populateGroupDropdown() {
@@ -311,8 +286,12 @@ function populateGroupDropdown() {
 
   select.innerHTML = `
     <option value="">All groups/tables</option>
-    ${groups.map(group => `<option value="${escapeHTML(group)}">${escapeHTML(group)}</option>`).join('')}
+    ${groups.map(group => `<option value="${escapeAttr(group)}">${escapeHTML(group)}</option>`).join('')}
   `;
+
+  if (currentGroup && groups.includes(currentGroup)) {
+    select.value = currentGroup;
+  }
 }
 
 function populateRoundDropdown() {
@@ -322,14 +301,14 @@ function populateRoundDropdown() {
     return;
   }
 
-  const rounds = [...new Set((appData.matches || [])
+  const rounds = [...new Set(getCompetitionMatches()
     .map(match => String(match.Round || '').trim())
     .filter(Boolean))]
     .sort((a, b) => roundSortValue(a) - roundSortValue(b));
 
   select.innerHTML = `
     <option value="">All rounds</option>
-    ${rounds.map(round => `<option value="${escapeHTML(round)}">${escapeHTML(formatRoundLabel(round))}</option>`).join('')}
+    ${rounds.map(round => `<option value="${escapeAttr(round)}">${escapeHTML(formatRoundLabel(round))}</option>`).join('')}
   `;
 
   if (currentRound && rounds.includes(currentRound)) {
@@ -349,9 +328,19 @@ function renderDateTabs() {
     return;
   }
 
-  const dates = getDateRangeTabs();
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
 
-  container.innerHTML = dates.map(item => {
+  const dates = [
+    { key: dateToKey(yesterday), dayLabel: 'Yesterday', shortDate: formatShortDateFromDate(yesterday) },
+    { key: dateToKey(today), dayLabel: 'Today', shortDate: formatShortDateFromDate(today) },
+    { key: dateToKey(tomorrow), dayLabel: 'Tomorrow', shortDate: formatShortDateFromDate(tomorrow) }
+  ];
+
+  const buttons = dates.map(item => {
     const active = item.key === selectedDateKey ? 'active' : '';
 
     return `
@@ -361,72 +350,200 @@ function renderDateTabs() {
       </button>
     `;
   }).join('');
+
+  const customActive = dates.some(item => item.key === selectedDateKey) ? '' : 'active';
+  const picked = selectedDateKey || getTodayKey();
+
+  container.innerHTML = `
+    ${buttons}
+    <div class="date-picker-button ${customActive}">
+      <span>📅</span>
+      <span>Pick a date</span>
+      <input type="date" value="${escapeAttr(picked)}" onchange="pickHomeDate(this.value)">
+    </div>
+  `;
 }
 
 window.selectDateTab = function selectDateTab(key) {
   selectedDateKey = key;
   renderDateTabs();
   renderHomeGames();
+  renderMyGames();
+  renderHomeTab();
 };
 
-function renderHomeGames() {
-  const allMatches = appData.allMatches || [];
-  const matches = allMatches
-    .filter(match => getDateKey(match.Date) === selectedDateKey)
-    .sort((a, b) => matchDateSortValue(a) - matchDateSortValue(b));
-
-  const countEl = $('homeMatchCount');
-
-  if (countEl) {
-    countEl.textContent = matches.length;
-  }
-
-  if (!matches.length) {
-    setHTML('homeGamesList', '<div class="empty home-empty">No games on this date.</div>');
+window.pickHomeDate = function pickHomeDate(value) {
+  if (!value) {
     return;
   }
 
-  const grouped = groupBy(matches, match => match.CompetitionLabel || match.Competition || 'Competition');
+  selectedDateKey = value;
+  renderDateTabs();
+  renderHomeGames();
+  renderMyGames();
+  renderHomeTab();
+};
 
-  const html = Object.keys(grouped).map(competitionName => {
-    const compMatches = grouped[competitionName];
+function renderHomeTab() {
+  const allHeader = $('allGamesHeader');
+  const allList = $('homeGamesList');
+  const myPanel = $('myGamesPanel');
+  const jumpSelect = $('jumpSelect');
 
-    return `
-      <section class="home-competition-block">
-        <div class="home-competition-title">
-          <span>${escapeHTML(getRegionForCompetition(compMatches[0]))}</span>
-          <strong>${escapeHTML(competitionName)}</strong>
-        </div>
+  document.querySelectorAll('[data-home-tab]').forEach(button => {
+    button.classList.toggle('active', button.getAttribute('data-home-tab') === currentHomeTab);
+  });
 
-        ${compMatches.map(renderHomeMatchRow).join('')}
-      </section>
-    `;
-  }).join('');
+  if (allHeader) allHeader.classList.toggle('hidden', currentHomeTab !== 'allGames');
+  if (allList) allList.classList.toggle('hidden', currentHomeTab !== 'allGames');
+  if (myPanel) myPanel.classList.toggle('hidden', currentHomeTab !== 'myGames');
+
+  if (jumpSelect && isHomePage()) {
+    jumpSelect.value = currentHomeTab === 'myGames' ? 'myGames' : 'nextUp';
+  }
+}
+
+function renderHomeGames() {
+  const matches = getGlobalMatches()
+    .filter(match => getDateKey(match.Date) === selectedDateKey)
+    .sort(compareHomeMatches);
+
+  const countEl = $('homeMatchCount');
+  const titleEl = $('homeAllGamesTitle');
+
+  if (countEl) countEl.textContent = matches.length;
+  if (titleEl) titleEl.textContent = `All games (${matches.length})`;
+
+  if (!matches.length) {
+    setHTML('homeGamesList', '<div class="empty">No games scheduled on this date.</div>');
+    return;
+  }
+
+  const timeGroups = groupBy(matches, match => normaliseKickoffTime(match.Time));
+
+  const html = Object.keys(timeGroups)
+    .sort((a, b) => timeSortValue(a) - timeSortValue(b))
+    .map(time => {
+      const timeMatches = timeGroups[time].sort(compareCompetitionPriority);
+      const competitionGroups = groupBy(timeMatches, match => match.CompetitionLabel || match.Competition || 'Competition');
+
+      const competitionsHtml = Object.keys(competitionGroups)
+        .sort((a, b) => compareCompetitionNamePriority(a, b, competitionGroups))
+        .map(competitionName => {
+          const compMatches = competitionGroups[competitionName];
+
+          return `
+            <section class="home-competition-block">
+              <div class="home-competition-mini-title">
+                <span>${escapeHTML(getRegionForCompetition(compMatches[0]))}</span>
+                <strong>${escapeHTML(competitionName)}</strong>
+              </div>
+              ${compMatches.map(renderHomeMatchRow).join('')}
+            </section>
+          `;
+        }).join('');
+
+      return `
+        <section class="home-time-block">
+          <div class="home-time-heading">${escapeHTML(time || 'Scheduled')}</div>
+          ${competitionsHtml}
+        </section>
+      `;
+    }).join('');
 
   setHTML('homeGamesList', html);
 }
 
 function renderHomeMatchRow(match) {
-  const isFinished = match.Status === 'FT';
-  const scoreLabel = isFinished ? renderScoreText(match) : '- : -';
-
-  const homeLogo = renderTeamLogo(match.HomeLogo, match.HomeTeam);
-const awayLogo = renderTeamLogo(match.AwayLogo, match.AwayTeam);
-
+  const scoreLabel = match.Status === 'FT' ? renderScoreText(match) : '- : -';
   const clickHandler = match.MatchID ? `onclick="openMatchDetail('${escapeAttr(match.MatchID)}')"` : '';
 
   return `
-    <article class="home-match-row home-row-layout" ${clickHandler}>
+    <article class="home-match-row" ${clickHandler}>
       <div class="score-team-home-name">${escapeHTML(match.HomeTeam)}</div>
-      <div class="score-team-home-logo">${homeLogo}</div>
+      <div class="score-team-home-logo">${renderTeamLogo(match.HomeLogo, match.HomeTeam)}</div>
       <div class="home-match-score">${scoreLabel}</div>
-      <div class="score-team-away-logo">${awayLogo}</div>
+      <div class="score-team-away-logo">${renderTeamLogo(match.AwayLogo, match.AwayTeam)}</div>
       <div class="score-team-away-name">${escapeHTML(match.AwayTeam)}</div>
     </article>
   `;
 }
-function getRegionForCompetition(match) {
-  return String(match.Region || 'World').toUpperCase();
+
+function renderMyGames() {
+  const all = Array.isArray(appData && appData.myGames) ? appData.myGames : [];
+  const selected = parseDateOnly(selectedDateKey) || new Date();
+
+  const weekMatches = all
+    .filter(match => isDateInsideWeekText(selected, match.WeekDates) || getDateKey(match.Date) === selectedDateKey)
+    .sort(compareMyGamesMatches);
+
+  const titleEl = $('myGamesTitle');
+  const subtitleEl = $('myGamesSubtitle');
+  const countEl = $('myGamesCount');
+
+  const weekLabel = weekMatches[0]?.Week || getSeasonWeekLabel(selected);
+  const weekDates = weekMatches[0]?.WeekDates || getWeekRangeLabel(selected);
+
+  if (titleEl) titleEl.textContent = weekLabel;
+  if (subtitleEl) subtitleEl.textContent = weekDates;
+  if (countEl) countEl.textContent = weekMatches.length;
+
+  if (!weekMatches.length) {
+    setHTML('myGamesList', '<div class="empty">No My Games found for this week.</div>');
+    return;
+  }
+
+  const grouped = groupBy(weekMatches, match => getMyGamesGroupLabel(match));
+  const order = ['England', 'Italy', 'Spain', 'Germany', 'France', 'Europe', 'World', 'National Teams'];
+
+  const html = Object.keys(grouped)
+    .sort((a, b) => {
+      const ai = order.indexOf(a) === -1 ? 999 : order.indexOf(a);
+      const bi = order.indexOf(b) === -1 ? 999 : order.indexOf(b);
+      return ai - bi || a.localeCompare(b);
+    })
+    .map(groupName => {
+      const leagueGroups = groupBy(grouped[groupName], match => match.Competition || 'Competition');
+
+      return Object.keys(leagueGroups)
+        .sort((a, b) => compareCompetitionNamePriorityFromName(groupName, a, b))
+        .map(league => {
+          const matches = leagueGroups[league].sort(compareMyGamesMatches);
+
+          return `
+            <section class="my-games-league-card">
+              <div class="my-games-league-head">
+                <span class="my-games-region">${escapeHTML(groupName)}</span>
+                <strong class="my-games-league-name">${escapeHTML(league)}</strong>
+              </div>
+              ${matches.map(renderMyGamesRow).join('')}
+            </section>
+          `;
+        }).join('');
+    }).join('');
+
+  setHTML('myGamesList', html);
+}
+
+function renderMyGamesRow(match) {
+  const dateParts = formatScoreboardDateParts(match.Date, match.Time);
+  const score = match.Status === 'FT' ? renderScoreText(match) : '- : -';
+  const clickHandler = match.MatchID ? `onclick="openMatchDetail('${escapeAttr(match.MatchID)}')"` : '';
+
+  return `
+    <article class="my-games-match" ${clickHandler}>
+      <div class="my-games-date">
+        <span>${escapeHTML(dateParts.date)}</span>
+        <span>${escapeHTML(dateParts.time)}</span>
+      </div>
+      <div class="my-games-team-name home">${escapeHTML(match.HomeTeam)}</div>
+      <div class="my-games-logo">${renderTeamLogo(match.HomeLogo, match.HomeTeam)}</div>
+      <div class="my-games-score">${score}</div>
+      <div class="my-games-logo">${renderTeamLogo(match.AwayLogo, match.AwayTeam)}</div>
+      <div class="my-games-team-name away">${escapeHTML(match.AwayTeam)}</div>
+      <div class="my-games-status">${escapeHTML(match.Status || 'Scheduled')}</div>
+    </article>
+  `;
 }
 
 function renderScoreboard() {
@@ -448,45 +565,45 @@ function renderScoreboard() {
     .filter(match => normaliseText(match.Round || '') === normaliseText(targetRound))
     .sort((a, b) => matchDateSortValue(a) - matchDateSortValue(b));
 
+  const scheduledExists = roundMatches.some(match => match.Status !== 'FT');
+
   setHTML('scoreboardList', `
-    <div class="season-complete-note">Season completed. Showing the last round played.</div>
+    ${scheduledExists ? '' : '<div class="season-complete-note">Season completed. Showing the last round played.</div>'}
     <section class="round-block">
       <div class="round-heading">${escapeHTML(formatRoundLabel(targetRound))}</div>
       ${roundMatches.map(renderScoreboardRow).join('')}
     </section>
   `);
 }
-function getNextUpRound(matches) {
-  const ordered = [...matches].sort((a, b) => matchDateSortValue(a) - matchDateSortValue(b));
 
-  const nextScheduled = ordered.find(match => match.Status !== 'FT' && matchDateSortValue(match) > 0);
+function renderScoreboardRow(match) {
+  const dateParts = formatScoreboardDateParts(match.Date, match.Time);
+  const score = match.Status === 'FT' ? renderScoreText(match) : '- : -';
+  const clickableClass = match.MatchID ? 'is-clickable' : '';
+  const clickHandler = match.MatchID ? `onclick="openMatchDetail('${escapeAttr(match.MatchID)}')"` : '';
 
-  if (nextScheduled) {
-    return nextScheduled.Round || '';
-  }
-
-  const completed = ordered
-    .filter(match => match.Status === 'FT' && matchDateSortValue(match) > 0)
-    .sort((a, b) => matchDateSortValue(b) - matchDateSortValue(a));
-
-  return completed.length ? completed[0].Round || '' : '';
+  return `
+    <article class="scoreboard-row ${clickableClass}" ${clickHandler}>
+      <div class="scoreboard-date">
+        <span class="scoreboard-date-main">${escapeHTML(dateParts.date)}</span>
+        <span class="scoreboard-time-main">${escapeHTML(dateParts.time)}</span>
+      </div>
+      <div class="score-team-home-name">${escapeHTML(match.HomeTeam)}</div>
+      <div class="score-team-home-logo">${renderTeamLogo(match.HomeLogo, match.HomeTeam)}</div>
+      <div class="scoreboard-score">${score}</div>
+      <div class="score-team-away-logo">${renderTeamLogo(match.AwayLogo, match.AwayTeam)}</div>
+      <div class="score-team-away-name">${escapeHTML(match.AwayTeam)}</div>
+    </article>
+  `;
 }
+
 function renderResults() {
   const results = getFilteredMatches()
     .filter(match => match.Status === 'FT')
     .sort((a, b) => matchDateSortValue(b) - matchDateSortValue(a));
 
-  const html = results.length
-    ? renderGroupedScoreboard(results)
-    : '<div class="empty">No results found.</div>';
-
-  setHTML('resultsList', html);
-
-  const countEl = $('resultsCount');
-
-  if (countEl) {
-    countEl.textContent = `${results.length} matches`;
-  }
+  setHTML('resultsList', results.length ? renderGroupedScoreboard(results) : '<div class="empty">No results found.</div>');
+  setText('resultsCount', `${results.length} matches`);
 }
 
 function renderFixtures() {
@@ -494,59 +611,8 @@ function renderFixtures() {
     .filter(match => match.Status !== 'FT')
     .sort((a, b) => matchDateSortValue(a) - matchDateSortValue(b));
 
-  const html = fixtures.length
-    ? renderGroupedScoreboard(fixtures)
-    : '<div class="empty">No scheduled games found.</div>';
-
-  setHTML('fixturesList', html);
-
-  const countEl = $('fixturesCount');
-
-  if (countEl) {
-    countEl.textContent = `${fixtures.length} matches`;
-  }
-}
-
-function renderSmartScoreboard(matches) {
-  const grouped = groupBy(matches, match => formatRoundLabel(match.Round));
-
-  return Object.keys(grouped).map(round => {
-    return `
-      <section class="round-block">
-        <div class="round-heading">${escapeHTML(round)}</div>
-        ${grouped[round].map(renderScoreboardRow).join('')}
-      </section>
-    `;
-  }).join('');
-}
-
-function sortMatchesByNextOrLatest(matches) {
-  const now = Date.now();
-
-  return [...matches].sort((a, b) => {
-    const aTime = matchDateSortValue(a);
-    const bTime = matchDateSortValue(b);
-    const aPlayed = a.Status === 'FT';
-    const bPlayed = b.Status === 'FT';
-
-    if (!aPlayed && !bPlayed) {
-      return aTime - bTime;
-    }
-
-    if (aPlayed && bPlayed) {
-      return bTime - aTime;
-    }
-
-    if (!aPlayed && bPlayed) {
-      return -1;
-    }
-
-    if (aPlayed && !bPlayed) {
-      return 1;
-    }
-
-    return Math.abs(aTime - now) - Math.abs(bTime - now);
-  });
+  setHTML('fixturesList', fixtures.length ? renderGroupedScoreboard(fixtures) : '<div class="empty">No scheduled games found.</div>');
+  setText('fixturesCount', `${fixtures.length} matches`);
 }
 
 function renderGroupedScoreboard(matches) {
@@ -562,56 +628,125 @@ function renderGroupedScoreboard(matches) {
   }).join('');
 }
 
-function renderScoreboardRow(match) {
-  const dateParts = formatScoreboardDateParts(match.Date, match.Time);
-  const score = match.Status === 'FT' ? renderScoreText(match) : '- : -';
+function renderStandings() {
+  const standings = getFilteredStandings();
 
-  const homeLogo = match.HomeLogo
-    ? `<img src="${escapeAttr(match.HomeLogo)}" alt="" style="${SMALL_LOGO_STYLE}">`
+  if (!standings.length) {
+    setHTML('standingsContainer', '<div class="empty">No standings found.</div>');
+    return;
+  }
+
+  const groups = groupBy(standings, row => row.Group || 'Table');
+
+  const html = Object.keys(groups).map(groupName => {
+    const rows = [...groups[groupName]].sort(compareStandingRows);
+    const isGroupStage = isGroupStageCompetition();
+
+    return `
+      <section class="table-card">
+        <div class="table-card-header">
+          <h3>${escapeHTML(groupName)}</h3>
+          <span>${rows.length} teams</span>
+        </div>
+        <div class="standings-table-wrap">
+          <table class="standings-table">
+            <thead>
+              <tr>
+                <th>#</th><th>Team</th><th>PT</th><th>GW</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map((team, index) => `
+                <tr>
+                  <td><span class="rank-badge ${getRankClass(index, rows.length, isGroupStage)}">${index + 1}</span></td>
+                  <td class="team-cell">${renderTeamLogo(team.Logo, team.Team)}<span>${escapeHTML(team.Team)}</span></td>
+                  <td><strong>${safeNumber(team.Points)}</strong></td>
+                  <td>${safeNumber(team.Played)}</td>
+                  <td>${safeNumber(team.Won)}</td>
+                  <td>${safeNumber(team.Drawn)}</td>
+                  <td>${safeNumber(team.Lost)}</td>
+                  <td>${safeNumber(team.GoalsFor)}</td>
+                  <td>${safeNumber(team.GoalsAgainst)}</td>
+                  <td>${formatGoalDifference(team.GoalDifference)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+        ${isGroupStage ? '<div class="qualification-note"><span class="note-dot qualified"></span> Top 2 qualify <span class="note-dot eliminated"></span> Bottom 2 eliminated</div>' : renderLeagueLegend()}
+      </section>
+    `;
+  }).join('');
+
+  setHTML('standingsContainer', html);
+}
+
+function renderStats() {
+  const stats = getFilteredStats();
+
+  renderStatList('topScorers', stats, 'Goals', 'topScorers');
+  renderStatList('topAssists', stats, 'Assists', 'topAssists');
+  renderStatList('cleanSheets', stats, 'CleanSheets', 'cleanSheets');
+  renderStatList('yellowCards', stats, 'YellowCards', 'yellowCards');
+  renderStatList('redCards', stats, 'RedCards', 'redCards');
+}
+
+function renderStatList(containerId, stats, key, expandKey) {
+  const allRows = stats
+    .filter(row => Number(row[key]) > 0)
+    .sort((a, b) => Number(b[key]) - Number(a[key]) || String(a.Player || '').localeCompare(String(b.Player || '')));
+
+  const isExpanded = expandedStats[expandKey];
+  const visibleRows = isExpanded ? allRows : allRows.slice(0, 3);
+
+  if (!allRows.length) {
+    setHTML(containerId, '<div class="empty">No data yet.</div>');
+    return;
+  }
+
+  const rowsHtml = visibleRows.map((row, index) => {
+    return `
+      <div class="stat-row">
+        <span class="stat-rank">${index + 1}</span>
+        <span class="stat-player">
+          ${renderTeamLogo(row.Logo, row.Team)}
+          <span class="stat-player-name" title="${escapeAttr(row.Player)}">${escapeHTML(row.Player)}</span>
+        </span>
+        <strong class="stat-value">${safeNumber(row[key])}</strong>
+      </div>
+    `;
+  }).join('');
+
+  const buttonHtml = allRows.length > 3
+    ? `<button class="stat-toggle" type="button" onclick="toggleStatList('${expandKey}')">${isExpanded ? 'Show less' : `See more (${allRows.length})`}</button>`
     : '';
 
-  const awayLogo = match.AwayLogo
-    ? `<img src="${escapeAttr(match.AwayLogo)}" alt="" style="${SMALL_LOGO_STYLE}">`
-    : '';
+  setHTML(containerId, rowsHtml + buttonHtml);
+}
 
-  const clickableClass = match.MatchID ? 'is-clickable' : '';
-  const clickHandler = match.MatchID ? `onclick="openMatchDetail('${escapeAttr(match.MatchID)}')"` : '';
+window.toggleStatList = function toggleStatList(key) {
+  expandedStats[key] = !expandedStats[key];
+  renderStats();
+};
+
+function renderTeamLogo(url, teamName) {
+  if (!url) {
+    return '<span class="team-logo team-logo-empty"></span>';
+  }
 
   return `
-    <article class="scoreboard-row calcium-row-layout ${clickableClass}" ${clickHandler}>
-      <div class="scoreboard-date">
-        <span class="scoreboard-date-main">${escapeHTML(dateParts.date)}</span>
-        <span class="scoreboard-time-main">${escapeHTML(dateParts.time)}</span>
-      </div>
-
-      <div class="score-team-home-name">${escapeHTML(match.HomeTeam)}</div>
-      <div class="score-team-home-logo">${homeLogo}</div>
-      <div class="scoreboard-score single-score">${score}</div>
-      <div class="score-team-away-logo">${awayLogo}</div>
-      <div class="score-team-away-name">${escapeHTML(match.AwayTeam)}</div>
-    </article>
+    <span class="team-logo">
+      <img src="${escapeAttr(url)}" alt="${escapeAttr(teamName || 'Team logo')}" loading="lazy">
+    </span>
   `;
 }
 
 function openMatchDetail(matchId) {
-  const allMatches = (appData.allMatches || []).concat(appData.matches || []);
-  const seen = new Set();
+  const allMatches = getGlobalMatches()
+    .concat(getCompetitionMatches())
+    .concat(Array.isArray(appData?.myGames) ? appData.myGames : []);
 
-  const uniqueMatches = allMatches.filter(match => {
-    const key = match.MatchID || match.ID;
-
-    if (!key) {
-      return false;
-    }
-
-    if (seen.has(key)) {
-      return false;
-    }
-
-    seen.add(key);
-    return true;
-  });
-
+  const uniqueMatches = dedupeMatchArray(allMatches);
   const match = uniqueMatches.find(item => item.MatchID === matchId || item.ID === matchId);
 
   if (!match) {
@@ -650,49 +785,34 @@ function renderMatchDetail(match) {
   const secondHalf = matchEvents.filter(event => getHalfNumber(event.Half) === 2);
   const youtubeUrl = match.YouTubeURL || match.YoutubeURL || match.HighlightsURL || '';
   const highlights = renderHighlights(youtubeUrl);
-
-  const homeLogo = match.HomeLogo
-    ? `<img src="${escapeAttr(match.HomeLogo)}" alt="">`
-    : '';
-
-  const awayLogo = match.AwayLogo
-    ? `<img src="${escapeAttr(match.AwayLogo)}" alt="">`
-    : '';
-
   const penaltyText = getPenaltyWinnerText(match);
 
   return `
     <section class="match-hero">
       <div class="match-date-main">${escapeHTML(formatFullDateTime(match.Date, match.Time))}</div>
-
       <div class="match-main-teams">
         <div class="match-main-team">
-          <div class="match-main-logo">${homeLogo}</div>
+          <div class="match-main-logo">${match.HomeLogo ? `<img src="${escapeAttr(match.HomeLogo)}" alt="">` : ''}</div>
           <strong>${escapeHTML(match.HomeTeam)}</strong>
         </div>
-
         <div class="match-main-score">
           <div>${renderScoreText(match)}</div>
           ${penaltyText ? `<span>${escapeHTML(penaltyText)}</span>` : ''}
         </div>
-
         <div class="match-main-team">
-          <div class="match-main-logo">${awayLogo}</div>
+          <div class="match-main-logo">${match.AwayLogo ? `<img src="${escapeAttr(match.AwayLogo)}" alt="">` : ''}</div>
           <strong>${escapeHTML(match.AwayTeam)}</strong>
         </div>
       </div>
     </section>
-
     <section class="venue-row">
       <span>🏟️ Venue:</span>
       <strong>${escapeHTML(match.Venue || match.Stadium || 'Venue unavailable')}</strong>
     </section>
-
     <section class="event-section">
       ${renderHalfEvents('1ST HALF', firstHalf, match)}
       ${renderHalfEvents('2ND HALF', secondHalf, match)}
     </section>
-
     ${highlights}
   `;
 }
@@ -728,7 +848,7 @@ function renderHalfEvents(title, events, match) {
     return `
       <div class="half-block">
         <div class="half-title">${escapeHTML(title)}</div>
-        <div class="empty match-empty">No events.</div>
+        <div class="empty">No events.</div>
       </div>
     `;
   }
@@ -736,37 +856,10 @@ function renderHalfEvents(title, events, match) {
   let liveHome = 0;
   let liveAway = 0;
 
-  const allEventsBeforeThisHalf = getMatchEvents(match.MatchID || match.ID)
-    .filter(event => {
-      if (title === '1ST HALF') {
-        return false;
-      }
-
-      return getHalfNumber(event.Half) === 1;
-    })
-    .sort((a, b) => Number(a.Minute || 0) - Number(b.Minute || 0));
-
-  allEventsBeforeThisHalf.forEach(event => {
-    if (isGoalEvent(event)) {
-      if (sameTeam(event.Team, match.HomeTeam)) {
-        liveHome += 1;
-      }
-
-      if (sameTeam(event.Team, match.AwayTeam)) {
-        liveAway += 1;
-      }
-    }
-  });
-
   const rows = events.map(event => {
     if (isGoalEvent(event)) {
-      if (sameTeam(event.Team, match.HomeTeam)) {
-        liveHome += 1;
-      }
-
-      if (sameTeam(event.Team, match.AwayTeam)) {
-        liveAway += 1;
-      }
+      if (sameTeam(event.Team, match.HomeTeam)) liveHome += 1;
+      if (sameTeam(event.Team, match.AwayTeam)) liveAway += 1;
     }
 
     return renderEventRow(event, match, liveHome, liveAway);
@@ -783,69 +876,37 @@ function renderHalfEvents(title, events, match) {
 function renderEventRow(event, match, liveHome, liveAway) {
   const isHome = sameTeam(event.Team, match.HomeTeam);
   const sideClass = isHome ? 'event-home' : 'event-away';
-  const eventLabel = getEventLabel(event, liveHome, liveAway, isHome);
+  const eventLabel = getEventLabel(event, liveHome, liveAway);
 
   return `
     <div class="event-row ${sideClass}">
       <div class="event-minute">${escapeHTML(event.Minute)}'</div>
-      <div class="event-content">
-        ${eventLabel}
-      </div>
+      <div class="event-content">${eventLabel}</div>
     </div>
   `;
 }
 
-function getEventLabel(event, liveHome, liveAway, isHome) {
+function getEventLabel(event, liveHome, liveAway) {
   const eventType = String(event.Event || '').toLowerCase().trim();
   const detail = String(event.Detail || '').trim();
   const player = String(event.Player || '').trim();
-  const isPenaltyGoal = eventType === 'goal' && detail.toLowerCase() === 'penalty';
 
   if (eventType === 'goal') {
-    if (isPenaltyGoal && !isHome) {
-      return `
-        <strong>(Penalty) ${escapeHTML(player)}</strong>
-        <span class="goal-pill">${liveHome} - ${liveAway} ⚽</span>
-      `;
-    }
-
     const detailText = detail ? ` (${escapeHTML(detail)})` : '';
-
-    return `
-      <span class="goal-pill">⚽ ${liveHome} - ${liveAway}</span>
-      <strong>${escapeHTML(player)}${detailText}</strong>
-    `;
+    return `<span class="goal-pill">⚽ ${liveHome} - ${liveAway}</span><strong>${escapeHTML(player)}${detailText}</strong>`;
   }
 
   if (eventType === 'red card') {
     const detailText = detail ? ` (${escapeHTML(detail)})` : '';
-
-    return `
-      <span class="red-card-icon">■</span>
-      <strong>${escapeHTML(player)}${detailText}</strong>
-    `;
+    return `<span>🟥</span><strong>${escapeHTML(player)}${detailText}</strong>`;
   }
 
   if (eventType === 'penalty missed' || eventType === 'missed penalty') {
-    if (!isHome) {
-      return `
-        <strong>${escapeHTML(player)} (Penalty missed)</strong>
-        <span class="penalty-missed-icon" aria-label="Penalty missed">⚽</span>
-      `;
-    }
-
-    return `
-      <span class="penalty-missed-icon" aria-label="Penalty missed">⚽</span>
-      <strong>${escapeHTML(player)} (Penalty missed)</strong>
-    `;
+    return `<span>❌</span><strong>${escapeHTML(player)} (Penalty missed)</strong>`;
   }
 
   const detailText = detail ? ` (${escapeHTML(detail)})` : '';
-
-  return `
-    <span class="event-dot">•</span>
-    <strong>${escapeHTML(player)}${detailText}</strong>
-  `;
+  return `<span>•</span><strong>${escapeHTML(player)}${detailText}</strong>`;
 }
 
 function renderHighlights(url) {
@@ -860,23 +921,21 @@ function renderHighlights(url) {
 
   if (!thumbnail) {
     return `
-      <section class="highlights-row">
-        <div>
-          <span>▶ Highlights:</span>
-          <strong>Watch match highlights</strong>
+      <section class="highlights-card">
+        <div class="highlights-header">
+          <span>▶ Highlights</span>
+          <a href="${escapeAttr(cleanUrl)}" target="_blank" rel="noopener noreferrer">Open video</a>
         </div>
-        <a class="highlight-button" href="${escapeAttr(cleanUrl)}" target="_blank" rel="noopener noreferrer">Open video</a>
       </section>
     `;
   }
 
   return `
-    <section class="highlights-card highlights-bottom">
+    <section class="highlights-card">
       <div class="highlights-header">
         <span>▶ Highlights</span>
         <a href="${escapeAttr(cleanUrl)}" target="_blank" rel="noopener noreferrer">Open on YouTube</a>
       </div>
-
       <a class="youtube-preview" href="${escapeAttr(cleanUrl)}" target="_blank" rel="noopener noreferrer">
         <img src="${escapeAttr(thumbnail)}" alt="YouTube highlights thumbnail" onerror="this.src='https://img.youtube.com/vi/${escapeAttr(videoId)}/hqdefault.jpg'">
         <span class="youtube-play">▶</span>
@@ -906,249 +965,34 @@ function getYouTubeId(url) {
   return '';
 }
 
-function renderStandings() {
-  const standings = getFilteredStandings();
-
-  if (!standings.length) {
-    setHTML('standingsContainer', '<div class="empty">No standings found.</div>');
-    return;
-  }
-
-  const groups = groupBy(standings, row => row.Group || 'Table');
-
-  const html = Object.keys(groups).map(groupName => {
-    const rows = [...groups[groupName]].sort(compareStandingRows);
-    const isGroupStage = isGroupStageCompetition();
-
-    return `
-      <section class="table-card">
-        <div class="table-card-header">
-          <h3>${escapeHTML(groupName)}</h3>
-          <span>${rows.length} teams</span>
-        </div>
-
-        <div class="standings-table-wrap">
-          <table class="standings-table">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Team</th>
-                <th>PT</th>
-                <th>GW</th>
-                <th>W</th>
-                <th>D</th>
-                <th>L</th>
-                <th>GF</th>
-                <th>GA</th>
-                <th>GD</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rows.map((team, index) => {
-                const logo = team.Logo
-                  ? `<img src="${escapeAttr(team.Logo)}" alt="" style="${SMALL_LOGO_STYLE}">`
-                  : '';
-
-                const rankClass = getRankClass(index, rows.length, isGroupStage);
-
-                return `
-                  <tr>
-                    <td>
-                      <span class="rank-badge ${rankClass}">${index + 1}</span>
-                    </td>
-                    <td class="team-cell">
-                      ${logo}
-                      <span>${escapeHTML(team.Team)}</span>
-                    </td>
-                    <td><strong>${safeNumber(team.Points)}</strong></td>
-                    <td>${safeNumber(team.Played)}</td>
-                    <td>${safeNumber(team.Won)}</td>
-                    <td>${safeNumber(team.Drawn)}</td>
-                    <td>${safeNumber(team.Lost)}</td>
-                    <td>${safeNumber(team.GoalsFor)}</td>
-                    <td>${safeNumber(team.GoalsAgainst)}</td>
-                    <td>${formatGoalDifference(team.GoalDifference)}</td>
-                  </tr>
-                `;
-              }).join('')}
-            </tbody>
-          </table>
-        </div>
-
-        ${isGroupStage ? '<div class="qualification-note"><span class="note-dot qualified"></span> Top 2 qualify <span class="note-dot eliminated"></span> Bottom 2 eliminated</div>' : renderLeagueLegend()}
-      </section>
-    `;
-  }).join('');
-
-  setHTML('standingsContainer', html);
+function getCompetitionMatches() {
+  const main = Array.isArray(appData && appData.matches) ? appData.matches : [];
+  const playoffs = Array.isArray(appData && appData.playoffs) ? appData.playoffs : [];
+  return dedupeMatchArray(main.concat(playoffs));
 }
 
-function compareStandingRows(a, b) {
-  const pointsA = safeNumber(a.Points);
-  const pointsB = safeNumber(b.Points);
-
-  if (pointsB !== pointsA) {
-    return pointsB - pointsA;
-  }
-
-  const headToHead = getHeadToHeadWinner(a.Team, b.Team);
-
-  if (headToHead === a.Team) {
-    return -1;
-  }
-
-  if (headToHead === b.Team) {
-    return 1;
-  }
-
-  const gdA = safeNumber(a.GoalDifference);
-  const gdB = safeNumber(b.GoalDifference);
-
-  if (gdB !== gdA) {
-    return gdB - gdA;
-  }
-
-  const gfA = safeNumber(a.GoalsFor);
-  const gfB = safeNumber(b.GoalsFor);
-
-  if (gfB !== gfA) {
-    return gfB - gfA;
-  }
-
-  const gaA = safeNumber(a.GoalsAgainst);
-  const gaB = safeNumber(b.GoalsAgainst);
-
-  if (gaA !== gaB) {
-    return gaA - gaB;
-  }
-
-  return String(a.Team || '').localeCompare(String(b.Team || ''));
+function getGlobalMatches() {
+  const all = Array.isArray(appData && appData.allMatches) ? appData.allMatches : [];
+  return dedupeMatchArray(all);
 }
 
-function getHeadToHeadWinner(teamA, teamB) {
-  const teamAKey = normaliseTeamName(teamA);
-  const teamBKey = normaliseTeamName(teamB);
+function dedupeMatchArray(matches) {
+  const seen = new Set();
 
-  const directMatches = (appData.matches || []).filter(match => {
-    if (match.Status !== 'FT') {
+  return (matches || []).filter(match => {
+    const key = String(match.MatchID || match.ID || '').trim();
+
+    if (!key || seen.has(key)) {
       return false;
     }
 
-    const home = normaliseTeamName(match.HomeTeam);
-    const away = normaliseTeamName(match.AwayTeam);
-
-    return (
-      (home === teamAKey && away === teamBKey) ||
-      (home === teamBKey && away === teamAKey)
-    );
+    seen.add(key);
+    return true;
   });
-
-  if (!directMatches.length) {
-    return '';
-  }
-
-  let teamAPoints = 0;
-  let teamBPoints = 0;
-
-  directMatches.forEach(match => {
-    const home = normaliseTeamName(match.HomeTeam);
-    const away = normaliseTeamName(match.AwayTeam);
-    const homeScore = safeNumber(match.HomeScore);
-    const awayScore = safeNumber(match.AwayScore);
-
-    if (homeScore === awayScore) {
-      teamAPoints += 1;
-      teamBPoints += 1;
-      return;
-    }
-
-    const winnerKey = homeScore > awayScore ? home : away;
-
-    if (winnerKey === teamAKey) {
-      teamAPoints += 3;
-    }
-
-    if (winnerKey === teamBKey) {
-      teamBPoints += 3;
-    }
-  });
-
-  if (teamAPoints > teamBPoints) {
-    return teamA;
-  }
-
-  if (teamBPoints > teamAPoints) {
-    return teamB;
-  }
-
-  return '';
 }
-
-function renderStats() {
-  const stats = getFilteredStats();
-
-  renderStatList('topScorers', stats, 'Goals', 'topScorers');
-  renderStatList('topAssists', stats, 'Assists', 'topAssists');
-  renderStatList('yellowCards', stats, 'YellowCards', 'yellowCards');
-  renderStatList('redCards', stats, 'RedCards', 'redCards');
-}
-
-function renderStatList(containerId, stats, key, expandKey) {
-  const allRows = stats
-    .filter(row => Number(row[key]) > 0)
-    .sort((a, b) => {
-      if (Number(b[key]) !== Number(a[key])) {
-        return Number(b[key]) - Number(a[key]);
-      }
-
-      return String(a.Player || '').localeCompare(String(b.Player || ''));
-    });
-
-  const isExpanded = expandedStats[expandKey];
-  const visibleRows = isExpanded ? allRows : allRows.slice(0, 3);
-
-  if (!allRows.length) {
-    setHTML(containerId, '<div class="empty">No data yet.</div>');
-    return;
-  }
-
-  const rowsHtml = visibleRows.map((row, index) => {
-    const logo = row.Logo
-      ? `<img src="${escapeAttr(row.Logo)}" alt="" style="${STAT_LOGO_STYLE}">`
-      : '';
-
-    return `
-      <div class="stat-row">
-        <span class="stat-rank">${index + 1}</span>
-
-        <span class="stat-player">
-          ${logo}
-          <span class="stat-player-name" title="${escapeAttr(row.Player)}">${escapeHTML(row.Player)}</span>
-        </span>
-
-        <strong class="stat-value">${safeNumber(row[key])}</strong>
-      </div>
-    `;
-  }).join('');
-
-  const buttonHtml = allRows.length > 3
-    ? `
-      <button class="stat-toggle" type="button" onclick="toggleStatList('${expandKey}')">
-        ${isExpanded ? 'Show less' : `See more (${allRows.length})`}
-      </button>
-    `
-    : '';
-
-  setHTML(containerId, rowsHtml + buttonHtml);
-}
-
-window.toggleStatList = function toggleStatList(key) {
-  expandedStats[key] = !expandedStats[key];
-  renderStats();
-};
 
 function getFilteredMatches() {
-  let matches = appData.matches || [];
+  let matches = getCompetitionMatches();
 
   if (currentSearch) {
     matches = matches.filter(match => {
@@ -1198,11 +1042,7 @@ function getFilteredStandings() {
 
   if (currentSearch) {
     standings = standings.filter(row => {
-      return [
-        row.Team,
-        row.Group,
-        row.Competition
-      ].join(' ').toLowerCase().includes(currentSearch);
+      return [row.Team, row.Group, row.Competition].join(' ').toLowerCase().includes(currentSearch);
     });
   }
 
@@ -1219,1558 +1059,98 @@ function getFilteredStats() {
 
   if (currentSearch) {
     stats = stats.filter(row => {
-      return [
-        row.Player,
-        row.Team
-      ].join(' ').toLowerCase().includes(currentSearch);
+      return [row.Player, row.Team].join(' ').toLowerCase().includes(currentSearch);
     });
   }
 
   return stats;
 }
 
-function jumpToSection(section) {
-  const map = {
-    home: 'homeSection',
-    summary: 'summarySection',
-    results: 'resultsSection',
-    fixtures: 'fixturesSection',
-    standings: 'standingsSection',
-    stats: 'statsSection'
-  };
-
-  const id = map[section] || section;
-  const el = $(id);
-
-  if (el) {
-    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-}
-
-function setActiveTab(view) {
-  document.querySelectorAll('[data-view]').forEach(button => {
-    button.classList.toggle('active', button.getAttribute('data-view') === view);
-  });
-}
-
-function updateUrlCompetition(slug) {
-  const url = new URL(window.location.href);
-  url.searchParams.set('competition', slug);
-  window.history.replaceState({}, '', url.toString());
-}
-
-function makeCompetitionSlug(comp) {
-  const name = comp['Competition Name'] || comp.competition || '';
-  const year = comp.Year || comp.year || '';
-
-  return slugify(`${name} ${year}`.trim());
-}
-
-function getDateRangeTabs() {
-  const base = new Date();
-
-  return [-2, -1, 0, 1, 2, 3, 4].map(offset => {
-    const date = new Date(base);
-    date.setDate(base.getDate() + offset);
-
-    return {
-      key: dateToKey(date),
-      dayLabel: getDayLabel(date, offset),
-      shortDate: formatShortDateFromDate(date)
-    };
-  });
-}
-
-function getDayLabel(date, offset) {
-  if (offset === -1) {
-    return 'Yesterday';
-  }
-
-  if (offset === 0) {
-    return 'Today';
-  }
-
-  if (offset === 1) {
-    return 'Tomorrow';
-  }
-
-  return date.toLocaleDateString('en-GB', { weekday: 'short' }).toUpperCase();
-}
-
-function getTodayKey() {
-  return dateToKey(new Date());
-}
-
-function dateToKey(date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-
-  return `${year}-${month}-${day}`;
-}
-
-function getDateKey(value) {
-  const parsed = parseDateOnly(value);
-
-  return parsed ? dateToKey(parsed) : '';
-}
-
-function parseDateOnly(value) {
-  const text = String(value || '').trim();
-
-  if (!text) {
-    return null;
-  }
-
-  if (/^\d{1,2}[./-]\d{1,2}[./-]\d{4}$/.test(text)) {
-    const parts = text.split(/[./-]/);
-    return new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
-  }
-
-  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
-    const parts = text.split('-');
-    return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-  }
-
-  return null;
-}
-
-function formatShortDateFromDate(date) {
-  return `${String(date.getDate()).padStart(2, '0')}.${String(date.getMonth() + 1).padStart(2, '0')}.`;
-}
-
-function formatRoundLabel(value) {
-  const text = String(value || '').trim();
-
-  if (!text) {
-    return 'MATCHES';
-  }
-
-  if (/^\d+$/.test(text)) {
-    return `ROUND ${text}`;
-  }
-
-  return text.toUpperCase();
-}
-
-function roundSortValue(value) {
-  const text = String(value || '').toLowerCase().trim();
-
-  if (/^\d+$/.test(text)) {
-    return Number(text);
-  }
-
-  if (text.includes('final') && !text.includes('semi') && !text.includes('quarter')) {
-    return 100;
-  }
-
-  if (text.includes('semi')) {
-    return 90;
-  }
-
-  if (text.includes('quarter')) {
-    return 80;
-  }
-
-  if (text.includes('16')) {
-    return 70;
-  }
-
-  if (text.includes('32')) {
-    return 60;
-  }
-
-  return 0;
-}
-
-function matchDateSortValue(match) {
-  const parsedDate = parseDateOnly(match.Date);
-
-  if (!parsedDate) {
-    return 0;
-  }
-
-  const time = String(match.Time || '00:00').trim();
-  const timeParts = time.split(':');
-
-  parsedDate.setHours(Number(timeParts[0]) || 0);
-  parsedDate.setMinutes(Number(timeParts[1]) || 0);
-
-  return parsedDate.getTime();
-}
-
-function formatDateTime(date, time) {
-  const parsed = parseDateOnly(date);
-  const cleanTime = String(time || '').trim();
-
-  const shortDate = parsed ? formatShortDateFromDate(parsed) : String(date || '').trim();
-
-  return cleanTime ? `${shortDate} ${cleanTime}` : shortDate;
-}
-
-function formatScoreboardDateParts(date, time) {
-  const parsed = parseDateOnly(date);
-  const cleanTime = String(time || '').trim();
-  const dateText = parsed ? formatShortDateFromDate(parsed).replace(/\.$/, '') : String(date || '').trim();
-
-  return {
-    date: dateText,
-    time: cleanTime || ''
-  };
-}
-
-function formatFullDateTime(date, time) {
-  const parsed = parseDateOnly(date);
-  const cleanTime = String(time || '').trim();
-
-  const dateText = parsed
-    ? parsed.toLocaleDateString('en-GB')
-    : String(date || '').trim();
-
-  return [dateText, cleanTime].filter(Boolean).join(' ');
-}
-
-function renderScoreText(match) {
-  const home = safeScore(match.HomeScore);
-  const away = safeScore(match.AwayScore);
-  const hp = String(match.HomePens || '').trim();
-  const ap = String(match.AwayPens || '').trim();
-
-  if (hp && ap) {
-    return `(${escapeHTML(hp)}) ${escapeHTML(home)} - ${escapeHTML(away)} (${escapeHTML(ap)})`;
-  }
-
-  return `${escapeHTML(home)} - ${escapeHTML(away)}`;
-}
-
-function getPenaltyWinnerText(match) {
-  const hp = Number(match.HomePens);
-  const ap = Number(match.AwayPens);
-
-  if (!Number.isFinite(hp) || !Number.isFinite(ap)) {
-    return '';
-  }
-
-  if (hp > ap) {
-    return `${match.HomeTeam} win ${hp}-${ap} on penalties`;
-  }
-
-  if (ap > hp) {
-    return `${match.AwayTeam} win ${ap}-${hp} on penalties`;
-  }
-
-  return '';
-}
-
-function isGoalEvent(event) {
-  return String(event.Event || '').toLowerCase().trim() === 'goal';
-}
-
-function sameTeam(a, b) {
-  return normaliseTeamName(a) === normaliseTeamName(b);
-}
-
-function getHalfNumber(value) {
-  const text = String(value || '').toLowerCase().trim();
-
-  if (text === '1' || text.includes('1st') || text.includes('first')) {
-    return 1;
-  }
-
-  if (text === '2' || text.includes('2nd') || text.includes('second')) {
-    return 2;
-  }
-
-  return 0;
-}
-
-function getRankClass(index, groupSize, isGroupStage) {
-  if (isGroupStage) {
-    if (groupSize <= 2) {
-      return 'rank-neutral';
-    }
-
-    if (index <= 1) {
-      return 'rank-qualified';
-    }
-
-    return 'rank-eliminated';
-  }
-
-  const pos = index + 1;
-  const league = getLeagueKeyForStandings();
-
-  if (league === 'premier-league' || league === 'serie-a' || league === 'la-liga') {
-    if (pos <= 4) {
-      return 'rank-ucl';
-    }
-
-    if (pos <= 6) {
-      return 'rank-uel';
-    }
-
-    if (pos <= 8) {
-      return 'rank-uecl';
-    }
-
-    if (pos >= 18) {
-      return 'rank-relegation';
-    }
-
-    return 'rank-neutral';
-  }
-
-  if (league === 'bundesliga') {
-    if (pos <= 4) {
-      return 'rank-ucl';
-    }
-
-    if (pos <= 6) {
-      return 'rank-uel';
-    }
-
-    if (pos <= 8) {
-      return 'rank-uecl';
-    }
-
-    if (pos === 16) {
-      return 'rank-playout';
-    }
-
-    if (pos >= 17) {
-      return 'rank-relegation';
-    }
-
-    return 'rank-neutral';
-  }
-
-  if (league === 'ligue-1') {
-    if (pos <= 3) {
-      return 'rank-ucl';
-    }
-
-    if (pos <= 5) {
-      return 'rank-uel';
-    }
-
-    if (pos <= 7) {
-      return 'rank-uecl';
-    }
-
-    if (pos === 16) {
-      return 'rank-playout';
-    }
-
-    if (pos >= 17) {
-      return 'rank-relegation';
-    }
-
-    return 'rank-neutral';
-  }
-
-  return 'rank-neutral';
-}
-
-function getLeagueKeyForStandings() {
-  const selected = appData && appData.selectedCompetition ? appData.selectedCompetition : {};
-  const site = appData && appData.site ? appData.site : {};
-
-  const name = normaliseCompetitionName(
-    selected['Competition Name'] ||
-    selected.competition ||
-    site.competition ||
-    currentCompetition ||
-    ''
-  );
-
-  const slug = slugify(name);
-
-  if (slug.includes('premier-league')) {
-    return 'premier-league';
-  }
-
-  if (slug === 'serie-a' || slug.includes('serie-a')) {
-    return 'serie-a';
-  }
-
-  if (slug.includes('la-liga') || slug.includes('laliga')) {
-    return 'la-liga';
-  }
-
-  if (slug.includes('bundesliga')) {
-    return 'bundesliga';
-  }
-
-  if (slug.includes('ligue-1')) {
-    return 'ligue-1';
-  }
-
-  return '';
-}
-
-function renderLeagueLegend() {
-  const league = getLeagueKeyForStandings();
-
-  const standardLeagues = ['premier-league', 'serie-a', 'la-liga'];
-  const playoffLeagues = ['bundesliga', 'ligue-1'];
-
-  if (!standardLeagues.includes(league) && !playoffLeagues.includes(league)) {
-    return '';
-  }
-
-  const items = [
-    ['ucl', 'Champions League'],
-    ['uel', 'Europa League'],
-    ['uecl', 'Conference League']
-  ];
-
-  if (playoffLeagues.includes(league)) {
-    items.push(['playout', 'Play-out relegation']);
-  }
-
-  items.push(['relegation', 'Relegation']);
-
-  return `
-    <div class="qualification-note">
-      ${items.map(item => `
-        <span class="note-dot ${item[0]}"></span>
-        ${escapeHTML(item[1])}
-      `).join('')}
-    </div>
-  `;
-}
-
-function isGroupStageCompetition() {
-  const type = String(appData.competitionType || appData.site?.competitionType || '').toLowerCase();
-
-  return type.includes('group') || type.includes('groups');
-}
-
-function normaliseCompetitionName(value) {
-  return String(value || '')
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, ' ');
-}
-
-function normaliseRegion(value) {
-  return String(value || '')
-    .toLowerCase()
-    .trim()
-    .replace(/_/g, ' ')
-    .replace(/\s+/g, ' ');
-}
-
-function compareSeasonsDesc(a, b) {
-  const aYear = extractSeasonStartYear(a);
-  const bYear = extractSeasonStartYear(b);
-
-  if (bYear !== aYear) {
-    return bYear - aYear;
-  }
-
-  return String(b || '').localeCompare(String(a || ''));
-}
-
-function extractSeasonStartYear(value) {
-  const text = String(value || '');
-  const match = text.match(/\d{4}/);
-
-  return match ? Number(match[0]) : 0;
-}
-
-function slugify(value) {
-  return String(value || '')
-    .toLowerCase()
-    .replace(/&/g, 'and')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
-
-function normaliseText(value) {
-  return String(value || '')
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, ' ');
-}
-
-function normaliseTeamName(value) {
-  return String(value || '')
-    .toLowerCase()
-    .trim()
-    .replace(/\([a-z]{2,4}\)/gi, '')
-    .replace(/[^a-z0-9À-ÿ\s]/gi, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function groupBy(items, fn) {
-  return items.reduce((acc, item) => {
-    const key = fn(item);
-
-    if (!acc[key]) {
-      acc[key] = [];
-    }
-
-    acc[key].push(item);
-    return acc;
-  }, {});
-}
-
-function setText(id, value) {
-  const el = $(id);
-
-  if (el) {
-    el.textContent = value;
-  }
-}
-
-function setHTML(id, value) {
-  const el = $(id);
-
-  if (el) {
-    el.innerHTML = value;
-  }
-}
-
-function showError(message) {
-  setText('competitionTitle', 'Error');
-  setText('competitionSubtitle', message);
-  setHTML('homeGamesList', `<div class="empty">${escapeHTML(message)}</div>`);
-  setHTML('scoreboardList', `<div class="empty">${escapeHTML(message)}</div>`);
-}
-
-function safeNumber(value) {
-  const num = Number(value);
-  return Number.isFinite(num) ? num : 0;
-}
-
-function safeScore(value) {
-  return value === '' || value === undefined || value === null ? '-' : value;
-}
-
-function formatGoalDifference(value) {
-  const num = Number(value);
-
-  if (!Number.isFinite(num)) {
-    return '0';
-  }
-
-  return num > 0 ? `+${num}` : String(num);
-}
-
-function escapeHTML(value) {
-  return String(value || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
-
-function escapeAttr(value) {
-  return escapeHTML(value);
-}
-
-/* Competition region menus */
-
-function renderCompetitionCategoryNav() {
-  const nav = $('competitionCategoryNav');
-
-  if (!nav || !appData || !appData.competitions) {
-    return;
-  }
-
-  const categories = getCompetitionCategories();
-
-  nav.innerHTML = categories.map(category => {
-    const competitions = getUniqueCompetitionsForCategory(category.key);
-
-    const activeCategory = competitions.some(comp => {
-      const active = appData.selectedCompetition || {};
-      return (
-        normaliseCompetitionName(comp['Competition Name']) === normaliseCompetitionName(active['Competition Name']) &&
-        getCompetitionCategoryKey(comp) === getCompetitionCategoryKey(active)
-      );
-    });
-
-    const activeClass = activeCategory ? 'is-active' : '';
-    const disabledClass = competitions.length ? '' : 'is-empty';
-
-    const items = competitions.length
-      ? competitions.map(comp => {
-          const latest = getLatestSeasonForCompetition(comp);
-          const slug = makeCompetitionSlug(latest);
-          const active = appData.selectedCompetition || {};
-          const activeItem =
-            normaliseCompetitionName(comp['Competition Name']) === normaliseCompetitionName(active['Competition Name']) &&
-            getCompetitionCategoryKey(comp) === getCompetitionCategoryKey(active)
-              ? 'active-item'
-              : '';
-
-          return `
-            <button type="button" class="category-menu-item ${activeItem}" onclick="selectCompetitionFromCategory('${escapeAttr(slug)}')">
-              <span>${escapeHTML(comp['Competition Name'] || 'Competition')}</span>
-              ${activeItem ? '<strong>Current</strong>' : ''}
-            </button>
-          `;
-        }).join('')
-      : `<div class="category-empty">No competitions yet</div>`;
-
-    return `
-      <div class="competition-category ${activeClass} ${disabledClass}">
-        <button type="button" class="category-button" onclick="toggleCompetitionCategory('${escapeAttr(category.key)}')">
-          <span class="category-icon">${category.icon}</span>
-          <span class="category-name">${escapeHTML(category.label)}</span>
-          <span class="category-arrow">⌄</span>
-        </button>
-
-        <div class="category-menu" data-category-menu="${escapeAttr(category.key)}">
-          <div class="category-menu-title">
-            <span>${category.icon}</span>
-            <strong>${escapeHTML(category.label)}</strong>
-          </div>
-
-          ${items}
-        </div>
-      </div>
-    `;
-  }).join('');
-}
-
-function getCompetitionCategories() {
-  return [
-    {
-      key: 'england',
-      label: 'England',
-      icon: '🏴󠁧󠁢󠁥󠁮󠁧󠁿'
-    },
-    {
-      key: 'italy',
-      label: 'Italy',
-      icon: '🇮🇹'
-    },
-    {
-      key: 'spain',
-      label: 'Spain',
-      icon: '🇪🇸'
-    },
-    {
-      key: 'germany',
-      label: 'Germany',
-      icon: '🇩🇪'
-    },
-    {
-      key: 'france',
-      label: 'France',
-      icon: '🇫🇷'
-    },
-    {
-      key: 'europe',
-      label: 'Europe',
-      icon: '🇪🇺'
-    },
-    {
-      key: 'world',
-      label: 'World',
-      icon: '🌍'
-    },
-    {
-      key: 'national-teams',
-      label: 'National Teams',
-      icon: '🏆'
-    }
-  ];
-}
-
-function getUniqueCompetitionsForCategory(categoryKey) {
-  const competitions = (appData.competitions || [])
-    .filter(comp => getCompetitionCategoryKey(comp) === categoryKey);
-
-  const map = new Map();
-
-  competitions.forEach(comp => {
-    const key = `${getCompetitionCategoryKey(comp)}|${normaliseCompetitionName(comp['Competition Name'])}`;
-
-    if (!map.has(key)) {
-      map.set(key, comp);
-      return;
-    }
-
-    const existing = map.get(key);
-    const latest = compareSeasonsDesc(comp.Year, existing.Year) < 0 ? comp : existing;
-    map.set(key, latest);
-  });
-
-  return Array.from(map.values()).sort((a, b) => {
-    const priority = getCompetitionPriority(categoryKey, a) - getCompetitionPriority(categoryKey, b);
-
-    if (priority !== 0) {
-      return priority;
-    }
-
-    return String(a['Competition Name'] || '').localeCompare(String(b['Competition Name'] || ''));
-  });
-}
-
-function getLatestSeasonForCompetition(comp) {
-  const categoryKey = getCompetitionCategoryKey(comp);
-  const competitionName = normaliseCompetitionName(comp['Competition Name']);
-
-  const seasons = (appData.competitions || [])
-    .filter(item => {
-      return (
-        getCompetitionCategoryKey(item) === categoryKey &&
-        normaliseCompetitionName(item['Competition Name']) === competitionName
-      );
-    })
-    .sort((a, b) => compareSeasonsDesc(a.Year, b.Year));
-
-  return seasons[0] || comp;
-}
-
-function getCompetitionCategoryKey(comp) {
-  const region = normaliseRegion(comp.Region);
-
-  if (region === 'england') {
-    return 'england';
-  }
-
-  if (region === 'italy') {
-    return 'italy';
-  }
-
-  if (region === 'spain') {
-    return 'spain';
-  }
-
-  if (region === 'germany') {
-    return 'germany';
-  }
-
-  if (region === 'france') {
-    return 'france';
-  }
-
-  if (region === 'europe') {
-    return 'europe';
-  }
-
-  if (region === 'world') {
-    return 'world';
-  }
-
-  if (
-    region === 'national teams' ||
-    region === 'national-teams' ||
-    region === 'international' ||
-    region === 'africa' ||
-    region === 'south america' ||
-    region === 'north america' ||
-    region === 'asia'
-  ) {
-    return 'national-teams';
-  }
-
-  return 'world';
-}
-
-function getCompetitionPriority(categoryKey, comp) {
-  const name = String(comp['Competition Name'] || '').toLowerCase();
-
-  const priorityMap = {
-    england: [
-      'premier league',
-      'fa cup',
-      'carabao cup',
-      'community shield',
-      'championship',
-      'league one',
-      'league two'
-    ],
-    italy: [
-      'serie a',
-      'coppa italia',
-      'italian super cup',
-      'supercoppa'
-    ],
-    spain: [
-      'la liga',
-      'copa del rey',
-      'supercopa'
-    ],
-    germany: [
-      'bundesliga',
-      'dfb-pokal',
-      'dfl-supercup'
-    ],
-    france: [
-      'ligue 1',
-      'coupe de france',
-      'trophee des champions'
-    ],
-    europe: [
-      'champions league',
-      'europa league',
-      'conference league',
-      'uefa super cup'
-    ],
-    world: [
-      'world cup',
-      'club world cup',
-      'world championship',
-      'intercontinental cup'
-    ],
-    'national-teams': [
-      'world cup',
-      'euro',
-      'nations league',
-      'afcon',
-      'africa cup',
-      'copa america',
-      'asian cup',
-      'gold cup'
-    ]
-  };
-
-  const list = priorityMap[categoryKey] || [];
-
-  for (let i = 0; i < list.length; i++) {
-    if (name.includes(list[i])) {
-      return i;
-    }
-  }
-
-  return 999;
-}
-
-function toggleCompetitionCategory(categoryKey) {
-  const nav = $('competitionCategoryNav');
-
-  if (!nav) {
-    return;
-  }
-
-  const allMenus = nav.querySelectorAll('.category-menu');
-  const clickedMenu = nav.querySelector(`[data-category-menu="${categoryKey}"]`);
-
-  allMenus.forEach(menu => {
-    if (menu !== clickedMenu) {
-      menu.classList.remove('open');
-    }
-  });
-
-  if (clickedMenu) {
-    clickedMenu.classList.toggle('open');
-  }
-}
-
-window.toggleCompetitionCategory = toggleCompetitionCategory;
-
-async function selectCompetitionFromCategory(slug) {
-  const nav = $('competitionCategoryNav');
-
-  if (nav) {
-    nav.querySelectorAll('.category-menu').forEach(menu => {
-      menu.classList.remove('open');
-    });
-  }
-
-  resetFilters();
-  updateUrlCompetition(slug);
-  await loadCompetition(slug);
-}
-
-window.selectCompetitionFromCategory = selectCompetitionFromCategory;
-
-document.addEventListener('click', event => {
-  const nav = $('competitionCategoryNav');
-
-  if (!nav) {
-    return;
-  }
-
-  if (!nav.contains(event.target)) {
-    nav.querySelectorAll('.category-menu').forEach(menu => {
-      menu.classList.remove('open');
-    });
-  }
-});
-
-/* =========================================
-   Calcium Sport update 6906
-   Home landing page + global daily games
-   Competition pages: Next Up / Results / Fixtures / Standings / Stats
-========================================= */
-
-function isHomePage() {
-  return !new URLSearchParams(window.location.search).get('competition');
-}
-
-function getCompetitionMatches() {
-  const main = Array.isArray(appData && appData.matches) ? appData.matches : [];
-  const playoffs = Array.isArray(appData && appData.playoffs) ? appData.playoffs : [];
-  return dedupeMatchArray(main.concat(playoffs));
-}
-
-function getGlobalMatches() {
-  const all = Array.isArray(appData && appData.allMatches) ? appData.allMatches : [];
-  return dedupeMatchArray(all);
-}
-
-function dedupeMatchArray(matches) {
-  const seen = new Set();
-  return (matches || []).filter(match => {
-    const key = String(match.MatchID || match.ID || '').trim();
-    if (!key || seen.has(key)) {
-      return false;
-    }
-    seen.add(key);
-    return true;
-  });
-}
-
-async function loadCompetition(competitionParam) {
-  const url = competitionParam
-    ? `${API_URL}?competition=${encodeURIComponent(competitionParam)}`
-    : `${API_URL}?mode=home`;
-
-  const response = await fetch(url);
-
-  if (!response.ok) {
-    throw new Error(`Backend error: ${response.status}`);
-  }
-
-  appData = await response.json();
-
-  if (appData.error) {
-    throw new Error(appData.error);
-  }
-
-  const selected = appData.selectedCompetition || appData.site || {};
-  currentCompetition = makeCompetitionSlug(selected);
-
-  if (!selectedDateKey) {
-    selectedDateKey = getTodayKey();
-  }
-
-  expandedStats = {
-    topScorers: false,
-    topAssists: false,
-    cleanSheets: false,
-    yellowCards: false,
-    redCards: false
-  };
-
-  populateCompetitionDropdown();
-  populateGroupDropdown();
-  populateRoundDropdown();
-  populateSeasonDropdown();
-  renderAll();
-}
-
-function bindEvents() {
-  const competitionSelect = $('competitionSelect');
-  const seasonSelect = $('seasonSelect');
-  const jumpSelect = $('jumpSelect');
-  const searchInput = $('searchInput');
-  const groupFilter = $('groupFilter');
-  const roundFilter = $('roundFilter');
-  const clearBtn = $('clearFilters');
-
-  if (competitionSelect) {
-    competitionSelect.addEventListener('change', async event => {
-      const selected = event.target.value;
-      resetFilters();
-      updateUrlCompetition(selected);
-      await loadCompetition(selected);
-    });
-  }
-
-  if (seasonSelect) {
-    seasonSelect.addEventListener('change', async event => {
-      const selected = event.target.value;
-      resetFilters();
-      updateUrlCompetition(selected);
-      await loadCompetition(selected);
-    });
-  }
-
-  if (jumpSelect) {
-    jumpSelect.addEventListener('change', event => {
-      if (isHomePage()) {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        return;
-      }
-
-      jumpToSection(event.target.value);
-      setActiveTab(event.target.value);
-    });
-  }
-
-  if (searchInput) {
-    searchInput.addEventListener('input', event => {
-      currentSearch = event.target.value.toLowerCase().trim();
-      renderAll();
-    });
-  }
-
-  if (groupFilter) {
-    groupFilter.addEventListener('change', event => {
-      currentGroup = event.target.value;
-      renderAll();
-    });
-  }
-
-  if (roundFilter) {
-    roundFilter.addEventListener('change', event => {
-      currentRound = event.target.value;
-      renderAll();
-    });
-  }
-
-  if (clearBtn) {
-    clearBtn.addEventListener('click', () => {
-      resetFilters();
-      renderAll();
-    });
-  }
-
-  document.querySelectorAll('[data-view]').forEach(button => {
-    button.addEventListener('click', () => {
-      const view = button.getAttribute('data-view');
-      setActiveTab(view);
-      jumpToSection(view);
-    });
-  });
-
-  const backTop = $('backToTop');
-
-  if (backTop) {
-    backTop.addEventListener('click', () => {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    });
-  }
-}
-
-function renderAll() {
-  if (!appData) {
-    return;
-  }
-
-  document.body.classList.toggle('is-home-page', isHomePage());
-  document.body.classList.toggle('is-competition-page', !isHomePage());
-
-  renderHeader();
-  renderDateTabs();
-
-  if (isHomePage()) {
-    renderHomeGames();
-    return;
-  }
-
-  renderScoreboard();
-  renderResults();
-  renderFixtures();
-  renderStandings();
-  renderStats();
-}
-
-function renderHeader() {
-  const site = appData.site || {};
-  const selected = appData.selectedCompetition || {};
-
-  if (isHomePage()) {
-    setText('siteSubtitle', 'Football results centre');
-    setText('competitionTitle', 'Football');
-    setText('competitionSubtitle', 'All games across every competition');
-    setText('regionLabel', 'Home');
-    setText('startDate', '');
-    setText('endDate', '');
-
-    const jumpSelect = $('jumpSelect');
-    if (jumpSelect) {
-      jumpSelect.value = 'nextUp';
-    }
-
-    return;
-  }
-
-  const name = selected['Competition Name'] || site.competition || 'Competition';
-  const year = selected.Year || site.year || '';
-  const region = selected.Region || site.region || 'Football';
-  const logo = selected['Logo URL'] || site.logoUrl || '';
-
-  setText('competitionTitle', name);
-  setText('competitionSubtitle', year ? `${name} ${year}` : name);
-  setText('siteSubtitle', year ? `${name} ${year}` : 'Football results centre');
-  setText('regionLabel', region);
-  setText('startDate', selected.StartDate || site.startDate || 'Start');
-  setText('endDate', selected.EndDate || site.endDate || 'End');
-
-  const scoreboardTitle = $('scoreboardTitle');
-
-  if (scoreboardTitle) {
-    scoreboardTitle.textContent = 'Next Up';
-  }
-
-  const logoEl = $('competitionLogo');
-
-  if (logoEl && logo) {
-    logoEl.src = logo;
-    logoEl.alt = `${name} logo`;
-  }
-}
-
-function renderDateTabs() {
-  const container = $('dateTabs');
-
-  if (!container) {
-    return;
-  }
-
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
-  const tomorrow = new Date(today);
-  tomorrow.setDate(today.getDate() + 1);
-
-  const dates = [
-    { key: dateToKey(yesterday), dayLabel: 'Yesterday', shortDate: formatShortDateFromDate(yesterday) },
-    { key: dateToKey(today), dayLabel: 'Today', shortDate: formatShortDateFromDate(today) },
-    { key: dateToKey(tomorrow), dayLabel: 'Tomorrow', shortDate: formatShortDateFromDate(tomorrow) }
-  ];
-
-  const buttons = dates.map(item => {
-    const active = item.key === selectedDateKey ? 'active' : '';
-
-    return `
-      <button type="button" class="${active}" onclick="selectDateTab('${escapeAttr(item.key)}')">
-        <span>${escapeHTML(item.dayLabel)}</span>
-        <strong>${escapeHTML(item.shortDate)}</strong>
-      </button>
-    `;
-  }).join('');
-
-  const picked = parseDateOnly(selectedDateKey);
-  const pickedValue = picked ? dateToKey(picked) : selectedDateKey;
-  const customDateActive = dates.some(item => item.key === selectedDateKey) ? '' : 'active';
-
-  container.innerHTML = `
-  ${buttons}
-  <div class="date-picker-button ${customDateActive}">
-    <span class="calendar-icon">📅</span>
-    <span class="calendar-label">Pick a date</span>
-    <input id="homeDatePicker" type="date" value="${escapeAttr(pickedValue)}" onchange="pickHomeDate(this.value)" aria-label="Pick a date" style="position:static; opacity:1; width:120px; min-width:120px; height:auto; padding:4px; margin-top:4px; cursor:pointer;">
-  </div>
-`;
-}
-
-window.selectDateTab = function selectDateTab(key) {
-  selectedDateKey = key;
-  renderDateTabs();
-  renderHomeGames();
-};
-
-window.pickHomeDate = function pickHomeDate(value) {
-  if (!value) {
-    return;
-  }
-
-  selectedDateKey = value;
-  renderDateTabs();
-  renderHomeGames();
-};
-
-window.openHomeDatePicker = function openHomeDatePicker() {
-  const picker = document.getElementById('homeDatePicker');
-
-  if (!picker) {
-    console.warn('homeDatePicker input was not found');
-    return;
-  }
-
-  try {
-    if (typeof picker.showPicker === 'function') {
-      picker.showPicker();
-      return;
-    }
-  } catch (error) {
-    console.warn('showPicker failed, using click fallback', error);
-  }
-
-  picker.focus();
-  picker.click();
-};
-
-function renderHomeGames() {
-  const allMatches = getGlobalMatches();
-  const matches = allMatches
-    .filter(match => getDateKey(match.Date) === selectedDateKey)
-    .sort(compareHomeMatches);
-
-  const countEl = $('homeMatchCount');
-  const titleEl = $('homeAllGamesTitle');
-
-  if (countEl) {
-    countEl.textContent = matches.length;
-  }
-
-  if (titleEl) {
-    titleEl.textContent = `All games (${matches.length})`;
-  }
-
-  if (!matches.length) {
-    setHTML('homeGamesList', '<div class="empty home-empty">No games scheduled on this date.</div>');
-    return;
-  }
-
-  const timeGroups = groupBy(matches, match => normaliseKickoffTime(match.Time));
-
-  const html = Object.keys(timeGroups)
-    .sort((a, b) => timeSortValue(a) - timeSortValue(b))
-    .map(time => {
-      const timeMatches = timeGroups[time].sort((a, b) => compareCompetitionPriority(a, b));
-      const competitionGroups = groupBy(timeMatches, match => match.CompetitionLabel || match.Competition || 'Competition');
-
-      const competitionHtml = Object.keys(competitionGroups)
-        .sort((a, b) => compareCompetitionNamePriority(a, b, competitionGroups))
-        .map(competitionName => {
-          const compMatches = competitionGroups[competitionName];
-
-          return `
-            <section class="home-competition-block">
-              <div class="home-competition-mini-title">
-                <span>${escapeHTML(getRegionForCompetition(compMatches[0]))}</span>
-                <strong>${escapeHTML(competitionName)}</strong>
-              </div>
-              ${compMatches.map(renderHomeMatchRow).join('')}
-            </section>
-          `;
-        }).join('');
-
-      return `
-        <section class="home-time-block">
-          <div class="home-time-heading">${escapeHTML(time || 'Scheduled')}</div>
-          ${competitionHtml}
-        </section>
-      `;
-    }).join('');
-
-  setHTML('homeGamesList', html);
-}
-
-function renderHomeMatchRow(match) {
-  const isFinished = match.Status === 'FT';
-  const scoreLabel = isFinished ? renderScoreText(match) : '- : -';
-
-  const homeLogo = match.HomeLogo
-    ? `<img src="${escapeAttr(match.HomeLogo)}" alt="">`
-    : '';
-
-  const awayLogo = match.AwayLogo
-    ? `<img src="${escapeAttr(match.AwayLogo)}" alt="">`
-    : '';
-
-  const clickHandler = match.MatchID ? `onclick="openMatchDetail('${escapeAttr(match.MatchID)}')"` : '';
-
-  return `
-    <article class="home-match-row" ${clickHandler}>
-      <div class="home-match-time">${escapeHTML(match.Time || '')}</div>
-
-      <div class="home-match-teams">
-        <div>
-          ${homeLogo}
-          <span>${escapeHTML(match.HomeTeam)}</span>
-        </div>
-
-        <div>
-          ${awayLogo}
-          <span>${escapeHTML(match.AwayTeam)}</span>
-        </div>
-      </div>
-
-      <div class="home-match-score">${scoreLabel}</div>
-    </article>
-  `;
-}
-
-function compareHomeMatches(a, b) {
-  const timeDiff = timeSortValue(normaliseKickoffTime(a.Time)) - timeSortValue(normaliseKickoffTime(b.Time));
-  if (timeDiff !== 0) {
-    return timeDiff;
-  }
-
-  const compDiff = compareCompetitionPriority(a, b);
-  if (compDiff !== 0) {
-    return compDiff;
-  }
-
-  return String(a.HomeTeam || '').localeCompare(String(b.HomeTeam || ''));
-}
-
-function compareCompetitionPriority(a, b) {
-  const aCategory = getCompetitionCategoryKey(a);
-  const bCategory = getCompetitionCategoryKey(b);
-  const categoryOrder = ['england', 'italy', 'spain', 'germany', 'france', 'europe', 'world', 'national-teams'];
-
-  const categoryDiff = (categoryOrder.indexOf(aCategory) === -1 ? 999 : categoryOrder.indexOf(aCategory)) -
-    (categoryOrder.indexOf(bCategory) === -1 ? 999 : categoryOrder.indexOf(bCategory));
-
-  if (categoryDiff !== 0) {
-    return categoryDiff;
-  }
-
-  return getCompetitionPriority(aCategory, { 'Competition Name': a.Competition || a.CompetitionLabel || '' }) -
-    getCompetitionPriority(bCategory, { 'Competition Name': b.Competition || b.CompetitionLabel || '' });
-}
-
-function compareCompetitionNamePriority(aName, bName, grouped) {
-  const aMatch = grouped[aName][0] || {};
-  const bMatch = grouped[bName][0] || {};
-  return compareCompetitionPriority(aMatch, bMatch) || aName.localeCompare(bName);
-}
-
-function normaliseKickoffTime(value) {
-  const text = String(value || '').trim();
-  return text || 'Scheduled';
-}
-
-function timeSortValue(value) {
-  const text = String(value || '').trim();
-  const match = text.match(/^(\d{1,2}):(\d{2})$/);
-
-  if (!match) {
-    return 99999;
-  }
-
-  return Number(match[1]) * 60 + Number(match[2]);
-}
-
-function populateRoundDropdown() {
-  const select = $('roundFilter');
-
-  if (!select) {
-    return;
-  }
-
-  const rounds = [...new Set(getCompetitionMatches()
-    .map(match => String(match.Round || '').trim())
-    .filter(Boolean))]
-    .sort((a, b) => roundSortValue(a) - roundSortValue(b));
-
-  select.innerHTML = `
-    <option value="">All rounds</option>
-    ${rounds.map(round => `<option value="${escapeHTML(round)}">${escapeHTML(formatRoundLabel(round))}</option>`).join('')}
-  `;
-
-  if (currentRound && rounds.includes(currentRound)) {
-    select.value = currentRound;
-  }
-
-  if (currentRound && !rounds.includes(currentRound)) {
-    currentRound = '';
-    select.value = '';
-  }
-}
-
-function renderScoreboard() {
-  const matches = getFilteredMatches();
-
-  if (!matches.length) {
-    setHTML('scoreboardList', '<div class="empty">No matches found.</div>');
-    return;
-  }
-
-  const nextUp = getNextUpMatch(matches);
-  const html = nextUp
-    ? `
-      ${nextUp.Status === 'FT' ? '<div class="season-complete-note">Season completed. Showing the last match played.</div>' : ''}
-      <section class="round-block">
-        <div class="round-heading">${escapeHTML(formatRoundLabel(nextUp.Round || 'Next Up'))}</div>
-        ${renderScoreboardRow(nextUp)}
-      </section>
-    `
-    : '<div class="empty">No matches found.</div>';
-
-  setHTML('scoreboardList', html);
-}
-
-function getNextUpMatch(matches) {
+function getNextUpRound(matches) {
   const ordered = [...matches].sort((a, b) => matchDateSortValue(a) - matchDateSortValue(b));
-  const scheduled = ordered.filter(match => match.Status !== 'FT' && matchDateSortValue(match) > 0);
+  const now = Date.now() - 86400000;
 
-  if (scheduled.length) {
-    return scheduled[0];
+  const nextScheduled = ordered.find(match => {
+    return match.Status !== 'FT' && matchDateSortValue(match) >= now;
+  });
+
+  if (nextScheduled) {
+    return nextScheduled.Round || '';
   }
 
   const completed = ordered
     .filter(match => match.Status === 'FT' && matchDateSortValue(match) > 0)
     .sort((a, b) => matchDateSortValue(b) - matchDateSortValue(a));
 
-  return completed[0] || ordered[0] || null;
+  return completed.length ? completed[0].Round || '' : '';
 }
 
-function renderResults() {
-  const results = getFilteredMatches()
-    .filter(match => match.Status === 'FT')
-    .sort((a, b) => matchDateSortValue(b) - matchDateSortValue(a));
+function compareStandingRows(a, b) {
+  const pointsA = safeNumber(a.Points);
+  const pointsB = safeNumber(b.Points);
 
-  const html = results.length
-    ? renderGroupedScoreboard(results)
-    : '<div class="empty">No results found.</div>';
+  if (pointsB !== pointsA) return pointsB - pointsA;
 
-  setHTML('resultsList', html);
+  const headToHead = getHeadToHeadWinner(a.Team, b.Team);
+  if (headToHead === a.Team) return -1;
+  if (headToHead === b.Team) return 1;
 
-  const countEl = $('resultsCount');
+  const gdA = safeNumber(a.GoalDifference);
+  const gdB = safeNumber(b.GoalDifference);
+  if (gdB !== gdA) return gdB - gdA;
 
-  if (countEl) {
-    countEl.textContent = `${results.length} matches`;
-  }
+  const gfA = safeNumber(a.GoalsFor);
+  const gfB = safeNumber(b.GoalsFor);
+  if (gfB !== gfA) return gfB - gfA;
+
+  const gaA = safeNumber(a.GoalsAgainst);
+  const gaB = safeNumber(b.GoalsAgainst);
+  if (gaA !== gaB) return gaA - gaB;
+
+  return String(a.Team || '').localeCompare(String(b.Team || ''));
 }
 
-function renderFixtures() {
-  const fixtures = getFilteredMatches()
-    .filter(match => match.Status !== 'FT')
-    .sort((a, b) => matchDateSortValue(a) - matchDateSortValue(b));
+function getHeadToHeadWinner(teamA, teamB) {
+  const teamAKey = normaliseTeamName(teamA);
+  const teamBKey = normaliseTeamName(teamB);
 
-  const html = fixtures.length
-    ? renderGroupedScoreboard(fixtures)
-    : '<div class="empty">No scheduled games found.</div>';
+  const directMatches = getCompetitionMatches().filter(match => {
+    if (match.Status !== 'FT') return false;
 
-  setHTML('fixturesList', html);
+    const home = normaliseTeamName(match.HomeTeam);
+    const away = normaliseTeamName(match.AwayTeam);
 
-  const countEl = $('fixturesCount');
-
-  if (countEl) {
-    countEl.textContent = `${fixtures.length} matches`;
-  }
-}
-
-function getFilteredMatches() {
-  let matches = getCompetitionMatches();
-
-  if (currentSearch) {
-    matches = matches.filter(match => {
-      return [
-        match.HomeTeam,
-        match.AwayTeam,
-        match.Round,
-        match.Competition,
-        match.Date,
-        match.Time
-      ].join(' ').toLowerCase().includes(currentSearch);
-    });
-  }
-
-  if (currentRound) {
-    const selectedRoundKey = normaliseText(currentRound);
-    matches = matches.filter(match => normaliseText(match.Round) === selectedRoundKey);
-  }
-
-  if (currentGroup) {
-    const selectedGroupKey = normaliseText(currentGroup);
-
-    const teamsInGroup = (appData.standings || [])
-      .filter(row => normaliseText(row.Group) === selectedGroupKey)
-      .map(row => normaliseTeamName(row.Team))
-      .filter(Boolean);
-
-    matches = matches.filter(match => {
-      const home = normaliseTeamName(match.HomeTeam);
-      const away = normaliseTeamName(match.AwayTeam);
-      const round = normaliseText(match.Round);
-
-      return (
-        teamsInGroup.includes(home) ||
-        teamsInGroup.includes(away) ||
-        round === selectedGroupKey ||
-        round.includes(selectedGroupKey)
-      );
-    });
-  }
-
-  return matches;
-}
-
-function openMatchDetail(matchId) {
-  const allMatches = getGlobalMatches().concat(getCompetitionMatches());
-  const seen = new Set();
-
-  const uniqueMatches = allMatches.filter(match => {
-    const key = match.MatchID || match.ID;
-
-    if (!key) {
-      return false;
-    }
-
-    if (seen.has(key)) {
-      return false;
-    }
-
-    seen.add(key);
-    return true;
+    return (
+      (home === teamAKey && away === teamBKey) ||
+      (home === teamBKey && away === teamAKey)
+    );
   });
 
-  const match = uniqueMatches.find(item => item.MatchID === matchId || item.ID === matchId);
+  if (!directMatches.length) return '';
 
-  if (!match) {
-    return;
-  }
+  let teamAPoints = 0;
+  let teamBPoints = 0;
 
-  const modal = $('matchModal');
-  const content = $('matchDetailContent');
+  directMatches.forEach(match => {
+    const home = normaliseTeamName(match.HomeTeam);
+    const homeScore = safeNumber(match.HomeScore);
+    const awayScore = safeNumber(match.AwayScore);
 
-  if (!modal || !content) {
-    return;
-  }
+    if (homeScore === awayScore) {
+      teamAPoints += 1;
+      teamBPoints += 1;
+      return;
+    }
 
-  content.innerHTML = renderMatchDetail(match);
-  modal.classList.remove('hidden');
-  document.body.classList.add('modal-open');
-}
+    const winnerKey = homeScore > awayScore ? home : normaliseTeamName(match.AwayTeam);
 
-window.openMatchDetail = openMatchDetail;
+    if (winnerKey === teamAKey) teamAPoints += 3;
+    if (winnerKey === teamBKey) teamBPoints += 3;
+  });
 
-function renderStats() {
-  const stats = getFilteredStats();
-
-  renderStatList('topScorers', stats, 'Goals', 'topScorers');
-  renderStatList('topAssists', stats, 'Assists', 'topAssists');
-  renderStatList('cleanSheets', stats, 'CleanSheets', 'cleanSheets');
-  renderStatList('yellowCards', stats, 'YellowCards', 'yellowCards');
-  renderStatList('redCards', stats, 'RedCards', 'redCards');
-}
-
-function jumpToSection(section) {
-  const map = {
-    home: 'homeSection',
-    nextUp: 'nextUpSection',
-    summary: 'summarySection',
-    results: 'resultsSection',
-    fixtures: 'fixturesSection',
-    standings: 'standingsSection',
-    stats: 'statsSection'
-  };
-
-  const id = map[section] || section;
-  const el = $(id);
-
-  if (el) {
-    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-}
-
-function updateUrlCompetition(slug) {
-  const url = new URL(window.location.href);
-
-  if (!slug || slug === 'home') {
-    url.searchParams.delete('competition');
-  } else {
-    url.searchParams.set('competition', slug);
-  }
-
-  window.history.replaceState({}, '', url.toString());
+  if (teamAPoints > teamBPoints) return teamA;
+  if (teamBPoints > teamAPoints) return teamB;
+  return '';
 }
 
 function renderCompetitionCategoryNav() {
@@ -2810,6 +1190,7 @@ function renderCompetitionCategoryNav() {
           const latest = getLatestSeasonForCompetition(comp);
           const slug = makeCompetitionSlug(latest);
           const active = appData.selectedCompetition || {};
+
           const activeItem = !isHomePage() &&
             normaliseCompetitionName(comp['Competition Name']) === normaliseCompetitionName(active['Competition Name']) &&
             getCompetitionCategoryKey(comp) === getCompetitionCategoryKey(active)
@@ -2832,13 +1213,11 @@ function renderCompetitionCategoryNav() {
           <span class="category-name">${escapeHTML(category.label)}</span>
           <span class="category-arrow">⌄</span>
         </button>
-
         <div class="category-menu" data-category-menu="${escapeAttr(category.key)}">
           <div class="category-menu-title">
             <span>${category.icon}</span>
             <strong>${escapeHTML(category.label)}</strong>
           </div>
-
           ${items}
         </div>
       </div>
@@ -2846,30 +1225,84 @@ function renderCompetitionCategoryNav() {
   }).join('');
 }
 
-async function goHomePage() {
-  const nav = $('competitionCategoryNav');
-
-  if (nav) {
-    nav.querySelectorAll('.category-menu').forEach(menu => {
-      menu.classList.remove('open');
-    });
-  }
-
-  resetFilters();
-  updateUrlCompetition('');
-  await loadCompetition('');
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+function getCompetitionCategories() {
+  return [
+    { key: 'england', label: 'England', icon: '🏴󠁧󠁢󠁥󠁮󠁧󠁿' },
+    { key: 'italy', label: 'Italy', icon: '🇮🇹' },
+    { key: 'spain', label: 'Spain', icon: '🇪🇸' },
+    { key: 'germany', label: 'Germany', icon: '🇩🇪' },
+    { key: 'france', label: 'France', icon: '🇫🇷' },
+    { key: 'europe', label: 'Europe', icon: '🇪🇺' },
+    { key: 'world', label: 'World', icon: '🌍' },
+    { key: 'national-teams', label: 'National Teams', icon: '🏆' }
+  ];
 }
 
-window.goHomePage = goHomePage;
+function getUniqueCompetitionsForCategory(categoryKey) {
+  const competitions = (appData.competitions || [])
+    .filter(comp => getCompetitionCategoryKey(comp) === categoryKey);
+
+  const map = new Map();
+
+  competitions.forEach(comp => {
+    const key = `${getCompetitionCategoryKey(comp)}|${normaliseCompetitionName(comp['Competition Name'])}`;
+
+    if (!map.has(key)) {
+      map.set(key, comp);
+      return;
+    }
+
+    const existing = map.get(key);
+    const latest = compareSeasonsDesc(comp.Year, existing.Year) < 0 ? comp : existing;
+    map.set(key, latest);
+  });
+
+  return Array.from(map.values()).sort((a, b) => {
+    const priority = getCompetitionPriority(categoryKey, a) - getCompetitionPriority(categoryKey, b);
+
+    if (priority !== 0) return priority;
+    return String(a['Competition Name'] || '').localeCompare(String(b['Competition Name'] || ''));
+  });
+}
+
+function getLatestSeasonForCompetition(comp) {
+  const categoryKey = getCompetitionCategoryKey(comp);
+  const competitionName = normaliseCompetitionName(comp['Competition Name']);
+
+  const seasons = (appData.competitions || [])
+    .filter(item => {
+      return (
+        getCompetitionCategoryKey(item) === categoryKey &&
+        normaliseCompetitionName(item['Competition Name']) === competitionName
+      );
+    })
+    .sort((a, b) => compareSeasonsDesc(a.Year, b.Year));
+
+  return seasons[0] || comp;
+}
+
+function toggleCompetitionCategory(categoryKey) {
+  const nav = $('competitionCategoryNav');
+
+  if (!nav) return;
+
+  const allMenus = nav.querySelectorAll('.category-menu');
+  const clickedMenu = nav.querySelector(`[data-category-menu="${categoryKey}"]`);
+
+  allMenus.forEach(menu => {
+    if (menu !== clickedMenu) menu.classList.remove('open');
+  });
+
+  if (clickedMenu) clickedMenu.classList.toggle('open');
+}
+
+window.toggleCompetitionCategory = toggleCompetitionCategory;
 
 async function selectCompetitionFromCategory(slug) {
   const nav = $('competitionCategoryNav');
 
   if (nav) {
-    nav.querySelectorAll('.category-menu').forEach(menu => {
-      menu.classList.remove('open');
-    });
+    nav.querySelectorAll('.category-menu').forEach(menu => menu.classList.remove('open'));
   }
 
   resetFilters();
@@ -2881,327 +1314,191 @@ async function selectCompetitionFromCategory(slug) {
 
 window.selectCompetitionFromCategory = selectCompetitionFromCategory;
 
-window.CALCIUM_SCRIPT_VERSION = '6915-native-date-input';
+async function goHomePage() {
+  const nav = $('competitionCategoryNav');
 
-/* =========================================
-   Calcium Sport 6920
-   Home All Games/My Games tabs + league grouped My Games
-========================================= */
+  if (nav) {
+    nav.querySelectorAll('.category-menu').forEach(menu => menu.classList.remove('open'));
+  }
 
-let currentHomeTab = 'allGames';
-
-function bindHomeSwitchTabs() {
-  document.querySelectorAll('[data-home-tab]').forEach(button => {
-    button.addEventListener('click', () => {
-      currentHomeTab = button.getAttribute('data-home-tab') || 'allGames';
-      renderHomeTab();
-    });
-  });
+  resetFilters();
+  updateUrlCompetition('');
+  await loadCompetition('');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function bindEvents() {
-  const competitionSelect = $('competitionSelect');
-  const seasonSelect = $('seasonSelect');
-  const jumpSelect = $('jumpSelect');
+window.goHomePage = goHomePage;
+
+function resetFilters() {
+  currentSearch = '';
+  currentGroup = '';
+  currentRound = '';
+
   const searchInput = $('searchInput');
   const groupFilter = $('groupFilter');
   const roundFilter = $('roundFilter');
-  const clearBtn = $('clearFilters');
 
-  if (competitionSelect) {
-    competitionSelect.addEventListener('change', async event => {
-      const selected = event.target.value;
-      resetFilters();
-      updateUrlCompetition(selected);
-      await loadCompetition(selected);
-    });
-  }
-
-  if (seasonSelect) {
-    seasonSelect.addEventListener('change', async event => {
-      const selected = event.target.value;
-      resetFilters();
-      updateUrlCompetition(selected);
-      await loadCompetition(selected);
-    });
-  }
-
-  if (jumpSelect) {
-    jumpSelect.addEventListener('change', event => {
-      const value = event.target.value;
-
-      if (isHomePage()) {
-        if (value === 'myGames') {
-          currentHomeTab = 'myGames';
-          renderHomeTab();
-        } else {
-          currentHomeTab = 'allGames';
-          renderHomeTab();
-        }
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        return;
-      }
-
-      jumpToSection(value);
-      setActiveTab(value);
-    });
-  }
-
-  if (searchInput) {
-    searchInput.addEventListener('input', event => {
-      currentSearch = event.target.value.toLowerCase().trim();
-      renderAll();
-    });
-  }
-
-  if (groupFilter) {
-    groupFilter.addEventListener('change', event => {
-      currentGroup = event.target.value;
-      renderAll();
-    });
-  }
-
-  if (roundFilter) {
-    roundFilter.addEventListener('change', event => {
-      currentRound = event.target.value;
-      renderAll();
-    });
-  }
-
-  if (clearBtn) {
-    clearBtn.addEventListener('click', () => {
-      resetFilters();
-      renderAll();
-    });
-  }
-
-  document.querySelectorAll('[data-view]').forEach(button => {
-    button.addEventListener('click', () => {
-      const view = button.getAttribute('data-view');
-      setActiveTab(view);
-      jumpToSection(view);
-    });
-  });
-
-  bindHomeSwitchTabs();
-
-  const backTop = $('backToTop');
-  if (backTop) {
-    backTop.addEventListener('click', () => {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    });
-  }
+  if (searchInput) searchInput.value = '';
+  if (groupFilter) groupFilter.value = '';
+  if (roundFilter) roundFilter.value = '';
 }
 
-function renderAll() {
-  if (!appData) return;
-
-  document.body.classList.toggle('is-home-page', isHomePage());
-  document.body.classList.toggle('is-competition-page', !isHomePage());
-
-  renderHeader();
-  renderDateTabs();
+function jumpToSection(section) {
+  if (section === 'myGames' && isHomePage()) {
+    currentHomeTab = 'myGames';
+    renderHomeTab();
+    const el = $('homeSection');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
+  }
 
   if (isHomePage()) {
-    renderHomeGames();
-    renderMyGames();
+    currentHomeTab = 'allGames';
     renderHomeTab();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     return;
   }
 
-  renderScoreboard();
-  renderResults();
-  renderFixtures();
-  renderStandings();
-  renderStats();
+  const map = {
+    home: 'homeSection',
+    nextUp: 'nextUpSection',
+    myGames: 'homeSection',
+    summary: 'summarySection',
+    results: 'resultsSection',
+    fixtures: 'fixturesSection',
+    standings: 'standingsSection',
+    stats: 'statsSection'
+  };
+
+  const id = map[section] || section;
+  const el = $(id);
+
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function renderHomeTab() {
-  const allHeader = $('allGamesHeader');
-  const allList = $('homeGamesList');
-  const myPanel = $('myGamesPanel');
-  const jumpSelect = $('jumpSelect');
-
-  document.querySelectorAll('[data-home-tab]').forEach(button => {
-    button.classList.toggle('active', button.getAttribute('data-home-tab') === currentHomeTab);
+function setActiveTab(view) {
+  document.querySelectorAll('[data-view]').forEach(button => {
+    button.classList.toggle('active', button.getAttribute('data-view') === view);
   });
-
-  if (allHeader) allHeader.classList.toggle('hidden', currentHomeTab !== 'allGames');
-  if (allList) allList.classList.toggle('hidden', currentHomeTab !== 'allGames');
-  if (myPanel) myPanel.classList.toggle('hidden', currentHomeTab !== 'myGames');
-
-  if (jumpSelect && isHomePage()) {
-    jumpSelect.value = currentHomeTab === 'myGames' ? 'myGames' : 'nextUp';
-  }
 }
 
-window.selectDateTab = function selectDateTab(key) {
-  selectedDateKey = key;
-  renderDateTabs();
-  renderHomeGames();
-  renderMyGames();
-  renderHomeTab();
-};
+function updateUrlCompetition(slug) {
+  const url = new URL(window.location.href);
 
-window.pickHomeDate = function pickHomeDate(value) {
-  if (!value) return;
-
-  selectedDateKey = value;
-  renderDateTabs();
-  renderHomeGames();
-  renderMyGames();
-  renderHomeTab();
-};
-
-function renderHomeGames() {
-  const allMatches = getGlobalMatches();
-  const matches = allMatches
-    .filter(match => getDateKey(match.Date) === selectedDateKey)
-    .sort(compareHomeMatches);
-
-  const countEl = $('homeMatchCount');
-  const titleEl = $('homeAllGamesTitle');
-
-  if (countEl) countEl.textContent = matches.length;
-  if (titleEl) titleEl.textContent = `All games (${matches.length})`;
-
-  if (!matches.length) {
-    setHTML('homeGamesList', '<div class="empty home-empty">No games scheduled on this date.</div>');
-    return;
+  if (!slug || slug === 'home') {
+    url.searchParams.delete('competition');
+  } else {
+    url.searchParams.set('competition', slug);
   }
 
-  const timeGroups = groupBy(matches, match => normaliseKickoffTime(match.Time));
-
-  const html = Object.keys(timeGroups)
-    .sort((a, b) => timeSortValue(a) - timeSortValue(b))
-    .map(time => {
-      const timeMatches = timeGroups[time].sort((a, b) => compareCompetitionPriority(a, b));
-      const competitionGroups = groupBy(timeMatches, match => match.CompetitionLabel || match.Competition || 'Competition');
-
-      const competitionHtml = Object.keys(competitionGroups)
-        .sort((a, b) => compareCompetitionNamePriority(a, b, competitionGroups))
-        .map(competitionName => {
-          const compMatches = competitionGroups[competitionName];
-
-          return `
-            <section class="home-competition-block">
-              <div class="home-competition-mini-title">
-                <span>${escapeHTML(getRegionForCompetition(compMatches[0]))}</span>
-                <strong>${escapeHTML(competitionName)}</strong>
-              </div>
-              ${compMatches.map(renderHomeMatchRow).join('')}
-            </section>
-          `;
-        }).join('');
-
-      return `
-        <section class="home-time-block">
-          <div class="home-time-heading">${escapeHTML(time || 'Scheduled')}</div>
-          ${competitionHtml}
-        </section>
-      `;
-    }).join('');
-
-  setHTML('homeGamesList', html);
+  window.history.replaceState({}, '', url.toString());
 }
 
-function renderHomeMatchRow(match) {
-  const isFinished = match.Status === 'FT';
-  const scoreLabel = isFinished ? renderScoreText(match) : '- : -';
+function getCompetitionCategoryKey(comp) {
+  const region = normaliseRegion(comp.Region);
 
-  const homeLogo = renderTeamLogo(match.HomeLogo, match.HomeTeam);
-const awayLogo = renderTeamLogo(match.AwayLogo, match.AwayTeam);
-  const clickHandler = match.MatchID ? `onclick="openMatchDetail('${escapeAttr(match.MatchID)}')"` : '';
+  if (region === 'england') return 'england';
+  if (region === 'italy') return 'italy';
+  if (region === 'spain') return 'spain';
+  if (region === 'germany') return 'germany';
+  if (region === 'france') return 'france';
+  if (region === 'europe') return 'europe';
+  if (region === 'world') return 'world';
 
-  return `
-    <article class="home-match-row home-row-layout" ${clickHandler}>
-      <div class="score-team-home-name">${escapeHTML(match.HomeTeam)}</div>
-      <div class="score-team-home-logo">${homeLogo}</div>
-      <div class="home-match-score">${scoreLabel}</div>
-      <div class="score-team-away-logo">${awayLogo}</div>
-      <div class="score-team-away-name">${escapeHTML(match.AwayTeam)}</div>
-    </article>
-  `;
+  if (
+    region === 'national teams' ||
+    region === 'national-teams' ||
+    region === 'international' ||
+    region === 'africa' ||
+    region === 'south america' ||
+    region === 'north america' ||
+    region === 'asia'
+  ) return 'national-teams';
+
+  const competition = String(comp.Competition || comp.CompetitionLabel || comp['Competition Name'] || '').toLowerCase();
+
+  if (competition.includes('premier league') || competition.includes('fa cup') || competition.includes('carabao') || competition.includes('community shield')) return 'england';
+  if (competition.includes('serie a') || competition.includes('coppa') || competition.includes('supercoppa')) return 'italy';
+  if (competition.includes('la liga') || competition.includes('copa del rey') || competition.includes('supercopa')) return 'spain';
+  if (competition.includes('bundesliga') || competition.includes('dfb') || competition.includes('dfl')) return 'germany';
+  if (competition.includes('ligue 1') || competition.includes('trophee') || competition.includes('trophée') || competition.includes('coupe de france')) return 'france';
+  if (competition.includes('champions league') || competition.includes('europa league') || competition.includes('conference league') || competition.includes('uefa super cup')) return 'europe';
+  if (competition.includes('world cup') || competition.includes('afcon') || competition.includes('euro') || competition.includes('copa america')) return 'national-teams';
+
+  return 'world';
 }
 
-function renderMyGames() {
-  const all = Array.isArray(appData && appData.myGames) ? appData.myGames : [];
-  const selected = parseDateOnly(selectedDateKey) || new Date();
-  const weekMatches = all
-    .filter(match => isDateInsideWeekText(selected, match.WeekDates) || getDateKey(match.Date) === selectedDateKey)
-    .sort(compareMyGamesMatches);
+function getCompetitionPriority(categoryKey, comp) {
+  const name = String(comp['Competition Name'] || comp.Competition || '').toLowerCase();
 
-  const titleEl = $('myGamesTitle');
-  const subtitleEl = $('myGamesSubtitle');
-  const countEl = $('myGamesCount');
+  const priorityMap = {
+    england: ['premier league', 'fa cup', 'carabao cup', 'community shield', 'championship', 'league one', 'league two'],
+    italy: ['serie a', 'coppa italia', 'italian super cup', 'supercoppa'],
+    spain: ['la liga', 'copa del rey', 'supercopa'],
+    germany: ['bundesliga', 'dfb-pokal', 'dfl-supercup'],
+    france: ['ligue 1', 'coupe de france', 'trophee des champions'],
+    europe: ['champions league', 'europa league', 'conference league', 'uefa super cup'],
+    world: ['world cup', 'club world cup', 'world championship', 'intercontinental cup'],
+    'national-teams': ['world cup', 'euro', 'nations league', 'afcon', 'africa cup', 'copa america', 'asian cup', 'gold cup']
+  };
 
-  const weekLabel = weekMatches[0]?.Week || getSeasonWeekLabel(selected);
-  const weekDates = weekMatches[0]?.WeekDates || getWeekRangeLabel(selected);
+  const list = priorityMap[categoryKey] || [];
 
-  if (titleEl) titleEl.textContent = weekLabel;
-  if (subtitleEl) subtitleEl.textContent = weekDates;
-  if (countEl) countEl.textContent = weekMatches.length;
-
-  if (!weekMatches.length) {
-    setHTML('myGamesList', '<div class="empty home-empty">No My Games found for this week.</div>');
-    return;
+  for (let i = 0; i < list.length; i++) {
+    if (name.includes(list[i])) return i;
   }
 
-  const grouped = groupBy(weekMatches, match => getMyGamesGroupLabel(match));
-  const order = ['England', 'Italy', 'Spain', 'Germany', 'France', 'Europe', 'World', 'National Teams'];
-
-  const html = Object.keys(grouped)
-    .sort((a, b) => {
-      const ai = order.indexOf(a) === -1 ? 999 : order.indexOf(a);
-      const bi = order.indexOf(b) === -1 ? 999 : order.indexOf(b);
-      return ai - bi || a.localeCompare(b);
-    })
-    .map(groupName => {
-      const leagueGroups = groupBy(grouped[groupName], match => match.Competition || 'Competition');
-
-      const leagues = Object.keys(leagueGroups)
-        .sort((a, b) => compareCompetitionNamePriorityFromName(groupName, a, b))
-        .map(league => {
-          const matches = leagueGroups[league].sort(compareMyGamesMatches);
-
-          return `
-            <section class="my-games-league-card">
-              <div class="my-games-league-head">
-                <span class="my-games-region">${escapeHTML(groupName)}</span>
-                <strong class="my-games-league-name">${escapeHTML(league)}</strong>
-              </div>
-              ${matches.map(renderMyGamesRow).join('')}
-            </section>
-          `;
-        }).join('');
-
-      return leagues;
-    }).join('');
-
-  setHTML('myGamesList', html);
+  return 999;
 }
 
-function renderMyGamesRow(match) {
-  const dateParts = formatScoreboardDateParts(match.Date, match.Time);
-  const score = match.Status === 'FT' ? renderScoreText(match) : '- : -';
-  const homeLogo = renderTeamLogo(match.HomeLogo, match.HomeTeam);
-const awayLogo = renderTeamLogo(match.AwayLogo, match.AwayTeam);
-  const clickHandler = match.MatchID ? `onclick="openMatchDetail('${escapeAttr(match.MatchID)}')"` : '';
+function compareHomeMatches(a, b) {
+  const timeDiff = timeSortValue(normaliseKickoffTime(a.Time)) - timeSortValue(normaliseKickoffTime(b.Time));
+  if (timeDiff !== 0) return timeDiff;
 
-  return `
-    <article class="my-games-match" ${clickHandler}>
-      <div class="my-games-date">
-        <span>${escapeHTML(dateParts.date)}</span>
-        <span>${escapeHTML(dateParts.time)}</span>
-      </div>
-      <div class="my-games-team-name home">${escapeHTML(match.HomeTeam)}</div>
-      <div class="my-games-logo">${homeLogo}</div>
-      <div class="my-games-score">${score}</div>
-      <div class="my-games-logo">${awayLogo}</div>
-      <div class="my-games-team-name away">${escapeHTML(match.AwayTeam)}</div>
-      <div class="my-games-status">${escapeHTML(match.Status || 'Scheduled')}</div>
-    </article>
-  `;
+  const compDiff = compareCompetitionPriority(a, b);
+  if (compDiff !== 0) return compDiff;
+
+  return String(a.HomeTeam || '').localeCompare(String(b.HomeTeam || ''));
+}
+
+function compareCompetitionPriority(a, b) {
+  const aCategory = getCompetitionCategoryKey(a);
+  const bCategory = getCompetitionCategoryKey(b);
+  const categoryOrder = ['england', 'italy', 'spain', 'germany', 'france', 'europe', 'world', 'national-teams'];
+
+  const categoryDiff =
+    (categoryOrder.indexOf(aCategory) === -1 ? 999 : categoryOrder.indexOf(aCategory)) -
+    (categoryOrder.indexOf(bCategory) === -1 ? 999 : categoryOrder.indexOf(bCategory));
+
+  if (categoryDiff !== 0) return categoryDiff;
+
+  return getCompetitionPriority(aCategory, { 'Competition Name': a.Competition || a.CompetitionLabel || '' }) -
+    getCompetitionPriority(bCategory, { 'Competition Name': b.Competition || b.CompetitionLabel || '' });
+}
+
+function compareCompetitionNamePriority(aName, bName, grouped) {
+  const aMatch = grouped[aName][0] || {};
+  const bMatch = grouped[bName][0] || {};
+  return compareCompetitionPriority(aMatch, bMatch) || aName.localeCompare(bName);
+}
+
+function compareCompetitionNamePriorityFromName(groupName, aName, bName) {
+  const keyMap = {
+    England: 'england',
+    Italy: 'italy',
+    Spain: 'spain',
+    Germany: 'germany',
+    France: 'france',
+    Europe: 'europe',
+    World: 'world',
+    'National Teams': 'national-teams'
+  };
+
+  const key = keyMap[groupName] || 'world';
+
+  return getCompetitionPriority(key, { 'Competition Name': aName }) -
+    getCompetitionPriority(key, { 'Competition Name': bName }) ||
+    aName.localeCompare(bName);
 }
 
 function compareMyGamesMatches(a, b) {
@@ -3225,46 +1522,222 @@ function getMyGamesGroupPriority(match) {
 }
 
 function getMyGamesGroupLabel(match) {
-  const region = normaliseRegion(match.Region);
-  const comp = String(match.Competition || '').toLowerCase();
+  const key = getCompetitionCategoryKey(match);
 
-  if (region === 'england') return 'England';
-  if (region === 'italy') return 'Italy';
-  if (region === 'spain') return 'Spain';
-  if (region === 'germany') return 'Germany';
-  if (region === 'france') return 'France';
-  if (region === 'europe') return 'Europe';
-  if (region === 'world') return 'World';
-  if (region.includes('national') || region === 'international') return 'National Teams';
-
-  if (comp.includes('premier league') || comp.includes('fa cup') || comp.includes('community shield') || comp.includes('carabao')) return 'England';
-  if (comp.includes('serie a') || comp.includes('coppa') || comp.includes('supercoppa')) return 'Italy';
-  if (comp.includes('la liga') || comp.includes('copa del rey') || comp.includes('supercopa')) return 'Spain';
-  if (comp.includes('bundesliga') || comp.includes('dfb') || comp.includes('dfl')) return 'Germany';
-  if (comp.includes('ligue 1') || comp.includes('trophée') || comp.includes('trophee') || comp.includes('coupe de france')) return 'France';
-  if (comp.includes('champions league') || comp.includes('europa league') || comp.includes('conference league') || comp.includes('uefa super cup')) return 'Europe';
-  if (comp.includes('world cup') || comp.includes('afcon') || comp.includes('euro') || comp.includes('copa america')) return 'National Teams';
-
-  return 'World';
-}
-
-function compareCompetitionNamePriorityFromName(groupName, aName, bName) {
-  const keyMap = {
-    England: 'england',
-    Italy: 'italy',
-    Spain: 'spain',
-    Germany: 'germany',
-    France: 'france',
-    Europe: 'europe',
-    World: 'world',
-    'National Teams': 'national-teams'
+  const labels = {
+    england: 'England',
+    italy: 'Italy',
+    spain: 'Spain',
+    germany: 'Germany',
+    france: 'France',
+    europe: 'Europe',
+    world: 'World',
+    'national-teams': 'National Teams'
   };
 
-  const key = keyMap[groupName] || 'world';
+  return labels[key] || 'World';
+}
 
-  return getCompetitionPriority(key, { 'Competition Name': aName }) -
-    getCompetitionPriority(key, { 'Competition Name': bName }) ||
-    aName.localeCompare(bName);
+function getRankClass(index, groupSize, isGroupStage) {
+  if (isGroupStage) {
+    if (groupSize <= 2) return 'rank-neutral';
+    if (index <= 1) return 'rank-qualified';
+    return 'rank-eliminated';
+  }
+
+  const pos = index + 1;
+  const league = getLeagueKeyForStandings();
+
+  if (league === 'premier-league' || league === 'serie-a' || league === 'la-liga') {
+    if (pos <= 4) return 'rank-ucl';
+    if (pos <= 6) return 'rank-uel';
+    if (pos <= 8) return 'rank-uecl';
+    if (pos >= 18) return 'rank-relegation';
+    return 'rank-neutral';
+  }
+
+  if (league === 'bundesliga') {
+    if (pos <= 4) return 'rank-ucl';
+    if (pos <= 6) return 'rank-uel';
+    if (pos <= 8) return 'rank-uecl';
+    if (pos === 16) return 'rank-playout';
+    if (pos >= 17) return 'rank-relegation';
+    return 'rank-neutral';
+  }
+
+  if (league === 'ligue-1') {
+    if (pos <= 3) return 'rank-ucl';
+    if (pos <= 5) return 'rank-uel';
+    if (pos <= 7) return 'rank-uecl';
+    if (pos === 16) return 'rank-playout';
+    if (pos >= 17) return 'rank-relegation';
+    return 'rank-neutral';
+  }
+
+  return 'rank-neutral';
+}
+
+function getLeagueKeyForStandings() {
+  const selected = appData && appData.selectedCompetition ? appData.selectedCompetition : {};
+  const site = appData && appData.site ? appData.site : {};
+  const name = normaliseCompetitionName(selected['Competition Name'] || selected.competition || site.competition || currentCompetition || '');
+  const slug = slugify(name);
+
+  if (slug.includes('premier-league')) return 'premier-league';
+  if (slug === 'serie-a' || slug.includes('serie-a')) return 'serie-a';
+  if (slug.includes('la-liga') || slug.includes('laliga')) return 'la-liga';
+  if (slug.includes('bundesliga')) return 'bundesliga';
+  if (slug.includes('ligue-1')) return 'ligue-1';
+
+  return '';
+}
+
+function renderLeagueLegend() {
+  const league = getLeagueKeyForStandings();
+  const standardLeagues = ['premier-league', 'serie-a', 'la-liga'];
+  const playoffLeagues = ['bundesliga', 'ligue-1'];
+
+  if (!standardLeagues.includes(league) && !playoffLeagues.includes(league)) {
+    return '';
+  }
+
+  const items = [
+    ['ucl', 'Champions League'],
+    ['uel', 'Europa League'],
+    ['uecl', 'Conference League']
+  ];
+
+  if (playoffLeagues.includes(league)) {
+    items.push(['playout', 'Play-out relegation']);
+  }
+
+  items.push(['relegation', 'Relegation']);
+
+  return `
+    <div class="qualification-note">
+      ${items.map(item => `<span class="note-dot ${item[0]}"></span>${escapeHTML(item[1])}`).join('')}
+    </div>
+  `;
+}
+
+function isGroupStageCompetition() {
+  const type = String(appData.competitionType || appData.site?.competitionType || '').toLowerCase();
+  return type.includes('group') || type.includes('groups');
+}
+
+function getRegionForCompetition(match) {
+  return String(match.Region || 'World').toUpperCase();
+}
+
+function getDateKey(value) {
+  const parsed = parseDateOnly(value);
+  return parsed ? dateToKey(parsed) : '';
+}
+
+function parseDateOnly(value) {
+  if (value instanceof Date) {
+    return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+  }
+
+  const text = String(value || '').trim();
+
+  if (!text) return null;
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+    const parts = text.split('-');
+    return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  }
+
+  if (/^\d{1,2}[./-]\d{1,2}[./-]\d{4}$/.test(text)) {
+    const parts = text.split(/[./-]/);
+    return new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
+  }
+
+  return null;
+}
+
+function matchDateSortValue(match) {
+  const parsedDate = parseDateOnly(match.Date);
+
+  if (!parsedDate) return 0;
+
+  const time = String(match.Time || '00:00').trim();
+  const timeParts = time.split(':');
+
+  parsedDate.setHours(Number(timeParts[0]) || 0);
+  parsedDate.setMinutes(Number(timeParts[1]) || 0);
+
+  return parsedDate.getTime();
+}
+
+function formatScoreboardDateParts(date, time) {
+  const parsed = parseDateOnly(date);
+  const cleanTime = String(time || '').trim();
+  const dateText = parsed ? formatShortDateFromDate(parsed).replace(/\.$/, '') : String(date || '').trim();
+
+  return { date: dateText, time: cleanTime || '' };
+}
+
+function formatFullDateTime(date, time) {
+  const parsed = parseDateOnly(date);
+  const cleanTime = String(time || '').trim();
+
+  const dateText = parsed ? parsed.toLocaleDateString('en-GB') : String(date || '').trim();
+
+  return [dateText, cleanTime].filter(Boolean).join(' ');
+}
+
+function dateToKey(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
+
+function getTodayKey() {
+  return dateToKey(new Date());
+}
+
+function formatShortDateFromDate(date) {
+  return `${String(date.getDate()).padStart(2, '0')}.${String(date.getMonth() + 1).padStart(2, '0')}.`;
+}
+
+function normaliseKickoffTime(value) {
+  const text = String(value || '').trim();
+  return text || 'Scheduled';
+}
+
+function timeSortValue(value) {
+  const text = String(value || '').trim();
+  const match = text.match(/^(\d{1,2}):(\d{2})$/);
+
+  if (!match) return 99999;
+
+  return Number(match[1]) * 60 + Number(match[2]);
+}
+
+function renderScoreText(match) {
+  const home = safeScore(match.HomeScore);
+  const away = safeScore(match.AwayScore);
+  const hp = String(match.HomePens || '').trim();
+  const ap = String(match.AwayPens || '').trim();
+
+  if (hp && ap) {
+    return `(${escapeHTML(hp)}) ${escapeHTML(home)} - ${escapeHTML(away)} (${escapeHTML(ap)})`;
+  }
+
+  return `${escapeHTML(home)} - ${escapeHTML(away)}`;
+}
+
+function getPenaltyWinnerText(match) {
+  const hp = Number(match.HomePens);
+  const ap = Number(match.AwayPens);
+
+  if (!Number.isFinite(hp) || !Number.isFinite(ap)) return '';
+  if (hp > ap) return `${match.HomeTeam} win ${hp}-${ap} on penalties`;
+  if (ap > hp) return `${match.AwayTeam} win ${ap}-${hp} on penalties`;
+  return '';
 }
 
 function isDateInsideWeekText(date, weekText) {
@@ -3298,6 +1771,7 @@ function getWeekRangeLabel(date) {
   monday.setDate(d.getDate() + diffToMonday);
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
+
   return `${formatMyGamesDate(monday)} - ${formatMyGamesDate(sunday)}`;
 }
 
@@ -3305,6 +1779,7 @@ function getSeasonWeekLabel(date) {
   const seasonStartYear = date.getMonth() >= 7 ? date.getFullYear() : date.getFullYear() - 1;
   const firstMonday = getFirstMondayOfAugust(seasonStartYear);
   const diff = Math.floor((new Date(date.getFullYear(), date.getMonth(), date.getDate()) - firstMonday) / 604800000);
+
   return `Week ${Math.max(1, diff + 1)}`;
 }
 
@@ -3313,6 +1788,7 @@ function getFirstMondayOfAugust(year) {
   const day = d.getDay();
   const add = day === 1 ? 0 : (8 - day) % 7;
   d.setDate(d.getDate() + add);
+
   return d;
 }
 
@@ -3320,96 +1796,154 @@ function formatMyGamesDate(date) {
   return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}`;
 }
 
-function renderScoreboard() {
-  const matches = getFilteredMatches();
-
-  if (!matches.length) {
-    setHTML('scoreboardList', '<div class="empty">No matches found.</div>');
-    return;
-  }
-
-  const targetRound = getNextUpRound(matches);
-
-  if (!targetRound) {
-    setHTML('scoreboardList', '<div class="empty">No matches found.</div>');
-    return;
-  }
-
-  const roundMatches = matches
-    .filter(match => normaliseText(match.Round || '') === normaliseText(targetRound))
-    .sort((a, b) => matchDateSortValue(a) - matchDateSortValue(b));
-
-  const scheduledExists = roundMatches.some(match => match.Status !== 'FT');
-
-  setHTML('scoreboardList', `
-    ${scheduledExists ? '' : '<div class="season-complete-note">Season completed. Showing the last round played.</div>'}
-    <section class="round-block">
-      <div class="round-heading">${escapeHTML(formatRoundLabel(targetRound))}</div>
-      ${roundMatches.map(renderScoreboardRow).join('')}
-    </section>
-  `);
+function isGoalEvent(event) {
+  return String(event.Event || '').toLowerCase().trim() === 'goal';
 }
 
-function getNextUpRound(matches) {
-  const ordered = [...matches].sort((a, b) => matchDateSortValue(a) - matchDateSortValue(b));
-  const nextScheduled = ordered.find(match => match.Status !== 'FT' && matchDateSortValue(match) > 0);
-
-  if (nextScheduled) return nextScheduled.Round || '';
-
-  const completed = ordered
-    .filter(match => match.Status === 'FT' && matchDateSortValue(match) > 0)
-    .sort((a, b) => matchDateSortValue(b) - matchDateSortValue(a));
-
-  return completed.length ? completed[0].Round || '' : '';
+function sameTeam(a, b) {
+  return normaliseTeamName(a) === normaliseTeamName(b);
 }
 
-function openMatchDetail(matchId) {
-  const allMatches = getGlobalMatches().concat(getCompetitionMatches()).concat(Array.isArray(appData?.myGames) ? appData.myGames : []);
-  const seen = new Set();
+function getHalfNumber(value) {
+  const text = String(value || '').toLowerCase().trim();
 
-  const uniqueMatches = allMatches.filter(match => {
-    const key = match.MatchID || match.ID;
-    if (!key || seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+  if (text === '1' || text.includes('1st') || text.includes('first')) return 1;
+  if (text === '2' || text.includes('2nd') || text.includes('second')) return 2;
 
-  const match = uniqueMatches.find(item => item.MatchID === matchId || item.ID === matchId);
-  if (!match) return;
-
-  const modal = $('matchModal');
-  const content = $('matchDetailContent');
-  if (!modal || !content) return;
-
-  content.innerHTML = renderMatchDetail(match);
-  modal.classList.remove('hidden');
-  document.body.classList.add('modal-open');
+  return 0;
 }
 
-function jumpToSection(section) {
-  if (section === 'myGames' && isHomePage()) {
-    currentHomeTab = 'myGames';
-    renderHomeTab();
-    const el = $('homeSection');
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    return;
-  }
+function makeCompetitionSlug(comp) {
+  const name = comp['Competition Name'] || comp.competition || '';
+  const year = comp.Year || comp.year || '';
 
-  const map = {
-    home: 'homeSection',
-    nextUp: 'nextUpSection',
-    myGames: 'homeSection',
-    summary: 'summarySection',
-    results: 'resultsSection',
-    fixtures: 'fixturesSection',
-    standings: 'standingsSection',
-    stats: 'statsSection'
-  };
+  return slugify(`${name} ${year}`.trim());
+}
 
-  const id = map[section] || section;
+function slugify(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function normaliseText(value) {
+  return String(value || '').toLowerCase().trim().replace(/\s+/g, ' ');
+}
+
+function normaliseTeamName(value) {
+  return String(value || '')
+    .toLowerCase()
+    .trim()
+    .replace(/\([a-z]{2,4}\)/gi, '')
+    .replace(/[^a-z0-9À-ÿ\s]/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function normaliseCompetitionName(value) {
+  return normaliseText(value);
+}
+
+function normaliseRegion(value) {
+  return String(value || '').toLowerCase().trim().replace(/_/g, ' ').replace(/\s+/g, ' ');
+}
+
+function compareSeasonsDesc(a, b) {
+  const aYear = extractSeasonStartYear(a);
+  const bYear = extractSeasonStartYear(b);
+
+  if (bYear !== aYear) return bYear - aYear;
+
+  return String(b || '').localeCompare(String(a || ''));
+}
+
+function extractSeasonStartYear(value) {
+  const text = String(value || '');
+  const match = text.match(/\d{4}/);
+
+  return match ? Number(match[0]) : 0;
+}
+
+function roundSortValue(value) {
+  const text = String(value || '').toLowerCase().trim();
+
+  if (/^\d+$/.test(text)) return Number(text);
+  if (text.includes('final') && !text.includes('semi') && !text.includes('quarter')) return 100;
+  if (text.includes('semi')) return 90;
+  if (text.includes('quarter')) return 80;
+  if (text.includes('16')) return 70;
+  if (text.includes('32')) return 60;
+
+  return 0;
+}
+
+function formatRoundLabel(value) {
+  const text = String(value || '').trim();
+
+  if (!text) return 'MATCHES';
+  if (/^\d+$/.test(text)) return `ROUND ${text}`;
+
+  return text.toUpperCase();
+}
+
+function groupBy(items, fn) {
+  return items.reduce((acc, item) => {
+    const key = fn(item);
+
+    if (!acc[key]) acc[key] = [];
+
+    acc[key].push(item);
+    return acc;
+  }, {});
+}
+
+function setText(id, value) {
   const el = $(id);
-
-  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (el) el.textContent = value;
 }
 
-window.CALCIUM_SCRIPT_VERSION = '6920-my-games-master-logos';
+function setHTML(id, value) {
+  const el = $(id);
+  if (el) el.innerHTML = value;
+}
+
+function showError(message) {
+  setText('competitionTitle', 'Error');
+  setText('competitionSubtitle', message);
+  setHTML('homeGamesList', `<div class="empty">${escapeHTML(message)}</div>`);
+  setHTML('scoreboardList', `<div class="empty">${escapeHTML(message)}</div>`);
+}
+
+function safeNumber(value) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : 0;
+}
+
+function safeScore(value) {
+  return value === '' || value === undefined || value === null ? '-' : value;
+}
+
+function formatGoalDifference(value) {
+  const num = Number(value);
+
+  if (!Number.isFinite(num)) return '0';
+
+  return num > 0 ? `+${num}` : String(num);
+}
+
+function escapeHTML(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function escapeAttr(value) {
+  return escapeHTML(value);
+}
+
+window.CALCIUM_SCRIPT_VERSION = '6924-clean-full';
