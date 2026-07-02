@@ -384,6 +384,68 @@ window.pickHomeDate = function pickHomeDate(value) {
   renderHomeTab();
 };
 
+function renderHomeGames() {
+  const matches = getGlobalMatches()
+    .filter(match => getDateKey(match.Date) === selectedDateKey)
+    .sort(compareHomeMatches);
+
+  const countEl = $('homeMatchCount');
+  const titleEl = $('homeAllGamesTitle');
+
+  if (countEl) countEl.textContent = matches.length;
+  if (titleEl) titleEl.textContent = `All games (${matches.length})`;
+
+  if (!matches.length) {
+    setHTML('homeGamesList', '<div class="empty home-empty">No games scheduled on this date.</div>');
+    return;
+  }
+
+  const timeGroups = groupBy(matches, match => normaliseKickoffTime(match.Time));
+
+  const html = Object.keys(timeGroups)
+    .sort((a, b) => timeSortValue(a) - timeSortValue(b))
+    .map(time => {
+      const timeMatches = timeGroups[time].sort(compareHomeMatches);
+      const competitionGroups = groupBy(timeMatches, match => match.CompetitionLabel || match.Competition || 'Competition');
+
+      return `
+        <section class="home-time-block">
+          <div class="home-time-heading">${escapeHTML(time || 'Scheduled')}</div>
+          ${Object.keys(competitionGroups).map(competitionName => {
+            const compMatches = competitionGroups[competitionName];
+
+            return `
+              <section class="home-competition-block">
+                <div class="home-competition-mini-title">
+                  <span>${escapeHTML(getRegionForCompetition(compMatches[0]))}</span>
+                  <strong>${escapeHTML(competitionName)}</strong>
+                </div>
+                ${compMatches.map(renderHomeMatchRow).join('')}
+              </section>
+            `;
+          }).join('')}
+        </section>
+      `;
+    }).join('');
+
+  setHTML('homeGamesList', html);
+}
+
+function renderHomeMatchRow(match) {
+  const scoreLabel = match.Status === 'FT' ? renderScoreText(match) : '- : -';
+  const clickHandler = match.MatchID ? `onclick="openMatchDetail('${escapeAttr(match.MatchID)}')"` : '';
+
+  return `
+    <article class="home-match-row" ${clickHandler}>
+      <div class="score-team-home-name">${escapeHTML(match.HomeTeam)}</div>
+      <div class="score-team-home-logo">${renderTeamLogo(match.HomeLogo, match.HomeTeam)}</div>
+      <div class="home-match-score">${scoreLabel}</div>
+      <div class="score-team-away-logo">${renderTeamLogo(match.AwayLogo, match.AwayTeam)}</div>
+      <div class="score-team-away-name">${escapeHTML(match.AwayTeam)}</div>
+    </article>
+  `;
+}
+
 function renderHomeTab() {
   const allPanel = $('allGamesPanel');
   const myPanel = $('myGamesPanel');
@@ -1664,26 +1726,6 @@ function getPenaltyWinnerText(match) {
   if (hp > ap) return `${match.HomeTeam} win ${hp}-${ap} on penalties`;
   if (ap > hp) return `${match.AwayTeam} win ${ap}-${hp} on penalties`;
   return '';
-}
-
-function getWeekRangeLabel(date) {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diffToMonday = day === 0 ? -6 : 1 - day;
-  const monday = new Date(d);
-  monday.setDate(d.getDate() + diffToMonday);
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-
-  return `${formatMyGamesDate(monday)} - ${formatMyGamesDate(sunday)}`;
-}
-
-function getSeasonWeekLabel(date) {
-  const seasonStartYear = date.getMonth() >= 7 ? date.getFullYear() : date.getFullYear() - 1;
-  const firstMonday = getFirstMondayOfAugust(seasonStartYear);
-  const diff = Math.floor((new Date(date.getFullYear(), date.getMonth(), date.getDate()) - firstMonday) / 604800000);
-
-  return `Week ${Math.max(1, diff + 1)}`;
 }
 
 function getFirstMondayOfAugust(year) {
