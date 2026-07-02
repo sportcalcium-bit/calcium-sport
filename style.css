@@ -2887,31 +2887,32 @@ body.is-competition-page #homeSection {
 
 .my-games-logo img,
 .team-logo,
-.my-games-logo {
-    width: 42px;
-    height: 42px;
-    min-width: 42px;
-    min-height: 42px;
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    background: #fff;
-    border-radius: 50%;
-    padding: 6px;
-    box-sizing: border-box;
-
-    box-shadow: 0 3px 10px rgba(0,0,0,.26);
-    overflow: hidden;
-    flex-shrink: 0;
+.my-games-logo .team-logo {
+  width: 42px !important;
+  height: 42px !important;
+  min-width: 42px !important;
+  min-height: 42px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: #fff !important;
+  border-radius: 50% !important;
+  padding: 6px !important;
+  box-sizing: border-box !important;
+  box-shadow: 0 3px 10px rgba(0,0,0,.26) !important;
+  overflow: hidden !important;
+  flex-shrink: 0 !important;
 }
 
-.team-logo img,
-.my-games-logo img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
+.team-logo img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  display: block !important;
+}
+
+.team-logo-empty {
+  opacity: .25;
 }
 
 .my-games-score {
