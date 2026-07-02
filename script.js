@@ -16,8 +16,17 @@ let expandedStats = {
 
 const $ = id => document.getElementById(id);
 
-const SMALL_LOGO_STYLE = 'width:24px;height:24px;min-width:24px;max-width:24px;min-height:24px;max-height:24px;object-fit:contain;border-radius:3px;display:inline-block;';
-const STAT_LOGO_STYLE = SMALL_LOGO_STYLE;
+function renderTeamLogo(url, teamName, extraClass = '') {
+  if (!url) {
+    return `<span class="team-logo ${extraClass} team-logo-empty"></span>`;
+  }
+
+  return `
+    <span class="team-logo ${extraClass}">
+      <img src="${escapeAttr(url)}" alt="${escapeAttr(teamName || 'Team logo')}" loading="lazy">
+    </span>
+  `;
+}
 
 init();
 
@@ -401,13 +410,8 @@ function renderHomeMatchRow(match) {
   const isFinished = match.Status === 'FT';
   const scoreLabel = isFinished ? renderScoreText(match) : '- : -';
 
-  const homeLogo = match.HomeLogo
-    ? `<img src="${escapeAttr(match.HomeLogo)}" alt="">`
-    : '';
-
-  const awayLogo = match.AwayLogo
-    ? `<img src="${escapeAttr(match.AwayLogo)}" alt="">`
-    : '';
+  const homeLogo = renderTeamLogo(match.HomeLogo, match.HomeTeam);
+const awayLogo = renderTeamLogo(match.AwayLogo, match.AwayTeam);
 
   const clickHandler = match.MatchID ? `onclick="openMatchDetail('${escapeAttr(match.MatchID)}')"` : '';
 
@@ -3105,8 +3109,8 @@ function renderHomeMatchRow(match) {
   const isFinished = match.Status === 'FT';
   const scoreLabel = isFinished ? renderScoreText(match) : '- : -';
 
-  const homeLogo = match.HomeLogo ? `<img src="${escapeAttr(match.HomeLogo)}" alt="">` : '';
-  const awayLogo = match.AwayLogo ? `<img src="${escapeAttr(match.AwayLogo)}" alt="">` : '';
+  const homeLogo = renderTeamLogo(match.HomeLogo, match.HomeTeam);
+const awayLogo = renderTeamLogo(match.AwayLogo, match.AwayTeam);
   const clickHandler = match.MatchID ? `onclick="openMatchDetail('${escapeAttr(match.MatchID)}')"` : '';
 
   return `
@@ -3180,8 +3184,8 @@ function renderMyGames() {
 function renderMyGamesRow(match) {
   const dateParts = formatScoreboardDateParts(match.Date, match.Time);
   const score = match.Status === 'FT' ? renderScoreText(match) : '- : -';
-  const homeLogo = match.HomeLogo ? `<img src="${escapeAttr(match.HomeLogo)}" alt="">` : '';
-  const awayLogo = match.AwayLogo ? `<img src="${escapeAttr(match.AwayLogo)}" alt="">` : '';
+  const homeLogo = renderTeamLogo(match.HomeLogo, match.HomeTeam);
+const awayLogo = renderTeamLogo(match.AwayLogo, match.AwayTeam);
   const clickHandler = match.MatchID ? `onclick="openMatchDetail('${escapeAttr(match.MatchID)}')"` : '';
 
   return `
