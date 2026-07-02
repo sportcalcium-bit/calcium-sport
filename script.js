@@ -534,6 +534,28 @@ function getMonday(date) {
   return d;
 }
 
+function getWeekRangeLabel(date) {
+  const monday = getMonday(date);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+
+  return `${formatMyGamesDate(monday)} - ${formatMyGamesDate(sunday)}`;
+}
+
+function getSeasonWeekLabel(date) {
+  const selected = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  let seasonStartYear = selected.getMonth() >= 7 ? selected.getFullYear() : selected.getFullYear() - 1;
+  let firstMonday = getFirstMondayOfAugust(seasonStartYear);
+
+  if (selected < firstMonday) {
+    seasonStartYear -= 1;
+    firstMonday = getFirstMondayOfAugust(seasonStartYear);
+  }
+
+  const diff = Math.floor((selected - firstMonday) / 604800000);
+  return `Week ${Math.max(1, diff + 1)}`;
+}
+
 function renderScoreboard() {
   const matches = getFilteredMatches();
 
@@ -1891,4 +1913,4 @@ function escapeAttr(value) {
   return escapeHTML(value);
 }
 
-window.CALCIUM_SCRIPT_VERSION = '6925-clean-full';
+window.CALCIUM_SCRIPT_VERSION = '6925-week-fixed';
