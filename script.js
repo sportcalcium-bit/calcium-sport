@@ -175,7 +175,99 @@ function getFilteredMatches(){ let matches=getCompetitionMatches(); if(currentSe
 function getFilteredStandings(){ let standings=appData.standings||[]; if(currentSearch) standings=standings.filter(r=>[r.Team,r.Group,r.Competition].join(' ').toLowerCase().includes(currentSearch)); if(currentGroup) standings=standings.filter(r=>normaliseText(r.Group)===normaliseText(currentGroup)); return standings; }
 function getFilteredStats(){ let stats=appData.stats||[]; if(currentSearch) stats=stats.filter(r=>[r.Player,r.Team].join(' ').toLowerCase().includes(currentSearch)); return stats; }
 function getNextUpRound(matches){ const ordered=[...matches].sort((a,b)=>matchDateSortValue(a)-matchDateSortValue(b)); const now=Date.now()-86400000; const next=ordered.find(m=>m.Status!=='FT'&&matchDateSortValue(m)>=now); if(next) return next.Round||''; const completed=ordered.filter(m=>m.Status==='FT'&&matchDateSortValue(m)>0).sort((a,b)=>matchDateSortValue(b)-matchDateSortValue(a)); return completed.length?completed[0].Round||'':''; }
-function compareStandingRows(a,b){ const pA=safeNumber(a.Points), pB=safeNumber(b.Points); if(pB!==pA) return pB-pA; const h=getHeadToHeadWinner(a.Team,b.Team); if(h===a.Team) return -1; if(h===b.Team) return 1; const gdA=safeNumber(a.GoalDifference), gdB=safeNumber(b.GoalDifference); if(gdB!==gdA) return gdB-gdA; const gfA=safeNumber(a.GoalsFor), gfB=safeNumber(b.GoalsFor); if(gfB!==gfA) return gfB-gfA; const gaA=safeNumber(a.GoalsAgainst), gaB=safeNumber(b.GoalsAgainst); if(gaA!==gaB) return gaA-gaB; return String(a.Team||'').localeCompare(String(b.Team||'')); }
+function compareStandingRows(a,b){
+  const pA=safeNumber(a.Points), pB=safeNumber(b.Points);
+  if(pB!==pA) return pB-pA;
+
+  const tiedTeams=(appData.standings||[]).filter(r=>
+    String(r.Group||'')===String(a.Group||'') &&
+    safeNumber(r.Points)===pA
+  );
+
+  if(tiedTeams.length>=3){
+    const miniRank=getMiniTableRank(tiedTeams);
+    const aRank=miniRank[normaliseTeamName(a.Team)];
+    const bRank=miniRank[normaliseTeamName(b.Team)];
+
+    if(aRank!==undefined && bRank!==undefined && aRank!==bRank){
+      return aRank-bRank;
+    }
+  }
+
+  if(tiedTeams.length===2){
+    const h=getHeadToHeadWinner(a.Team,b.Team);
+    if(h===a.Team) return -1;
+    if(h===b.Team) return 1;
+  }
+
+  const gdA=safeNumber(a.GoalDifference), gdB=safeNumber(b.GoalDifference);
+  if(gdB!==gdA) return gdB-gdA;
+
+  const gfA=safeNumber(a.GoalsFor), gfB=safeNumber(b.GoalsFor);
+  if(gfB!==gfA) return gfB-gfA;
+
+  const gaA=safeNumber(a.GoalsAgainst), gaB=safeNumber(b.GoalsAgainst);
+  if(gaA!==gaB) return gaA-gaB;
+
+  return String(a.Team||'').localeCompare(String(b.Team||''));
+}
+
+function getMiniTableRank(tiedTeams){
+  const keys=tiedTeams.map(t=>normaliseTeamName(t.Team));
+  const mini={};
+
+  tiedTeams.forEach(t=>{
+    const key=normaliseTeamName(t.Team);
+    mini[key]={team:t.Team,pts:0,gd:0,gf:0,ga:0};
+  });
+
+  getCompetitionMatches().forEach(m=>{
+    if(m.Status!=='FT') return;
+
+    const home=normaliseTeamName(m.HomeTeam);
+    const away=normaliseTeamName(m.AwayTeam);
+
+    if(!keys.includes(home) || !keys.includes(away)) return;
+
+    const hs=safeNumber(m.HomeScore);
+    const as=safeNumber(m.AwayScore);
+
+    mini[home].gf+=hs;
+    mini[home].ga+=as;
+    mini[home].gd+=hs-as;
+
+    mini[away].gf+=as;
+    mini[away].ga+=hs;
+    mini[away].gd+=as-hs;
+
+    if(hs>as) mini[home].pts+=3;
+    else if(as>hs) mini[away].pts+=3;
+    else{
+      mini[home].pts+=1;
+      mini[away].pts+=1;
+    }
+  });
+
+  const ranked=Object.values(mini).sort((a,b)=>{
+    if(b.pts!==a.pts) return b.pts-a.pts;
+    if(b.gd!==a.gd) return b.gd-a.gd;
+    if(b.gf!==a.gf) return b.gf-a.gf;
+    if(a.ga!==b.ga) return a.ga-b.ga;
+
+    const h=getHeadToHeadWinner(a.team,b.team);
+    if(h===a.team) return -1;
+    if(h===b.team) return 1;
+
+    return String(a.team||'').localeCompare(String(b.team||''));
+  });
+
+  const output={};
+  ranked.forEach((item,index)=>{
+    output[normaliseTeamName(item.team)]=index;
+  });
+
+  return output;
+}
 function getHeadToHeadWinner(a,b){ const aKey=normaliseTeamName(a), bKey=normaliseTeamName(b); const direct=getCompetitionMatches().filter(m=>m.Status==='FT'&&((normaliseTeamName(m.HomeTeam)===aKey&&normaliseTeamName(m.AwayTeam)===bKey)||(normaliseTeamName(m.HomeTeam)===bKey&&normaliseTeamName(m.AwayTeam)===aKey))); if(!direct.length) return ''; let aPts=0,bPts=0; direct.forEach(m=>{ const home=normaliseTeamName(m.HomeTeam), hs=safeNumber(m.HomeScore), as=safeNumber(m.AwayScore); if(hs===as){aPts++;bPts++;return;} const winner=hs>as?home:normaliseTeamName(m.AwayTeam); if(winner===aKey)aPts+=3; if(winner===bKey)bPts+=3; }); return aPts>bPts?a:bPts>aPts?b:''; }
 function renderCompetitionCategoryNav(){ const nav=$('competitionCategoryNav'); if(!nav||!appData?.competitions) return; const home=`<div class="competition-category ${isHomePage()?'is-active':''}"><button type="button" class="category-button" onclick="goHomePage()"><span class="category-icon">🏠</span><span class="category-name">Home</span></button></div>`; nav.innerHTML=home+getCompetitionCategories().map(cat=>{ const comps=getUniqueCompetitionsForCategory(cat.key); const active=!isHomePage()&&comps.some(c=>normaliseCompetitionName(c['Competition Name'])===normaliseCompetitionName(appData.selectedCompetition?.['Competition Name'])&&getCompetitionCategoryKey(c)===getCompetitionCategoryKey(appData.selectedCompetition||{})); const items=comps.length?comps.map(comp=>{ const latest=getLatestSeasonForCompetition(comp); const slug=makeCompetitionSlug(latest); const isActive=!isHomePage()&&normaliseCompetitionName(comp['Competition Name'])===normaliseCompetitionName(appData.selectedCompetition?.['Competition Name'])&&getCompetitionCategoryKey(comp)===getCompetitionCategoryKey(appData.selectedCompetition||{}); return `<button type="button" class="category-menu-item ${isActive?'active-item':''}" onclick="selectCompetitionFromCategory('${escapeAttr(slug)}')"><span>${escapeHTML(comp['Competition Name']||'Competition')}</span>${isActive?'<strong>Current</strong>':''}</button>`; }).join(''):`<div class="category-empty">No competitions yet</div>`; return `<div class="competition-category ${active?'is-active':''} ${comps.length?'':'is-empty'}"><button type="button" class="category-button" onclick="toggleCompetitionCategory('${escapeAttr(cat.key)}')"><span class="category-icon">${cat.icon}</span><span class="category-name">${escapeHTML(cat.label)}</span><span class="category-arrow">⌄</span></button><div class="category-menu" data-category-menu="${escapeAttr(cat.key)}"><div class="category-menu-title"><span>${cat.icon}</span><strong>${escapeHTML(cat.label)}</strong></div>${items}</div></div>`; }).join(''); }
 function getCompetitionCategories(){ return [{key:'england',label:'England',icon:'🏴󠁧󠁢󠁥󠁮󠁧󠁿'},{key:'italy',label:'Italy',icon:'🇮🇹'},{key:'spain',label:'Spain',icon:'🇪🇸'},{key:'germany',label:'Germany',icon:'🇩🇪'},{key:'france',label:'France',icon:'🇫🇷'},{key:'europe',label:'Europe',icon:'🇪🇺'},{key:'world',label:'World',icon:'🌍'},{key:'national-teams',label:'National Teams',icon:'🏆'}]; }
