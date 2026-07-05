@@ -132,7 +132,11 @@ function renderStandings(){
 
   const groups=groupBy(standings,r=>r.Group||'Table');
 
-  const html=Object.keys(groups).map(groupName=>{
+  const orderedGroups = Object.keys(groups).sort((a, b) =>
+  a.localeCompare(b, undefined, { numeric: true })
+);
+
+const html = orderedGroups.map(groupName => {
     const rows=[...groups[groupName]].sort(compareStandingRows); 
     const isGroupStage=isGroupStageCompetition();
 
