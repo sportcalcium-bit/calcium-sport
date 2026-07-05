@@ -183,7 +183,15 @@ function getMyGamesGroupLabel(m){ return ({england:'England',italy:'Italy',spain
 function getRankClass(index,size,isGroup){ if(isGroup){ if(size<=2)return'rank-neutral'; return index<=1?'rank-qualified':'rank-eliminated'; } const pos=index+1, league=getLeagueKeyForStandings(); if(['premier-league','serie-a','la-liga'].includes(league)){ if(pos<=4)return'rank-ucl'; if(pos<=6)return'rank-uel'; if(pos<=8)return'rank-uecl'; if(pos>=18)return'rank-relegation'; } if(league==='bundesliga'){ if(pos<=4)return'rank-ucl'; if(pos<=6)return'rank-uel'; if(pos<=8)return'rank-uecl'; if(pos===16)return'rank-playout'; if(pos>=17)return'rank-relegation'; } if(league==='ligue-1'){ if(pos<=3)return'rank-ucl'; if(pos<=5)return'rank-uel'; if(pos<=7)return'rank-uecl'; if(pos===16)return'rank-playout'; if(pos>=17)return'rank-relegation'; } return'rank-neutral'; }
 function getLeagueKeyForStandings(){ const selected=appData?.selectedCompetition||{}, site=appData?.site||{}; const slug=slugify(normaliseCompetitionName(selected['Competition Name']||selected.competition||site.competition||currentCompetition||'')); if(slug.includes('premier-league'))return'premier-league'; if(slug.includes('serie-a'))return'serie-a'; if(slug.includes('la-liga')||slug.includes('laliga'))return'la-liga'; if(slug.includes('bundesliga'))return'bundesliga'; if(slug.includes('ligue-1'))return'ligue-1'; return''; }
 function renderLeagueLegend(){ const league=getLeagueKeyForStandings(); if(!['premier-league','serie-a','la-liga','bundesliga','ligue-1'].includes(league)) return ''; const items=[['ucl','Champions League'],['uel','Europa League'],['uecl','Conference League']]; if(['bundesliga','ligue-1'].includes(league)) items.push(['playout','Play-out relegation']); items.push(['relegation','Relegation']); return `<div class="qualification-note">${items.map(i=>`<span class="note-dot ${i[0]}"></span>${escapeHTML(i[1])}`).join('')}</div>`; }
-function isGroupStageCompetition(){ const type=String(appData.competitionType||appData.site?.competitionType||'').toLowerCase(); return type.includes('group'); }
+function isGroupStageCompetition(){
+  const type = String(appData.competitionType || appData.site?.competitionType || '').toLowerCase();
+  return type.includes('group') && !type.includes('league phase');
+}
+
+function isLeaguePhaseCompetition(){
+  const type = String(appData.competitionType || appData.site?.competitionType || '').toLowerCase();
+  return type.includes('league phase');
+}
 function getRegionForCompetition(m){ return String(m.Region||'World').toUpperCase(); }
 function getDateKey(v){ const d=parseDateOnly(v); return d?dateToKey(d):''; }
 function parseDateOnly(v){ if(v instanceof Date) return new Date(v.getFullYear(),v.getMonth(),v.getDate()); const t=String(v||'').trim(); if(!t)return null; if(/^\d{4}-\d{2}-\d{2}$/.test(t)){ const p=t.split('-'); return new Date(+p[0],+p[1]-1,+p[2]); } if(/^\d{1,2}[./-]\d{1,2}[./-]\d{4}$/.test(t)){ const p=t.split(/[./-]/); return new Date(+p[2],+p[1]-1,+p[0]); } return null; }
