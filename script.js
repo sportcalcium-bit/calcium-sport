@@ -124,17 +124,29 @@ function renderResults(){ const results=getFilteredMatches().filter(m=>m.Status=
 function renderFixtures(){ const fixtures=getFilteredMatches().filter(m=>m.Status!=='FT').sort((a,b)=>matchDateSortValue(a)-matchDateSortValue(b)); setHTML('fixturesList',fixtures.length?renderGroupedScoreboard(fixtures):'<div class="empty">No scheduled games found.</div>'); setText('fixturesCount',`${fixtures.length} matches`); }
 function renderGroupedScoreboard(matches){ const grouped=groupBy(matches,m=>formatRoundLabel(m.Round)); return Object.keys(grouped).map(round=>`<section class="round-block"><div class="round-heading">${escapeHTML(round)}</div>${grouped[round].map(renderScoreboardRow).join('')}</section>`).join(''); }
 function renderStandings(){
-  const standings=getFilteredStandings(); if(!standings.length){ setHTML('standingsContainer','<div class="empty">No standings found.</div>'); return; }
+  const standings=getFilteredStandings(); 
+  if(!standings.length){
+    setHTML('standingsContainer','<div class="empty">No standings found.</div>'); 
+    return; 
+  }
+
   const groups=groupBy(standings,r=>r.Group||'Table');
-  const html=Object.keys(groups).map(groupName=>{ const rows=[...groups[groupName]].sort(compareStandingRows); const isGroupStage=isGroupStageCompetition(); return `<section class="table-card"><div class="table-card-header"><h3>${escapeHTML(groupName)}</h3><span>${rows.length} teams</span></div><div class="standings-table-wrap"><table class="standings-table"><thead><tr><th>#</th><th>Team</th><th>PT</th><th>GW</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th></tr></thead><tbody>${rows.map((team,i)=>`<tr><td><span class="rank-badge ${getRankClass(i,rows.length,isGroupStage)}">${i+1}</span></td><td class="team-cell">${renderTeamLogo(team.Logo,team.Team)}<span>${escapeHTML(team.Team)}</span></td><td><strong>${safeNumber(team.Points)}</strong></td><td>${safeNumber(team.Played)}</td><td>${safeNumber(team.Won)}</td><td>${safeNumber(team.Drawn)}</td><td>${safeNumber(team.Lost)}</td><td>${safeNumber(team.GoalsFor)}</td><td>${safeNumber(team.GoalsAgainst)}</td><td>${formatGoalDifference(team.GoalDifference)}</td></tr>`).join('')}</tbody></table></div>${isGroupStage?'<div class="qualification-note"><span class="note-dot qualified"></span> Top 2 qualify <span class="note-dot eliminated"></span> Bottom 2 eliminated</div>':renderLeagueLegend()${
-  isLeaguePhaseCompetition()
-    ? '<div class="qualification-note"><span class="note-dot qualified"></span> Top 8 qualify to Round of 16 <span class="note-dot ucl"></span> 9–24 qualify to Play-off <span class="note-dot eliminated"></span> 25–36 eliminated</div>'
-    : (
-        isGroupStage
-          ? '<div class="qualification-note"><span class="note-dot qualified"></span> Top 2 qualify <span class="note-dot eliminated"></span> Bottom 2 eliminated</div>'
-          : renderLeagueLegend()
-      )
-}</section>`; }).join('');
+
+  const html=Object.keys(groups).map(groupName=>{
+    const rows=[...groups[groupName]].sort(compareStandingRows); 
+    const isGroupStage=isGroupStageCompetition();
+
+    const legend = isLeaguePhaseCompetition()
+      ? '<div class="qualification-note"><span class="note-dot qualified"></span> Top 8 qualify to Round of 16 <span class="note-dot ucl"></span> 9–24 qualify to Play-off <span class="note-dot eliminated"></span> 25–36 eliminated</div>'
+      : (
+          isGroupStage
+            ? '<div class="qualification-note"><span class="note-dot qualified"></span> Top 2 qualify <span class="note-dot eliminated"></span> Bottom 2 eliminated</div>'
+            : renderLeagueLegend()
+        );
+
+    return `<section class="table-card"><div class="table-card-header"><h3>${escapeHTML(groupName)}</h3><span>${rows.length} teams</span></div><div class="standings-table-wrap"><table class="standings-table"><thead><tr><th>#</th><th>Team</th><th>PT</th><th>GW</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th></tr></thead><tbody>${rows.map((team,i)=>`<tr><td><span class="rank-badge ${getRankClass(i,rows.length,isGroupStage)}">${i+1}</span></td><td class="team-cell">${renderTeamLogo(team.Logo,team.Team)}<span>${escapeHTML(team.Team)}</span></td><td><strong>${safeNumber(team.Points)}</strong></td><td>${safeNumber(team.Played)}</td><td>${safeNumber(team.Won)}</td><td>${safeNumber(team.Drawn)}</td><td>${safeNumber(team.Lost)}</td><td>${safeNumber(team.GoalsFor)}</td><td>${safeNumber(team.GoalsAgainst)}</td><td>${formatGoalDifference(team.GoalDifference)}</td></tr>`).join('')}</tbody></table></div>${legend}</section>`;
+  }).join('');
+
   setHTML('standingsContainer',html);
 }
 function renderStats(){ const stats=getFilteredStats(); renderStatList('topScorers',stats,'Goals','topScorers'); renderStatList('topAssists',stats,'Assists','topAssists'); renderStatList('cleanSheets',stats,'CleanSheets','cleanSheets'); renderStatList('yellowCards',stats,'YellowCards','yellowCards'); renderStatList('redCards',stats,'RedCards','redCards'); }
