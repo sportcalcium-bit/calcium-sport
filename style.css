@@ -198,8 +198,8 @@
 }
 
 /* =========================================
-   Calcium Sport match popup update 7001
-   MOTM row + embedded YouTube player
+   Calcium Sport match popup update 7002
+   MOTM after events + YouTube thumbnail
 ========================================= */
 .motm-row {
   display: flex;
@@ -253,4 +253,25 @@
   .motm-row strong {
     text-align: left;
   }
+}
+
+
+/* Calcium Sport popup polish 7002 */
+.motm-row {
+  border-top: 1px solid var(--line);
+}
+
+.highlights-card {
+  border-top: 1px solid var(--line);
+}
+
+.highlights-header span {
+  color: var(--muted);
+  text-transform: uppercase;
+  font-weight: 950;
+  letter-spacing: .08em;
+}
+
+.youtube-preview {
+  border: 1px solid rgba(89,220,235,.18);
 }
