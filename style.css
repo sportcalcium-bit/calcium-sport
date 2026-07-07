@@ -322,12 +322,11 @@
   cursor: pointer;
 }
 
-.date-picker-button input[type="date"] {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0.001;
-  cursor: pointer;
-  z-index: 5;
+.date-picker-button input[type=date]{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  opacity:0;
+  cursor:pointer;
 }
