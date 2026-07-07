@@ -97,10 +97,7 @@ function renderDateTabs(){
   ];
 
   const buttons = dates.map(item=>`
-    <button
-      type="button"
-      class="${item.key===selectedDateKey?'active':''}"
-      onclick="selectDateTab('${escapeAttr(item.key)}')">
+    <button type="button" class="${item.key===selectedDateKey?'active':''}" onclick="selectDateTab('${escapeAttr(item.key)}')">
       <span>${escapeHTML(item.dayLabel)}</span>
       <strong>${escapeHTML(item.shortDate)}</strong>
     </button>
@@ -111,27 +108,31 @@ function renderDateTabs(){
 
   container.innerHTML = `
     ${buttons}
-    <button type="button" class="date-picker-button ${customActive}">
+    <div class="date-picker-button ${customActive}" id="datePickerButton">
       <span>📅</span>
       <span>Pick a date</span>
-      <input
-        id="homeDatePicker"
-        type="date"
-        value="${escapeAttr(picked)}">
-    </button>
+      <input id="homeDatePicker" type="date" value="${escapeAttr(picked)}">
+    </div>
   `;
 
-  const pickerButton = container.querySelector('.date-picker-button');
-  pickerButton.addEventListener('click', e => {
-    if(e.target === input) return;
+  const pickerButton = $('datePickerButton');
+  const input = $('homeDatePicker');
 
-    if(typeof input.showPicker === 'function'){
-      input.showPicker();
-    }else{
-      input.focus();
-      input.click();
-    }
-  });
+  if(input){
+    input.addEventListener('change', e => {
+      pickHomeDate(e.target.value);
+    });
+  }
+
+  if(pickerButton && input){
+    pickerButton.addEventListener('click', () => {
+      if(typeof input.showPicker === 'function'){
+        input.showPicker();
+      } else {
+        input.click();
+      }
+    });
+  }
 }
 function renderHomeGames(){
   const matches=getGlobalMatches().filter(m=>getDateKey(m.Date)===selectedDateKey).sort(compareHomeMatches);
