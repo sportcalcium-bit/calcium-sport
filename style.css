@@ -84,21 +84,28 @@
     font-size: 16px;
     min-width: 46px;
   }
-
-  .scoreboard-row .score-team-home-logo,
-  .scoreboard-row .score-team-away-logo {
-    display: none !important;
-  }
-
   .home-match-row,
-  .my-games-match {
-    grid-template-columns: 58px minmax(0, 1fr) 54px;
-    grid-template-rows: auto auto;
-    column-gap: 10px;
-    row-gap: 4px;
-    min-height: 86px;
-    padding: 12px 16px;
-  }
+.my-games-match {
+    display: grid;
+    grid-template-columns: 42px minmax(0,1fr) 64px minmax(0,1fr) 42px;
+    align-items: center;
+    column-gap: 8px;
+    row-gap: 6px;
+    padding: 12px 14px;
+}
+   .score-team-home-logo,
+.score-team-away-logo {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+}
+
+.score-team-home-logo img,
+.score-team-away-logo img {
+    width: 34px;
+    height: 34px;
+    object-fit: contain;
+}
 
   .home-match-row::before {
     content: '';
@@ -113,7 +120,8 @@
     display: block !important;
     grid-column: 2;
     text-align: left !important;
-    font-size: 15px;
+    font-size: 16px;
+   font-weight: 700;
     line-height: 1.15;
     white-space: nowrap;
     overflow: hidden;
@@ -132,14 +140,15 @@
   }
 
   .home-match-row .home-match-score,
-  .my-games-match .my-games-score {
+.my-games-match .my-games-score {
     grid-column: 3;
     grid-row: 1 / span 2;
     align-self: center;
-    justify-self: end;
-    font-size: 16px;
-    min-width: 46px;
-  }
+    justify-self: center;
+    font-size: 18px;
+    font-weight: 800;
+    min-width: 60px;
+}
 
   .home-match-row .score-team-home-logo,
   .home-match-row .score-team-away-logo,
