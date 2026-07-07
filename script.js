@@ -89,7 +89,19 @@ function renderDateTabs(){
   const buttons=dates.map(item=>`<button type="button" class="${item.key===selectedDateKey?'active':''}" onclick="selectDateTab('${escapeAttr(item.key)}')"><span>${escapeHTML(item.dayLabel)}</span><strong>${escapeHTML(item.shortDate)}</strong></button>`).join('');
   const customActive=dates.some(item=>item.key===selectedDateKey)?'':'active'; const picked=selectedDateKey||getTodayKey();
   container.innerHTML=`${buttons}<div class="date-picker-button ${customActive}"><span>📅</span><span>Pick a date</span><input type="date" value="${escapeAttr(picked)}" onchange="pickHomeDate(this.value)"></div>`;
-}
+} 
+container.querySelectorAll('.date-picker-button').forEach(button => {
+    const input = button.querySelector('input[type="date"]');
+    if (!input) return;
+
+    button.addEventListener('click', () => {
+        if (input.showPicker) {
+            input.showPicker();
+        } else {
+            input.click();
+        }
+    });
+});
 window.selectDateTab = key => { selectedDateKey=key; renderDateTabs(); renderHomeGames(); renderMyGames(); renderHomeTab(); };
 window.pickHomeDate = value => { if(value){ selectedDateKey=value; renderDateTabs(); renderHomeGames(); renderMyGames(); renderHomeTab(); } };
 function renderHomeGames(){
