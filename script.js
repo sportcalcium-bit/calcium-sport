@@ -134,6 +134,33 @@ function renderDateTabs(){
     });
   }
 }
+
+function selectDateTab(key){
+  if(!key) return;
+
+  selectedDateKey = key;
+  currentHomeTab = 'allGames';
+
+  renderDateTabs();
+  renderHomeGames();
+  renderMyGames();
+  renderHomeTab();
+}
+window.selectDateTab = selectDateTab;
+
+function pickHomeDate(value){
+  if(!value) return;
+
+  selectedDateKey = value;
+  currentHomeTab = 'allGames';
+
+  renderDateTabs();
+  renderHomeGames();
+  renderMyGames();
+  renderHomeTab();
+}
+window.pickHomeDate = pickHomeDate;
+
 function renderHomeGames(){
   const matches=getGlobalMatches().filter(m=>getDateKey(m.Date)===selectedDateKey).sort(compareHomeMatches);
   setText('homeMatchCount', matches.length); setText('homeAllGamesTitle', `All games (${matches.length})`);
@@ -434,4 +461,4 @@ function safeScore(v){ return v===''||v===undefined||v===null?'-':v; }
 function formatGoalDifference(v){ const n=Number(v); if(!Number.isFinite(n))return'0'; return n>0?`+${n}`:String(n); }
 function escapeHTML(v){ return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
 function escapeAttr(v){ return escapeHTML(v); }
-window.CALCIUM_SCRIPT_VERSION='7001-match-popup-motm-youtube';
+window.CALCIUM_SCRIPT_VERSION='7018-date-picker-and-tab-fix';
