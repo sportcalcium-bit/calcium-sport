@@ -1,6 +1,7 @@
 const API_URL = 'https://script.google.com/macros/s/AKfycbyFU-9M16UBls1YvTZfXxCDGLFBT2CL1qvTH7S_pmdHCD6kSeQpHQlQW_gg6r5vhfjOZA/exec';
 
 let appData = null;
+let playerImageLookup = new Map();
 let currentCompetition = new URLSearchParams(window.location.search).get('competition') || '';
 let currentSearch = '';
 let currentGroup = '';
@@ -25,6 +26,7 @@ async function loadCompetition(competitionParam){
   if(!response.ok) throw new Error(`Backend error: ${response.status}`);
   appData = await response.json();
   if(appData.error) throw new Error(appData.error);
+  playerImageLookup = buildPlayerImageLookup(appData.players);
   await repairMalformedStandingsFromSheet(appData);
   const selected = appData.selectedCompetition || appData.site || {};
   currentCompetition = makeCompetitionSlug(selected);
@@ -285,18 +287,65 @@ const html = orderedGroups.map(groupName => {
   setHTML('standingsContainer',html);
 }
 function renderStats(){ const stats=getFilteredStats(); renderStatList('topScorers',stats,'Goals','topScorers'); renderStatList('topAssists',stats,'Assists','topAssists'); renderStatList('cleanSheets',stats,'CleanSheets','cleanSheets'); renderStatList('yellowCards',stats,'YellowCards','yellowCards'); renderStatList('redCards',stats,'RedCards','redCards'); }
-function renderStatList(id,stats,key,expandKey){ const all=stats.filter(r=>Number(r[key])>0).sort((a,b)=>Number(b[key])-Number(a[key])||String(a.Player||'').localeCompare(String(b.Player||''))); if(!all.length){ setHTML(id,'<div class="empty">No data yet.</div>'); return; } const visible=expandedStats[expandKey]?all:all.slice(0,3); const rows=visible.map((r,i)=>`<div class="stat-row"><span class="stat-rank">${i+1}</span><span class="stat-player">${renderTeamLogo(r.Logo,r.Team)}<span class="stat-player-name" title="${escapeAttr(r.Player)}">${escapeHTML(r.Player)}</span></span><strong class="stat-value">${safeNumber(r[key])}</strong></div>`).join(''); const btn=all.length>3?`<button class="stat-toggle" type="button" onclick="toggleStatList('${expandKey}')">${expandedStats[expandKey]?'Show less':`See more (${all.length})`}</button>`:''; setHTML(id,rows+btn); }
+function renderStatList(id,stats,key,expandKey){ const all=stats.filter(r=>Number(r[key])>0).sort((a,b)=>Number(b[key])-Number(a[key])||String(a.Player||'').localeCompare(String(b.Player||''))); if(!all.length){ setHTML(id,'<div class="empty">No data yet.</div>'); return; } const visible=expandedStats[expandKey]?all:all.slice(0,3); const rows=visible.map((r,i)=>`<div class="stat-row"><span class="stat-rank">${i+1}</span><span class="stat-player">${renderTeamLogo(r.Logo,r.Team)}${renderPlayerImage(r.Player)}<span class="stat-player-name" title="${escapeAttr(r.Player)}">${escapeHTML(r.Player)}</span></span><strong class="stat-value">${safeNumber(r[key])}</strong></div>`).join(''); const btn=all.length>3?`<button class="stat-toggle" type="button" onclick="toggleStatList('${expandKey}')">${expandedStats[expandKey]?'Show less':`See more (${all.length})`}</button>`:''; setHTML(id,rows+btn); }
 window.toggleStatList = key => { expandedStats[key]=!expandedStats[key]; renderStats(); };
 function renderTeamLogo(url,teamName){ if(!url) return '<span class="team-logo team-logo-empty"></span>'; return `<span class="team-logo"><img src="${escapeAttr(url)}" alt="${escapeAttr(teamName||'Team logo')}" loading="lazy"></span>`; }
+function buildPlayerImageLookup(players){
+  const lookup=new Map();
+  if(!Array.isArray(players)) return lookup;
+  players.forEach(row=>{
+    const name=String(row?.['Player Name']??row?.Player??row?.Name??row?.[0]??'').trim();
+    const imageUrl=String(row?.['Player Image URL']??row?.ImageURL??row?.['Image URL']??row?.[1]??'').trim();
+    const key=normalisePlayerName(name);
+    if(key&&!lookup.has(key)) lookup.set(key,imageUrl);
+  });
+  return lookup;
+}
+function normalisePlayerName(value){
+  return String(value||'')
+    .normalize('NFKC')
+    .replace(/^\s*[•\-–—]\s*/,'')
+    .replace(/^\s*\+\s*/,'')
+    .replace(/^\s*\d+(?:\+\d+)?\s*['’]?\s*/,'')
+    .replace(/\(\s*\d+(?:\+\d+)?\s*['’]?\s*\)/g,'')
+    .replace(/\s+\d+(?:\+\d+)?\s*['’]?\s*$/,'')
+    .replace(/\s*OG\s*$/i,'')
+    .replace(/P\s*$/i,'')
+    .replace(/\s+/g,' ')
+    .trim()
+    .toLocaleLowerCase();
+}
+function getPlayerImageUrl(playerName){ return playerImageLookup.get(normalisePlayerName(playerName))||''; }
+function renderPlayerImage(playerName){
+  const name=String(playerName||'').trim()||'Player';
+  const imageUrl=getPlayerImageUrl(name)||'player-placeholder.svg';
+  return `<span class="player-photo"><img src="${escapeAttr(imageUrl)}" alt="${escapeAttr(name)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src='player-placeholder.svg'"></span>`;
+}
 function openMatchDetail(matchId){ const unique=dedupeMatchArray(getGlobalMatches().concat(getCompetitionMatches()).concat(Array.isArray(appData?.myGames)?appData.myGames:[])); const match=unique.find(m=>m.MatchID===matchId||m.ID===matchId); if(!match) return; const modal=$('matchModal'), content=$('matchDetailContent'); if(!modal||!content) return; content.innerHTML=renderMatchDetail(match); modal.classList.remove('hidden'); document.body.classList.add('modal-open'); }
 window.openMatchDetail=openMatchDetail;
 function closeMatchModal(){ $('matchModal')?.classList.add('hidden'); document.body.classList.remove('modal-open'); }
 window.closeMatchModal=closeMatchModal;
-function renderMatchDetail(match){ const events=getMatchEvents(match.MatchID||match.ID); const youtube=match.YouTubeURL||match.YoutubeURL||match.HighlightsURL||''; const penalty=getPenaltyWinnerText(match); const motm=getMatchMOTM(match); return `<section class="match-hero"><div class="match-date-main">${escapeHTML(formatFullDateTime(match.Date,match.Time))}</div><div class="match-main-teams"><div class="match-main-team"><div class="match-main-logo">${match.HomeLogo?`<img src="${escapeAttr(match.HomeLogo)}" alt="">`:''}</div><strong>${escapeHTML(match.HomeTeam)}</strong></div><div class="match-main-score"><div>${renderScoreText(match)}</div>${penalty?`<span>${escapeHTML(penalty)}</span>`:''}</div><div class="match-main-team"><div class="match-main-logo">${match.AwayLogo?`<img src="${escapeAttr(match.AwayLogo)}" alt="">`:''}</div><strong>${escapeHTML(match.AwayTeam)}</strong></div></div></section><section class="venue-row"><span>🏟️ Venue:</span><strong>${escapeHTML(match.Venue||match.Stadium||'Venue unavailable')}</strong></section><section class="event-section">${renderTimelineEvents(events,match)}</section>${motm?`<section class="motm-row"><span>⭐ Man of the Match:</span><strong>${escapeHTML(motm)}</strong></section>`:''}${renderHighlights(youtube)}`; }
+function renderMatchDetail(match){ const events=getMatchEvents(match.MatchID||match.ID); const youtube=match.YouTubeURL||match.YoutubeURL||match.HighlightsURL||''; const penalty=getPenaltyWinnerText(match); const motm=getMatchMOTM(match); return `<section class="match-hero"><div class="match-date-main">${escapeHTML(formatFullDateTime(match.Date,match.Time))}</div><div class="match-main-teams"><div class="match-main-team"><div class="match-main-logo">${match.HomeLogo?`<img src="${escapeAttr(match.HomeLogo)}" alt="">`:''}</div><strong>${escapeHTML(match.HomeTeam)}</strong></div><div class="match-main-score"><div>${renderScoreText(match)}</div>${penalty?`<span>${escapeHTML(penalty)}</span>`:''}</div><div class="match-main-team"><div class="match-main-logo">${match.AwayLogo?`<img src="${escapeAttr(match.AwayLogo)}" alt="">`:''}</div><strong>${escapeHTML(match.AwayTeam)}</strong></div></div></section><section class="venue-row"><span>🏟️ Venue:</span><strong>${escapeHTML(match.Venue||match.Stadium||'Venue unavailable')}</strong></section><section class="event-section">${renderTimelineEvents(events,match)}</section>${motm?`<section class="motm-row"><span>⭐ Man of the Match:</span><span class="motm-player">${renderPlayerImage(motm)}<strong>${escapeHTML(motm)}</strong></span></section>`:''}${renderHighlights(youtube)}`; }
 function getMatchEvents(matchId){ const seen=new Set(); return (appData.allEvents||[]).filter(e=>e.MatchID===matchId).filter(e=>{ const key=[e.MatchID,e.Half,e.Minute,e.Team,e.Event,e.Player,e.Detail].join('|').toLowerCase(); if(seen.has(key)) return false; seen.add(key); return true; }).sort((a,b)=>Number(a.Minute||0)-Number(b.Minute||0)); }
 function renderHalfEvents(title,events,match){ if(!events.length) return `<div class="half-block"><div class="half-title">${escapeHTML(title)}</div><div class="empty">No events.</div></div>`; let liveHome=0, liveAway=0; const rows=events.map(e=>{ if(isGoalEvent(e)){ if(sameTeam(e.Team,match.HomeTeam)) liveHome++; if(sameTeam(e.Team,match.AwayTeam)) liveAway++; } return renderEventRow(e,match,liveHome,liveAway); }).join(''); return `<div class="half-block"><div class="half-title">${escapeHTML(title)}</div>${rows}</div>`; }
 function renderEventRow(event,match,liveHome,liveAway){ const side=sameTeam(event.Team,match.HomeTeam)?'event-home':'event-away'; return `<div class="event-row ${side}"><div class="event-minute">${escapeHTML(event.Minute)}'</div><div class="event-content">${getEventLabel(event,liveHome,liveAway)}</div></div>`; }
-function getEventLabel(event,liveHome,liveAway){ const type=String(event.Event||'').toLowerCase().trim(), detail=String(event.Detail||'').trim(), player=String(event.Player||'').trim(); const cleanDetail=cleanEventDetail(detail); const detailText=cleanDetail?` (${escapeHTML(cleanDetail)})`:''; if(type==='goal') return `<span class="goal-pill">⚽ ${liveHome} - ${liveAway}</span><strong>${escapeHTML(player)}${detailText}</strong>`; if(type==='yellow card') return `<span>🟨</span><strong>${escapeHTML(player)}${detailText}</strong>`; if(type==='red card') return `<span>🟥</span><strong>${escapeHTML(player)}${detailText}</strong>`; if(type==='penalty missed'||type==='missed penalty') return `<span>❌</span><strong>${escapeHTML(player)} (Penalty missed)</strong>`; return `<span>•</span><strong>${escapeHTML(player)}${detailText}</strong>`; }
+function getEventLabel(event,liveHome,liveAway){
+  const type=String(event.Event||'').toLowerCase().trim(), detail=String(event.Detail||'').trim(), player=String(event.Player||'').trim();
+  const playerLabel=`${renderPlayerImage(player)}<strong>${escapeHTML(player)}</strong>`;
+  const detailLabel=renderEventDetail(detail);
+  if(type==='goal') return `<span class="goal-pill">⚽ ${liveHome} - ${liveAway}</span>${playerLabel}${detailLabel}`;
+  if(type==='yellow card') return `<span>🟨</span>${playerLabel}${detailLabel}`;
+  if(type==='red card') return `<span>🟥</span>${playerLabel}${detailLabel}`;
+  if(type==='penalty missed'||type==='missed penalty') return `<span>❌</span>${playerLabel}<span class="event-detail">(Penalty missed)</span>`;
+  return `<span>•</span>${playerLabel}${detailLabel}`;
+}
+function renderEventDetail(detail){
+  const cleanDetail=cleanEventDetail(detail);
+  if(!cleanDetail) return '';
+  const assist=String(detail||'').match(/(?:^|,\s*)Assist:\s*(.+)$/i)?.[1]?.trim();
+  if(assist) return `<span class="event-detail event-assist">(Assist: ${renderPlayerImage(assist)}<span>${escapeHTML(assist)}</span>)</span>`;
+  return `<span class="event-detail">(${escapeHTML(cleanDetail)})</span>`;
+}
 
 function renderTimelineEvents(events,match){ if(!events.length) return '<div class="empty">No events.</div>'; let liveHome=0, liveAway=0; const rows=events.map(e=>{ if(isGoalEvent(e)){ if(sameTeam(e.Team,match.HomeTeam)) liveHome++; if(sameTeam(e.Team,match.AwayTeam)) liveAway++; } return renderEventRow(e,match,liveHome,liveAway); }).join(''); return `<div class="timeline-block">${rows}</div>`; }
 function cleanEventDetail(detail){ const text=String(detail||'').trim(); if(!text) return ''; return text.replace(/^Assist:\s*/i,'').replace(/^Penalty,\s*Assist:\s*/i,'Penalty, ').replace(/,\s*Assist:\s*/i,', '); }
