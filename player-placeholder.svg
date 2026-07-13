@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Player image unavailable">
+  <rect width="64" height="64" rx="32" fill="#d9e5e8"/>
+  <circle cx="32" cy="23" r="12" fill="#718991"/>
+  <path d="M12 59c2-14 9-21 20-21s18 7 20 21" fill="#718991"/>
+</svg>
