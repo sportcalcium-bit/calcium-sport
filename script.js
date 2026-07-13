@@ -25,6 +25,7 @@ async function loadCompetition(competitionParam){
   if(!response.ok) throw new Error(`Backend error: ${response.status}`);
   appData = await response.json();
   if(appData.error) throw new Error(appData.error);
+  await repairMalformedStandingsFromSheet(appData);
   const selected = appData.selectedCompetition || appData.site || {};
   currentCompetition = makeCompetitionSlug(selected);
   if(!selectedDateKey) selectedDateKey = getTodayKey();
@@ -80,6 +81,64 @@ function populateSeasonDropdown(){
   seasonSelect.innerHTML=seasons.map(c=>`<option value="${escapeAttr(makeCompetitionSlug(c))}" ${makeCompetitionSlug(c)===currentCompetition?'selected':''}>${escapeHTML(c.Year||'Season')}</option>`).join('');
 }
 function populateFilters(){ populateGroupDropdown(); populateRoundDropdown(); }
+async function repairMalformedStandingsFromSheet(data){
+  if(!hasShiftedLeagueStandings(data?.standings)) return;
+  const sheetId=String(data?.selectedCompetition?.['Sheet ID']||'').trim();
+  if(!sheetId) return;
+  try{
+    const table=await loadGoogleVisualizationTable(sheetId,'Standings');
+    const recovered=parseStandingsTable(table,data);
+    if(recovered.length) data.standings=recovered;
+  } catch(error){
+    console.warn('Could not recover standings directly from the Standings sheet.',error);
+  }
+}
+function hasShiftedLeagueStandings(rows){
+  if(!Array.isArray(rows)||rows.length<2||rows.some(row=>String(row?.League||'').trim())) return false;
+  const shifted=rows.filter(row=>/^[A-D]$/i.test(String(row?.Team||'').trim())&&/^(?:group\s*)?[A-D]$/i.test(String(row?.Group||'').trim())).length;
+  return shifted/rows.length>=0.75;
+}
+function loadGoogleVisualizationTable(sheetId,sheetName){
+  return new Promise((resolve,reject)=>{
+    const callback=`calciumStandings_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const script=document.createElement('script');
+    const cleanup=()=>{ clearTimeout(timer); script.remove(); try{ delete window[callback]; }catch(_error){ window[callback]=undefined; } };
+    const timer=setTimeout(()=>{ cleanup(); reject(new Error('Standings sheet request timed out.')); },15000);
+    window[callback]=payload=>{
+      cleanup();
+      if(payload?.status!=='ok'||!payload?.table) reject(new Error(payload?.errors?.[0]?.detailed_message||'Invalid standings sheet response.'));
+      else resolve(payload.table);
+    };
+    script.onerror=()=>{ cleanup(); reject(new Error('Could not load the Standings sheet.')); };
+    const base=`https://docs.google.com/spreadsheets/d/${encodeURIComponent(sheetId)}/gviz/tq`;
+    script.src=`${base}?tqx=responseHandler:${encodeURIComponent(callback)}&sheet=${encodeURIComponent(sheetName)}&v=${Date.now()}`;
+    document.head.appendChild(script);
+  });
+}
+function parseStandingsTable(table,data){
+  const labels=(table?.cols||[]).map(col=>normaliseStandingHeader(col?.label));
+  if(!labels.includes('team')) return [];
+  const selected=data?.selectedCompetition||{};
+  const competition=selected['Competition Name']||data?.site?.competition||'';
+  const year=selected.Year||data?.site?.year||'';
+  const region=selected.Region||data?.site?.region||'';
+  const competitionType=selected['Competition Type']||data?.competitionType||data?.site?.competitionType||'';
+  return (table?.rows||[]).map(row=>{
+    const values={};
+    labels.forEach((label,index)=>{ if(label) values[label]=row?.c?.[index]?.v??''; });
+    return {
+      Competition:competition, Year:year, Region:region, CompetitionType:competitionType,
+      League:values.league||'', Group:values.group||'', Team:values.team||'', Logo:values.logo||'',
+      Points:safeNumber(values.points), Played:safeNumber(values.played), Won:safeNumber(values.won),
+      Drawn:safeNumber(values.drawn), Lost:safeNumber(values.lost), GoalsFor:safeNumber(values.goalsFor),
+      GoalsAgainst:safeNumber(values.goalsAgainst), GoalDifference:safeNumber(values.goalDifference)
+    };
+  }).filter(row=>String(row.Team).trim());
+}
+function normaliseStandingHeader(value){
+  const key=String(value||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+  return ({league:'league',group:'group',team:'team',logo:'logo',logourl:'logo',pt:'points',points:'points',gw:'played',played:'played',w:'won',won:'won',d:'drawn',drawn:'drawn',l:'lost',lost:'lost',gf:'goalsFor',goalsfor:'goalsFor',ga:'goalsAgainst',goalsagainst:'goalsAgainst',gd:'goalDifference',goaldifference:'goalDifference'})[key]||'';
+}
 function formatStandingLeague(league){ const value=String(league||'').trim(); return !value ? '' : /^league\s/i.test(value) ? value : `League ${value}`; }
 function formatStandingGroup(group){ const value=String(group||'').trim(); return !value ? '' : /^group\s/i.test(value) ? value : `Group ${value}`; }
 function getStandingGroupKey(row){ const league=formatStandingLeague(row?.League); const group=formatStandingGroup(row?.Group); return [league,group].filter(Boolean).join(' · ') || 'Table'; }
@@ -464,4 +523,4 @@ function safeScore(v){ return v===''||v===undefined||v===null?'-':v; }
 function formatGoalDifference(v){ const n=Number(v); if(!Number.isFinite(n))return'0'; return n>0?`+${n}`:String(n); }
 function escapeHTML(v){ return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
 function escapeAttr(v){ return escapeHTML(v); }
-window.CALCIUM_SCRIPT_VERSION='7018-date-picker-and-tab-fix';
+window.CALCIUM_SCRIPT_VERSION='7020-nations-league-standings-fix';
