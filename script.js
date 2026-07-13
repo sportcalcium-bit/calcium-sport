@@ -279,7 +279,7 @@ const html = orderedGroups.map(groupName => {
             : renderLeagueLegend()
         );
 
-    return `<section class="table-card"><div class="table-card-header"><h3>${escapeHTML(groupName)}</h3><span>${rows.length} teams</span></div><div class="standings-table-wrap"><table class="standings-table"><thead><tr><th>#</th><th>Team</th><th>PT</th><th>GW</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th></tr></thead><tbody>${rows.map((team,i)=>`<tr><td><span class="rank-badge ${getRankClass(i,rows.length,isGroupStage)}">${i+1}</span></td><td class="team-cell">${renderTeamLogo(team.Logo,team.Team)}<span>${escapeHTML(team.Team)}</span></td><td><strong>${safeNumber(team.Points)}</strong></td><td>${safeNumber(team.Played)}</td><td>${safeNumber(team.Won)}</td><td>${safeNumber(team.Drawn)}</td><td>${safeNumber(team.Lost)}</td><td>${safeNumber(team.GoalsFor)}</td><td>${safeNumber(team.GoalsAgainst)}</td><td>${formatGoalDifference(team.GoalDifference)}</td></tr>`).join('')}</tbody></table></div>${legend}</section>`;
+    return `<section class="table-card"><div class="table-card-header"><h3>${escapeHTML(groupName)}</h3><span>${rows.length} teams</span></div><div class="standings-table-wrap"><table class="standings-table"><thead><tr><th>#</th><th>Team</th><th>PT</th><th>GW</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th></tr></thead><tbody>${rows.map((team,i)=>`<tr><td><span class="rank-badge ${getRankClass(i,rows.length,isGroupStage)}">${i+1}</span></td><td class="team-cell">${renderTeamLogo(getStandingTeamLogo(team),team.Team)}<span>${escapeHTML(team.Team)}</span></td><td><strong>${safeNumber(team.Points)}</strong></td><td>${safeNumber(team.Played)}</td><td>${safeNumber(team.Won)}</td><td>${safeNumber(team.Drawn)}</td><td>${safeNumber(team.Lost)}</td><td>${safeNumber(team.GoalsFor)}</td><td>${safeNumber(team.GoalsAgainst)}</td><td>${formatGoalDifference(team.GoalDifference)}</td></tr>`).join('')}</tbody></table></div>${legend}</section>`;
   }).join('');
 
   setHTML('standingsContainer',html);
@@ -305,6 +305,21 @@ function renderHighlights(url){ const cleanUrl=String(url||'').trim(); if(!clean
 function getYouTubeId(url){ const text=String(url||'').trim(); const patterns=[/youtube\.com\/watch\?v=([^&]+)/i,/youtu\.be\/([^?&]+)/i,/youtube\.com\/shorts\/([^?&]+)/i,/youtube\.com\/embed\/([^?&]+)/i]; for(const p of patterns){ const m=text.match(p); if(m?.[1]) return m[1]; } return ''; }
 function getCompetitionMatches(){ return dedupeMatchArray((Array.isArray(appData?.matches)?appData.matches:[]).concat(Array.isArray(appData?.playoffs)?appData.playoffs:[])); }
 function getGlobalMatches(){ return dedupeMatchArray(Array.isArray(appData?.allMatches)?appData.allMatches:[]); }
+function getStandingTeamLogo(standing){
+  if(standing?.Logo) return standing.Logo;
+  const team=normaliseTeamName(standing?.Team);
+  if(!team) return '';
+  const matches=[]
+    .concat(Array.isArray(appData?.matches)?appData.matches:[])
+    .concat(Array.isArray(appData?.playoffs)?appData.playoffs:[])
+    .concat(Array.isArray(appData?.allMatches)?appData.allMatches:[])
+    .concat(Array.isArray(appData?.myGames)?appData.myGames:[]);
+  for(const match of matches){
+    if(normaliseTeamName(match?.HomeTeam)===team&&match?.HomeLogo) return match.HomeLogo;
+    if(normaliseTeamName(match?.AwayTeam)===team&&match?.AwayLogo) return match.AwayLogo;
+  }
+  return '';
+}
 function dedupeMatchArray(matches){ const seen=new Set(); return (matches||[]).filter(m=>{ const key=String(m.MatchID||m.ID||'').trim(); if(!key||seen.has(key)) return false; seen.add(key); return true; }); }
 function getFilteredMatches(){ let matches=getCompetitionMatches(); if(currentSearch) matches=matches.filter(m=>[m.HomeTeam,m.AwayTeam,m.Round,m.Competition,m.Date,m.Time].join(' ').toLowerCase().includes(currentSearch)); if(currentRound){ const key=normaliseText(currentRound); matches=matches.filter(m=>normaliseText(m.Round)===key); } if(currentGroup){ const key=normaliseText(currentGroup); const teams=(appData.standings||[]).filter(r=>normaliseText(getStandingGroupKey(r))===key).map(r=>normaliseTeamName(r.Team)).filter(Boolean); matches=matches.filter(m=>teams.includes(normaliseTeamName(m.HomeTeam))||teams.includes(normaliseTeamName(m.AwayTeam))||normaliseText(m.Round)===key||normaliseText(m.Round).includes(key)); } return matches; }
 function getFilteredStandings(){ let standings=appData.standings||[]; if(currentSearch) standings=standings.filter(r=>[r.Team,r.League,r.Group,r.Competition].join(' ').toLowerCase().includes(currentSearch)); if(currentGroup) standings=standings.filter(r=>normaliseText(getStandingGroupKey(r))===normaliseText(currentGroup)); return standings; }
@@ -523,4 +538,4 @@ function safeScore(v){ return v===''||v===undefined||v===null?'-':v; }
 function formatGoalDifference(v){ const n=Number(v); if(!Number.isFinite(n))return'0'; return n>0?`+${n}`:String(n); }
 function escapeHTML(v){ return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
 function escapeAttr(v){ return escapeHTML(v); }
-window.CALCIUM_SCRIPT_VERSION='7020-nations-league-standings-fix';
+window.CALCIUM_SCRIPT_VERSION='7021-standings-logo-fix';
