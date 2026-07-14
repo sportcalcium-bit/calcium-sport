@@ -3,6 +3,7 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbyFU-9M16UBls1YvTZfXxCD
 let appData = null;
 let playerImageLookup = new Map();
 let playerTeamsLookup = new Map();
+const competitionDetailCache = new Map();
 let currentCompetition = new URLSearchParams(window.location.search).get('competition') || '';
 let currentSearch = '';
 let currentGroup = '';
@@ -318,7 +319,8 @@ function buildPlayerTeamsLookup(rows){
 }
 function normalisePlayerName(value){
   return String(value||'')
-    .normalize('NFKC')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g,'')
     .replace(/^\s*[•\-–—]\s*/,'')
     .replace(/^\s*\+\s*/,'')
     .replace(/^\s*\d+(?:\+\d+)?\s*['’]?\s*/,'')
@@ -341,12 +343,64 @@ function renderPlayerLink(playerName,nameClass=''){
   if(!name) return '';
   return `<button class="player-link ${escapeAttr(nameClass)}" type="button" onclick="openPlayerProfile('${escapeAttr(name)}',event)" title="Open ${escapeAttr(name)} profile">${renderPlayerImage(name)}<span>${escapeHTML(name)}</span></button>`;
 }
-function openMatchDetail(matchId){ const unique=dedupeMatchArray(getGlobalMatches().concat(getCompetitionMatches()).concat(Array.isArray(appData?.myGames)?appData.myGames:[])); const match=unique.find(m=>m.MatchID===matchId||m.ID===matchId); if(!match) return; const modal=$('matchModal'), content=$('matchDetailContent'); if(!modal||!content) return; content.innerHTML=renderMatchDetail(match); modal.classList.remove('hidden'); document.body.classList.add('modal-open'); }
+async function openMatchDetail(matchId){
+  const unique=dedupeMatchArray(getGlobalMatches().concat(getCompetitionMatches()).concat(Array.isArray(appData?.myGames)?appData.myGames:[]));
+  const match=unique.find(m=>m.MatchID===matchId||m.ID===matchId);
+  if(!match) return;
+  const modal=$('matchModal'),content=$('matchDetailContent');
+  if(!modal||!content) return;
+  const hasEvents=getMatchEvents(match.MatchID||match.ID).length>0;
+  content.innerHTML=renderMatchDetail(match,!hasEvents&&isHomePage());
+  modal.classList.remove('hidden');
+  document.body.classList.add('modal-open');
+  if(!hasEvents&&isHomePage()){
+    await loadCompetitionDetailsForMatch(match);
+    if(!modal.classList.contains('hidden')) content.innerHTML=renderMatchDetail(match,false);
+  }
+}
 window.openMatchDetail=openMatchDetail;
 function closeMatchModal(){ $('matchModal')?.classList.add('hidden'); document.body.classList.remove('modal-open'); }
 window.closeMatchModal=closeMatchModal;
-function renderMatchDetail(match){ const events=getMatchEvents(match.MatchID||match.ID); const youtube=match.YouTubeURL||match.YoutubeURL||match.HighlightsURL||''; const penalty=getPenaltyWinnerText(match); const motm=getMatchMOTM(match); return `<section class="match-hero"><div class="match-date-main">${escapeHTML(formatFullDateTime(match.Date,match.Time))}</div><div class="match-main-teams"><div class="match-main-team"><div class="match-main-logo">${match.HomeLogo?`<img src="${escapeAttr(match.HomeLogo)}" alt="">`:''}</div><strong>${escapeHTML(match.HomeTeam)}</strong></div><div class="match-main-score"><div>${renderScoreText(match)}</div>${penalty?`<span>${escapeHTML(penalty)}</span>`:''}</div><div class="match-main-team"><div class="match-main-logo">${match.AwayLogo?`<img src="${escapeAttr(match.AwayLogo)}" alt="">`:''}</div><strong>${escapeHTML(match.AwayTeam)}</strong></div></div></section><section class="venue-row"><span>🏟️ Venue:</span><strong>${escapeHTML(match.Venue||match.Stadium||'Venue unavailable')}</strong></section><section class="event-section">${renderTimelineEvents(events,match)}</section>${motm?`<section class="motm-row"><span>⭐ Man of the Match:</span>${renderPlayerLink(motm)}</section>`:''}${renderHighlights(youtube)}`; }
-function getMatchEvents(matchId){ const seen=new Set(); return (appData.allEvents||[]).filter(e=>e.MatchID===matchId).filter(e=>{ const key=[e.MatchID,e.Half,e.Minute,e.Team,e.Event,e.Player,e.Detail].join('|').toLowerCase(); if(seen.has(key)) return false; seen.add(key); return true; }).sort((a,b)=>Number(a.Minute||0)-Number(b.Minute||0)); }
+function renderMatchDetail(match,eventsLoading=false){ const events=getMatchEvents(match.MatchID||match.ID); const youtube=match.YouTubeURL||match.YoutubeURL||match.HighlightsURL||''; const penalty=getPenaltyWinnerText(match); const motm=getMatchMOTM(match); const eventContent=eventsLoading?'<div class="empty">Loading goals, assists and cards...</div>':renderTimelineEvents(events,match); return `<section class="match-hero"><div class="match-date-main">${escapeHTML(formatFullDateTime(match.Date,match.Time))}</div><div class="match-main-teams"><div class="match-main-team"><div class="match-main-logo">${match.HomeLogo?`<img src="${escapeAttr(match.HomeLogo)}" alt="">`:''}</div><strong>${escapeHTML(match.HomeTeam)}</strong></div><div class="match-main-score"><div>${renderScoreText(match)}</div>${penalty?`<span>${escapeHTML(penalty)}</span>`:''}</div><div class="match-main-team"><div class="match-main-logo">${match.AwayLogo?`<img src="${escapeAttr(match.AwayLogo)}" alt="">`:''}</div><strong>${escapeHTML(match.AwayTeam)}</strong></div></div></section><section class="venue-row"><span>🏟️ Venue:</span><strong>${escapeHTML(match.Venue||match.Stadium||'Venue unavailable')}</strong></section><section class="event-section">${eventContent}</section>${motm?`<section class="motm-row"><span>⭐ Man of the Match:</span>${renderPlayerLink(motm)}</section>`:''}${renderHighlights(youtube)}`; }
+async function loadCompetitionDetailsForMatch(match){
+  const slug=resolveMatchCompetitionSlug(match);
+  if(!slug) return;
+  let detail=competitionDetailCache.get(slug);
+  if(!detail){
+    try{
+      const response=await fetch(`${API_URL}?competition=${encodeURIComponent(slug)}&v=${Date.now()}`,{cache:'no-store'});
+      if(!response.ok) return;
+      detail=await response.json();
+      if(detail?.error) return;
+      competitionDetailCache.set(slug,detail);
+    }catch(error){ console.warn('Could not load match events for the home popup.',error); return; }
+  }
+  appData.allEvents=mergeUniqueEvents(appData.allEvents,detail.allEvents||detail.events||[]);
+  appData.matchData=(appData.matchData||[]).concat(detail.matchData||detail.data||[]);
+}
+function resolveMatchCompetitionSlug(match){
+  const direct=String(match.CompetitionSlug||match.Slug||'').trim();
+  if(direct) return direct;
+  const matchName=normaliseCompetitionName(match.Competition||match['Competition Name']||'');
+  const matchYear=String(match.Year||match.Season||'').trim();
+  const candidates=(appData?.competitions||[]).filter(comp=>{
+    const candidateName=normaliseCompetitionName(comp['Competition Name']||comp.Competition);
+    return candidateName===matchName||candidateName.includes(matchName)||matchName.includes(candidateName);
+  });
+  const selected=candidates.find(comp=>!matchYear||String(comp.Year||'').trim()===matchYear)||candidates[0];
+  if(selected) return makeCompetitionSlug(selected);
+  return matchName?slugify(`${matchName} ${matchYear}`.trim()):'';
+}
+function mergeUniqueEvents(first,second){
+  const seen=new Set();
+  return ([]).concat(Array.isArray(first)?first:[],Array.isArray(second)?second:[]).filter(event=>{
+    const key=[event.MatchID,event.Half,event.Minute,event.Team,event.Event,event.Player,event.Detail].join('|').toLowerCase();
+    if(seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+function getMatchEvents(matchId){ const targetId=String(matchId||'').trim(); const seen=new Set(); return (appData.allEvents||[]).filter(e=>String(e.MatchID||e['Match ID']||e.ID||'').trim()===targetId).filter(e=>{ const key=[e.MatchID,e.Half,e.Minute,e.Team,e.Event,e.Player,e.Detail].join('|').toLowerCase(); if(seen.has(key)) return false; seen.add(key); return true; }).sort((a,b)=>Number(a.Minute||0)-Number(b.Minute||0)); }
 function renderHalfEvents(title,events,match){ if(!events.length) return `<div class="half-block"><div class="half-title">${escapeHTML(title)}</div><div class="empty">No events.</div></div>`; let liveHome=0, liveAway=0; const rows=events.map(e=>{ if(isGoalEvent(e)){ if(sameTeam(e.Team,match.HomeTeam)) liveHome++; if(sameTeam(e.Team,match.AwayTeam)) liveAway++; } return renderEventRow(e,match,liveHome,liveAway); }).join(''); return `<div class="half-block"><div class="half-title">${escapeHTML(title)}</div>${rows}</div>`; }
 function renderEventRow(event,match,liveHome,liveAway){ const side=sameTeam(event.Team,match.HomeTeam)?'event-home':'event-away'; return `<div class="event-row ${side}"><div class="event-minute">${escapeHTML(event.Minute)}'</div><div class="event-content">${getEventLabel(event,liveHome,liveAway)}</div></div>`; }
 function getEventLabel(event,liveHome,liveAway){
