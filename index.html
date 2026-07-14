@@ -147,7 +147,15 @@
     </div>
   </div>
 
+  <div id="playerModal" class="match-modal hidden" role="dialog" aria-modal="true" aria-label="Player profile">
+    <div class="match-modal-backdrop" onclick="closePlayerProfile()"></div>
+    <div class="match-detail-card player-detail-card">
+      <button class="match-close" type="button" onclick="closePlayerProfile()" aria-label="Close player profile">×</button>
+      <div id="playerDetailContent"></div>
+    </div>
+  </div>
+
   <button id="backToTop" class="back-to-top" type="button" aria-label="Back to top">↑</button>
-  <script src="script.js?v=7022"></script>
+  <script src="script.js?v=7023"></script>
 </body>
 </html>

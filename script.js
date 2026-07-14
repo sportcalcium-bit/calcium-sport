@@ -2,6 +2,7 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbyFU-9M16UBls1YvTZfXxCD
 
 let appData = null;
 let playerImageLookup = new Map();
+let playerTeamsLookup = new Map();
 let currentCompetition = new URLSearchParams(window.location.search).get('competition') || '';
 let currentSearch = '';
 let currentGroup = '';
@@ -27,6 +28,7 @@ async function loadCompetition(competitionParam){
   appData = await response.json();
   if(appData.error) throw new Error(appData.error);
   playerImageLookup = buildPlayerImageLookup(appData.players);
+  playerTeamsLookup = buildPlayerTeamsLookup(appData.playerTeams);
   await repairMalformedStandingsFromSheet(appData);
   const selected = appData.selectedCompetition || appData.site || {};
   currentCompetition = makeCompetitionSlug(selected);
@@ -287,7 +289,7 @@ const html = orderedGroups.map(groupName => {
   setHTML('standingsContainer',html);
 }
 function renderStats(){ const stats=getFilteredStats(); renderStatList('topScorers',stats,'Goals','topScorers'); renderStatList('topAssists',stats,'Assists','topAssists'); renderStatList('cleanSheets',stats,'CleanSheets','cleanSheets'); renderStatList('yellowCards',stats,'YellowCards','yellowCards'); renderStatList('redCards',stats,'RedCards','redCards'); }
-function renderStatList(id,stats,key,expandKey){ const all=stats.filter(r=>Number(r[key])>0).sort((a,b)=>Number(b[key])-Number(a[key])||String(a.Player||'').localeCompare(String(b.Player||''))); if(!all.length){ setHTML(id,'<div class="empty">No data yet.</div>'); return; } const visible=expandedStats[expandKey]?all:all.slice(0,3); const rows=visible.map((r,i)=>`<div class="stat-row"><span class="stat-rank">${i+1}</span><span class="stat-player">${renderTeamLogo(r.Logo,r.Team)}${renderPlayerImage(r.Player)}<span class="stat-player-name" title="${escapeAttr(r.Player)}">${escapeHTML(r.Player)}</span></span><strong class="stat-value">${safeNumber(r[key])}</strong></div>`).join(''); const btn=all.length>3?`<button class="stat-toggle" type="button" onclick="toggleStatList('${expandKey}')">${expandedStats[expandKey]?'Show less':`See more (${all.length})`}</button>`:''; setHTML(id,rows+btn); }
+function renderStatList(id,stats,key,expandKey){ const all=stats.filter(r=>Number(r[key])>0).sort((a,b)=>Number(b[key])-Number(a[key])||String(a.Player||'').localeCompare(String(b.Player||''))); if(!all.length){ setHTML(id,'<div class="empty">No data yet.</div>'); return; } const visible=expandedStats[expandKey]?all:all.slice(0,3); const rows=visible.map((r,i)=>`<div class="stat-row"><span class="stat-rank">${i+1}</span><span class="stat-player">${renderTeamLogo(r.Logo,r.Team)}${renderPlayerLink(r.Player,'stat-player-name')}</span><strong class="stat-value">${safeNumber(r[key])}</strong></div>`).join(''); const btn=all.length>3?`<button class="stat-toggle" type="button" onclick="toggleStatList('${expandKey}')">${expandedStats[expandKey]?'Show less':`See more (${all.length})`}</button>`:''; setHTML(id,rows+btn); }
 window.toggleStatList = key => { expandedStats[key]=!expandedStats[key]; renderStats(); };
 function renderTeamLogo(url,teamName){ if(!url) return '<span class="team-logo team-logo-empty"></span>'; return `<span class="team-logo"><img src="${escapeAttr(url)}" alt="${escapeAttr(teamName||'Team logo')}" loading="lazy"></span>`; }
 function buildPlayerImageLookup(players){
@@ -298,6 +300,19 @@ function buildPlayerImageLookup(players){
     const imageUrl=String(row?.['Player Image URL']??row?.ImageURL??row?.['Image URL']??row?.[1]??'').trim();
     const key=normalisePlayerName(name);
     if(key&&!lookup.has(key)) lookup.set(key,imageUrl);
+  });
+  return lookup;
+}
+function buildPlayerTeamsLookup(rows){
+  const lookup=new Map();
+  if(!Array.isArray(rows)) return lookup;
+  rows.forEach(row=>{
+    const name=String(row?.['Player Name']??row?.Player??row?.[0]??'').trim();
+    const team=String(row?.Team??row?.[1]??'').trim();
+    if(!name||!team) return;
+    const key=normalisePlayerName(name);
+    if(!lookup.has(key)) lookup.set(key,[]);
+    lookup.get(key).push({playerName:name,team,teamType:String(row?.['Team Type']??row?.TeamType??row?.[2]??'').trim(),startDate:String(row?.['Start Date']??row?.StartDate??row?.[3]??'').trim(),endDate:String(row?.['End Date']??row?.EndDate??row?.[4]??'').trim(),includeGames:String(row?.['Include Games']??row?.IncludeGames??row?.[5]??'Yes').trim()});
   });
   return lookup;
 }
@@ -321,17 +336,22 @@ function renderPlayerImage(playerName){
   const imageUrl=getPlayerImageUrl(name)||'player-placeholder.svg';
   return `<span class="player-photo"><img src="${escapeAttr(imageUrl)}" alt="${escapeAttr(name)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src='player-placeholder.svg'"></span>`;
 }
+function renderPlayerLink(playerName,nameClass=''){
+  const name=String(playerName||'').trim();
+  if(!name) return '';
+  return `<button class="player-link ${escapeAttr(nameClass)}" type="button" onclick="openPlayerProfile('${escapeAttr(name)}',event)" title="Open ${escapeAttr(name)} profile">${renderPlayerImage(name)}<span>${escapeHTML(name)}</span></button>`;
+}
 function openMatchDetail(matchId){ const unique=dedupeMatchArray(getGlobalMatches().concat(getCompetitionMatches()).concat(Array.isArray(appData?.myGames)?appData.myGames:[])); const match=unique.find(m=>m.MatchID===matchId||m.ID===matchId); if(!match) return; const modal=$('matchModal'), content=$('matchDetailContent'); if(!modal||!content) return; content.innerHTML=renderMatchDetail(match); modal.classList.remove('hidden'); document.body.classList.add('modal-open'); }
 window.openMatchDetail=openMatchDetail;
 function closeMatchModal(){ $('matchModal')?.classList.add('hidden'); document.body.classList.remove('modal-open'); }
 window.closeMatchModal=closeMatchModal;
-function renderMatchDetail(match){ const events=getMatchEvents(match.MatchID||match.ID); const youtube=match.YouTubeURL||match.YoutubeURL||match.HighlightsURL||''; const penalty=getPenaltyWinnerText(match); const motm=getMatchMOTM(match); return `<section class="match-hero"><div class="match-date-main">${escapeHTML(formatFullDateTime(match.Date,match.Time))}</div><div class="match-main-teams"><div class="match-main-team"><div class="match-main-logo">${match.HomeLogo?`<img src="${escapeAttr(match.HomeLogo)}" alt="">`:''}</div><strong>${escapeHTML(match.HomeTeam)}</strong></div><div class="match-main-score"><div>${renderScoreText(match)}</div>${penalty?`<span>${escapeHTML(penalty)}</span>`:''}</div><div class="match-main-team"><div class="match-main-logo">${match.AwayLogo?`<img src="${escapeAttr(match.AwayLogo)}" alt="">`:''}</div><strong>${escapeHTML(match.AwayTeam)}</strong></div></div></section><section class="venue-row"><span>🏟️ Venue:</span><strong>${escapeHTML(match.Venue||match.Stadium||'Venue unavailable')}</strong></section><section class="event-section">${renderTimelineEvents(events,match)}</section>${motm?`<section class="motm-row"><span>⭐ Man of the Match:</span><span class="motm-player">${renderPlayerImage(motm)}<strong>${escapeHTML(motm)}</strong></span></section>`:''}${renderHighlights(youtube)}`; }
+function renderMatchDetail(match){ const events=getMatchEvents(match.MatchID||match.ID); const youtube=match.YouTubeURL||match.YoutubeURL||match.HighlightsURL||''; const penalty=getPenaltyWinnerText(match); const motm=getMatchMOTM(match); return `<section class="match-hero"><div class="match-date-main">${escapeHTML(formatFullDateTime(match.Date,match.Time))}</div><div class="match-main-teams"><div class="match-main-team"><div class="match-main-logo">${match.HomeLogo?`<img src="${escapeAttr(match.HomeLogo)}" alt="">`:''}</div><strong>${escapeHTML(match.HomeTeam)}</strong></div><div class="match-main-score"><div>${renderScoreText(match)}</div>${penalty?`<span>${escapeHTML(penalty)}</span>`:''}</div><div class="match-main-team"><div class="match-main-logo">${match.AwayLogo?`<img src="${escapeAttr(match.AwayLogo)}" alt="">`:''}</div><strong>${escapeHTML(match.AwayTeam)}</strong></div></div></section><section class="venue-row"><span>🏟️ Venue:</span><strong>${escapeHTML(match.Venue||match.Stadium||'Venue unavailable')}</strong></section><section class="event-section">${renderTimelineEvents(events,match)}</section>${motm?`<section class="motm-row"><span>⭐ Man of the Match:</span>${renderPlayerLink(motm)}</section>`:''}${renderHighlights(youtube)}`; }
 function getMatchEvents(matchId){ const seen=new Set(); return (appData.allEvents||[]).filter(e=>e.MatchID===matchId).filter(e=>{ const key=[e.MatchID,e.Half,e.Minute,e.Team,e.Event,e.Player,e.Detail].join('|').toLowerCase(); if(seen.has(key)) return false; seen.add(key); return true; }).sort((a,b)=>Number(a.Minute||0)-Number(b.Minute||0)); }
 function renderHalfEvents(title,events,match){ if(!events.length) return `<div class="half-block"><div class="half-title">${escapeHTML(title)}</div><div class="empty">No events.</div></div>`; let liveHome=0, liveAway=0; const rows=events.map(e=>{ if(isGoalEvent(e)){ if(sameTeam(e.Team,match.HomeTeam)) liveHome++; if(sameTeam(e.Team,match.AwayTeam)) liveAway++; } return renderEventRow(e,match,liveHome,liveAway); }).join(''); return `<div class="half-block"><div class="half-title">${escapeHTML(title)}</div>${rows}</div>`; }
 function renderEventRow(event,match,liveHome,liveAway){ const side=sameTeam(event.Team,match.HomeTeam)?'event-home':'event-away'; return `<div class="event-row ${side}"><div class="event-minute">${escapeHTML(event.Minute)}'</div><div class="event-content">${getEventLabel(event,liveHome,liveAway)}</div></div>`; }
 function getEventLabel(event,liveHome,liveAway){
   const type=String(event.Event||'').toLowerCase().trim(), detail=String(event.Detail||'').trim(), player=String(event.Player||'').trim();
-  const playerLabel=`${renderPlayerImage(player)}<strong>${escapeHTML(player)}</strong>`;
+  const playerLabel=renderPlayerLink(player);
   const detailLabel=renderEventDetail(detail);
   if(type==='goal') return `<span class="goal-pill">⚽ ${liveHome} - ${liveAway}</span>${playerLabel}${detailLabel}`;
   if(type==='yellow card') return `<span>🟨</span>${playerLabel}${detailLabel}`;
@@ -343,7 +363,7 @@ function renderEventDetail(detail){
   const cleanDetail=cleanEventDetail(detail);
   if(!cleanDetail) return '';
   const assist=String(detail||'').match(/(?:^|,\s*)Assist:\s*(.+)$/i)?.[1]?.trim();
-  if(assist) return `<span class="event-detail event-assist">(Assist: ${renderPlayerImage(assist)}<span>${escapeHTML(assist)}</span>)</span>`;
+  if(assist) return `<span class="event-detail event-assist">(Assist: ${renderPlayerLink(assist)})</span>`;
   return `<span class="event-detail">(${escapeHTML(cleanDetail)})</span>`;
 }
 
@@ -352,8 +372,74 @@ function cleanEventDetail(detail){ const text=String(detail||'').trim(); if(!tex
 function getMatchMOTM(match){ if(match.MOTM) return match.MOTM; const matchId=match.MatchID||match.ID; const row=(appData.matchData||appData.data||[]).find(item=>(item.MatchID||item['Match ID'])===matchId); return row ? (row.MOTM || row.Motm || '') : ''; }
 function renderHighlights(url){ const cleanUrl=String(url||'').trim(); if(!cleanUrl) return ''; const id=getYouTubeId(cleanUrl); if(!id) return `<section class="highlights-card"><div class="highlights-header"><span>📺 Highlights</span><a href="${escapeAttr(cleanUrl)}" target="_blank" rel="noopener noreferrer">Open video</a></div></section>`; return `<section class="highlights-card"><div class="highlights-header"><span>📺 Highlights</span><a href="${escapeAttr(cleanUrl)}" target="_blank" rel="noopener noreferrer">Open on YouTube</a></div><a class="youtube-preview" href="${escapeAttr(cleanUrl)}" target="_blank" rel="noopener noreferrer"><img src="https://img.youtube.com/vi/${escapeAttr(id)}/maxresdefault.jpg" alt="YouTube highlights thumbnail" onerror="this.src='https://img.youtube.com/vi/${escapeAttr(id)}/hqdefault.jpg'"><span class="youtube-play">▶</span></a></section>`; }
 function getYouTubeId(url){ const text=String(url||'').trim(); const patterns=[/youtube\.com\/watch\?v=([^&]+)/i,/youtu\.be\/([^?&]+)/i,/youtube\.com\/shorts\/([^?&]+)/i,/youtube\.com\/embed\/([^?&]+)/i]; for(const p of patterns){ const m=text.match(p); if(m?.[1]) return m[1]; } return ''; }
+
+function openPlayerProfile(playerName,event){
+  event?.stopPropagation?.();
+  const modal=$('playerModal'),content=$('playerDetailContent');
+  if(!modal||!content) return;
+  content.innerHTML=renderPlayerProfile(playerName);
+  modal.classList.remove('hidden');
+  document.body.classList.add('modal-open');
+}
+window.openPlayerProfile=openPlayerProfile;
+function closePlayerProfile(){ $('playerModal')?.classList.add('hidden'); if($('matchModal')?.classList.contains('hidden')) document.body.classList.remove('modal-open'); }
+window.closePlayerProfile=closePlayerProfile;
+function renderPlayerProfile(playerName){
+  const name=String(playerName||'').trim();
+  const assignments=playerTeamsLookup.get(normalisePlayerName(name))||[];
+  const matches=getPlayerMatches(assignments,name);
+  const totals=matches.reduce((sum,item)=>{ sum.goals+=item.stats.goals; sum.assists+=item.stats.assists; sum.yellow+=item.stats.yellow; sum.red+=item.stats.red; return sum; },{goals:0,assists:0,yellow:0,red:0});
+  const national=assignments.find(item=>normaliseText(item.teamType)==='national team');
+  const clubs=assignments.filter(item=>normaliseText(item.teamType)==='club');
+  const teams=assignments.length?assignments.map(renderPlayerTeamAssignment).join(''):'<div class="empty">Team information has not been added yet.</div>';
+  const rows=matches.length?matches.map(renderPlayerMatchRow).join(''):'<div class="empty">No matching games are available for this player.</div>';
+  return `<section class="player-profile-hero"><div class="player-profile-photo">${renderPlayerImage(name)}</div><div><div class="eyebrow">Player profile</div><h2>${escapeHTML(name)}</h2>${national?`<p>🌍 ${escapeHTML(national.team)}</p>`:''}${clubs.length?`<p>${clubs.map(item=>escapeHTML(item.team)).join(' · ')}</p>`:''}</div></section><section class="player-summary-grid"><div><strong>${matches.length}</strong><span>Games</span></div><div><strong>${totals.goals}</strong><span>Goals</span></div><div><strong>${totals.assists}</strong><span>Assists</span></div><div><strong>${totals.yellow}</strong><span>Yellow</span></div><div><strong>${totals.red}</strong><span>Red</span></div></section><section class="player-teams-section"><h3>Teams</h3>${teams}</section><section class="player-matches-section"><h3>Games</h3>${rows}</section>`;
+}
+function renderPlayerTeamAssignment(item){
+  const dates=item.startDate||item.endDate?`${item.startDate||'Beginning'} → ${item.endDate||'Present'}`:'Dates not restricted';
+  return `<div class="player-team-row">${renderTeamLogo(findTeamLogo(item.team),item.team)}<span><strong>${escapeHTML(item.team)}</strong><small>${escapeHTML(item.teamType||'Team')} · ${escapeHTML(dates)}</small></span></div>`;
+}
+function getPlayerMatches(assignments,playerName){
+  if(!assignments.length) return [];
+  const matches=dedupeMatchArray(getGlobalMatches().concat(getCompetitionMatches()).concat(Array.isArray(appData?.myGames)?appData.myGames:[]));
+  return matches.filter(match=>assignments.some(item=>assignmentIncludesMatch(item,match))).map(match=>({match,stats:getPlayerMatchStats(match,playerName)})).sort((a,b)=>matchDateSortValue(b.match)-matchDateSortValue(a.match));
+}
+function assignmentIncludesMatch(item,match){
+  if(normaliseText(item.includeGames)==='no') return false;
+  const team=normaliseTeamName(item.team);
+  if(team!==normaliseTeamName(match.HomeTeam)&&team!==normaliseTeamName(match.AwayTeam)) return false;
+  const date=getDateKey(match.Date);
+  if(item.startDate&&date<getDateKey(item.startDate)) return false;
+  if(item.endDate&&date>getDateKey(item.endDate)) return false;
+  return true;
+}
+function getPlayerMatchStats(match,playerName){
+  const key=normalisePlayerName(playerName);
+  const totals={goals:0,assists:0,yellow:0,red:0};
+  getMatchEvents(match.MatchID||match.ID).forEach(event=>{
+    const type=normaliseText(event.Event),player=normalisePlayerName(event.Player);
+    if(player===key){ if(type==='goal') totals.goals++; if(type==='yellow card') totals.yellow++; if(type==='red card') totals.red++; }
+    const assist=String(event.Detail||'').match(/(?:^|,\s*)Assist:\s*(.+)$/i)?.[1]?.trim();
+    if(assist&&normalisePlayerName(assist)===key) totals.assists++;
+  });
+  return totals;
+}
+function renderPlayerMatchRow(item){
+  const match=item.match,s=item.stats,click=match.MatchID?`onclick="closePlayerProfile();openMatchDetail('${escapeAttr(match.MatchID)}')"`:'';
+  const badges=[s.goals?`⚽ ${s.goals}`:'',s.assists?`A ${s.assists}`:'',s.yellow?`🟨 ${s.yellow}`:'',s.red?`🟥 ${s.red}`:''].filter(Boolean).join(' ');
+  return `<button class="player-match-row" type="button" ${click}><span class="player-match-date">${escapeHTML(formatScoreboardDateParts(match.Date,match.Time).date)}</span><span class="player-match-teams"><strong>${escapeHTML(match.HomeTeam)} ${escapeHTML(renderScoreText(match))} ${escapeHTML(match.AwayTeam)}</strong><small>${escapeHTML(match.Competition||match['Competition Name']||match.Round||'')}</small></span><span class="player-match-events">${badges||'—'}</span></button>`;
+}
 function getCompetitionMatches(){ return dedupeMatchArray((Array.isArray(appData?.matches)?appData.matches:[]).concat(Array.isArray(appData?.playoffs)?appData.playoffs:[])); }
 function getGlobalMatches(){ return dedupeMatchArray(Array.isArray(appData?.allMatches)?appData.allMatches:[]); }
+function findTeamLogo(teamName){
+  const team=normaliseTeamName(teamName);
+  const matches=getGlobalMatches().concat(getCompetitionMatches()).concat(Array.isArray(appData?.myGames)?appData.myGames:[]);
+  for(const match of matches){
+    if(normaliseTeamName(match.HomeTeam)===team&&match.HomeLogo) return match.HomeLogo;
+    if(normaliseTeamName(match.AwayTeam)===team&&match.AwayLogo) return match.AwayLogo;
+  }
+  return '';
+}
 function getStandingTeamLogo(standing){
   if(standing?.Logo) return standing.Logo;
   const team=normaliseTeamName(standing?.Team);
