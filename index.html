@@ -45,6 +45,11 @@
       </div>
     </div>
   </header>
+<section class="master-search-shell"><div class="master-search-wrap">
+<input id="masterSearchInput" type="search" placeholder="Search any player or team..." autocomplete="off">
+<button id="masterSearchClear" class="master-search-clear hidden" type="button">×</button>
+<div id="masterSearchResults" class="master-search-results hidden"></div>
+</div></section>
 
   <main class="page-shell">
     <section id="homeSection" class="mobile-home">
@@ -155,7 +160,11 @@
     </div>
   </div>
 
-  <button id="backToTop" class="back-to-top" type="button" aria-label="Back to top">↑</button>
-  <script src="script.js?v=7025"></script>
+  <div id="teamModal" class="match-modal hidden" role="dialog" aria-modal="true">
+<div class="match-modal-backdrop" onclick="closeTeamProfile()"></div>
+<div class="match-detail-card team-detail-card"><button class="match-close" type="button" onclick="closeTeamProfile()">×</button><div id="teamDetailContent"></div></div>
+</div>
+<button id="backToTop" class="back-to-top" type="button" aria-label="Back to top">↑</button>
+  <script src="script.js?v=7030"></script>
 </body>
 </html>
