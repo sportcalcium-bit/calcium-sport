@@ -376,6 +376,11 @@ async function loadCompetitionDetailsForMatch(match){
     }catch(error){ console.warn('Could not load match events for the home popup.',error); return; }
   }
   appData.allEvents=mergeUniqueEvents(appData.allEvents,detail.allEvents||detail.events||[]);
+  appData.matches=dedupeMatchArray(
+    (Array.isArray(appData.matches)?appData.matches:[])
+      .concat(Array.isArray(detail.matches)?detail.matches:[])
+      .concat(Array.isArray(detail.playoffs)?detail.playoffs:[])
+  );
   appData.matchData=(appData.matchData||[]).concat(detail.matchData||detail.data||[]);
 }
 function resolveMatchCompetitionSlug(match){
@@ -427,13 +432,15 @@ function getMatchMOTM(match){ if(match.MOTM) return match.MOTM; const matchId=ma
 function renderHighlights(url){ const cleanUrl=String(url||'').trim(); if(!cleanUrl) return ''; const id=getYouTubeId(cleanUrl); if(!id) return `<section class="highlights-card"><div class="highlights-header"><span>📺 Highlights</span><a href="${escapeAttr(cleanUrl)}" target="_blank" rel="noopener noreferrer">Open video</a></div></section>`; return `<section class="highlights-card"><div class="highlights-header"><span>📺 Highlights</span><a href="${escapeAttr(cleanUrl)}" target="_blank" rel="noopener noreferrer">Open on YouTube</a></div><a class="youtube-preview" href="${escapeAttr(cleanUrl)}" target="_blank" rel="noopener noreferrer"><img src="https://img.youtube.com/vi/${escapeAttr(id)}/maxresdefault.jpg" alt="YouTube highlights thumbnail" onerror="this.src='https://img.youtube.com/vi/${escapeAttr(id)}/hqdefault.jpg'"><span class="youtube-play">▶</span></a></section>`; }
 function getYouTubeId(url){ const text=String(url||'').trim(); const patterns=[/youtube\.com\/watch\?v=([^&]+)/i,/youtu\.be\/([^?&]+)/i,/youtube\.com\/shorts\/([^?&]+)/i,/youtube\.com\/embed\/([^?&]+)/i]; for(const p of patterns){ const m=text.match(p); if(m?.[1]) return m[1]; } return ''; }
 
-function openPlayerProfile(playerName,event){
+async function openPlayerProfile(playerName,event){
   event?.stopPropagation?.();
   const modal=$('playerModal'),content=$('playerDetailContent');
   if(!modal||!content) return;
   content.innerHTML=renderPlayerProfile(playerName);
   modal.classList.remove('hidden');
   document.body.classList.add('modal-open');
+  await loadPlayerCompetitionDetails(playerName);
+  if(!modal.classList.contains('hidden')) content.innerHTML=renderPlayerProfile(playerName);
 }
 window.openPlayerProfile=openPlayerProfile;
 function closePlayerProfile(){ $('playerModal')?.classList.add('hidden'); if($('matchModal')?.classList.contains('hidden')) document.body.classList.remove('modal-open'); }
@@ -457,6 +464,19 @@ function getPlayerMatches(assignments,playerName){
   if(!assignments.length) return [];
   const matches=dedupeMatchArray(getGlobalMatches().concat(getCompetitionMatches()).concat(Array.isArray(appData?.myGames)?appData.myGames:[]));
   return matches.filter(match=>assignments.some(item=>assignmentIncludesMatch(item,match))).map(match=>({match,stats:getPlayerMatchStats(match,playerName)})).sort((a,b)=>matchDateSortValue(b.match)-matchDateSortValue(a.match));
+}
+async function loadPlayerCompetitionDetails(playerName){
+  const assignments=playerTeamsLookup.get(normalisePlayerName(playerName))||[];
+  if(!assignments.length) return;
+  const matches=dedupeMatchArray(getGlobalMatches().concat(getCompetitionMatches()).concat(Array.isArray(appData?.myGames)?appData.myGames:[]))
+    .filter(match=>assignments.some(item=>assignmentIncludesMatch(item,match)));
+  const pending=new Map();
+  matches.forEach(match=>{
+    if(getMatchEvents(match.MatchID||match.ID).length) return;
+    const slug=resolveMatchCompetitionSlug(match);
+    if(slug&&!pending.has(slug)) pending.set(slug,loadCompetitionDetailsForMatch(match));
+  });
+  await Promise.all(Array.from(pending.values()));
 }
 function assignmentIncludesMatch(item,match){
   if(normaliseText(item.includeGames)==='no') return false;
@@ -509,7 +529,25 @@ function getStandingTeamLogo(standing){
   }
   return '';
 }
-function dedupeMatchArray(matches){ const seen=new Set(); return (matches||[]).filter(m=>{ const key=String(m.MatchID||m.ID||'').trim(); if(!key||seen.has(key)) return false; seen.add(key); return true; }); }
+function dedupeMatchArray(matches){
+  const unique=new Map();
+  (matches||[]).forEach(match=>{
+    if(!match) return;
+    const date=getDateKey(match.Date);
+    const home=normaliseTeamName(match.HomeTeam);
+    const away=normaliseTeamName(match.AwayTeam);
+    const time=String(match.Time||'').trim();
+    const semanticKey=date&&home&&away?`game|${date}|${time}|${home}|${away}`:`id|${String(match.MatchID||match.ID||'').trim()}`;
+    if(!semanticKey||semanticKey==='id|') return;
+    const saved=unique.get(semanticKey);
+    if(!saved){ unique.set(semanticKey,match); return; }
+    const savedEvents=getMatchEvents(saved.MatchID||saved.ID).length;
+    const newEvents=getMatchEvents(match.MatchID||match.ID).length;
+    if(newEvents>savedEvents) unique.set(semanticKey,{...saved,...match});
+    else unique.set(semanticKey,{...match,...saved});
+  });
+  return Array.from(unique.values());
+}
 function getFilteredMatches(){ let matches=getCompetitionMatches(); if(currentSearch) matches=matches.filter(m=>[m.HomeTeam,m.AwayTeam,m.Round,m.Competition,m.Date,m.Time].join(' ').toLowerCase().includes(currentSearch)); if(currentRound){ const key=normaliseText(currentRound); matches=matches.filter(m=>normaliseText(m.Round)===key); } if(currentGroup){ const key=normaliseText(currentGroup); const teams=(appData.standings||[]).filter(r=>normaliseText(getStandingGroupKey(r))===key).map(r=>normaliseTeamName(r.Team)).filter(Boolean); matches=matches.filter(m=>teams.includes(normaliseTeamName(m.HomeTeam))||teams.includes(normaliseTeamName(m.AwayTeam))||normaliseText(m.Round)===key||normaliseText(m.Round).includes(key)); } return matches; }
 function getFilteredStandings(){ let standings=appData.standings||[]; if(currentSearch) standings=standings.filter(r=>[r.Team,r.League,r.Group,r.Competition].join(' ').toLowerCase().includes(currentSearch)); if(currentGroup) standings=standings.filter(r=>normaliseText(getStandingGroupKey(r))===normaliseText(currentGroup)); return standings; }
 function getFilteredStats(){ let stats=appData.stats||[]; if(currentSearch) stats=stats.filter(r=>[r.Player,r.Team].join(' ').toLowerCase().includes(currentSearch)); return stats; }
