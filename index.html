@@ -166,5 +166,233 @@
 </div>
 <button id="backToTop" class="back-to-top" type="button" aria-label="Back to top">↑</button>
   <script src="script.js?v=7030"></script>
+
+<script>
+/* Calcium Sport hard override 7032: player seasons + master team/player search */
+(function(){
+  function seasonYearFromDate(value){
+    const d = parseDateOnly(value);
+    return d ? (d.getMonth() >= 7 ? d.getFullYear() + 1 : d.getFullYear()) : '';
+  }
+  function currentSeasonYear(){
+    const d = new Date();
+    return d.getMonth() >= 7 ? d.getFullYear() + 1 : d.getFullYear();
+  }
+  function trulyPlayed(match){
+    if(String(match?.Status || '').toUpperCase() === 'FT') return true;
+    const h = String(match?.HomeScore ?? '').trim();
+    const a = String(match?.AwayScore ?? '').trim();
+    return /^\d+$/.test(h) && /^\d+$/.test(a);
+  }
+  function allKnownMatches(){
+    return dedupeMatchArray(
+      getGlobalMatches()
+        .concat(getCompetitionMatches())
+        .concat(Array.isArray(appData?.myGames) ? appData.myGames : [])
+    );
+  }
+
+  window.openPlayerProfile = function(playerName, event){
+    event?.stopPropagation?.();
+    const name = String(playerName || '').trim();
+    const modal = $('playerModal');
+    const content = $('playerDetailContent');
+    if(!modal || !content) return;
+
+    const render = (wantedSeason) => {
+      const assignments = playerTeamsLookup.get(normalisePlayerName(name)) || [];
+      const matchesAll = allKnownMatches()
+        .filter(trulyPlayed)
+        .filter(match => assignments.some(item => assignmentIncludesMatch(item, match)))
+        .map(match => ({match, stats:getPlayerMatchStats(match, name)}))
+        .sort((a,b) => matchDateSortValue(b.match) - matchDateSortValue(a.match));
+
+      const current = String(currentSeasonYear());
+      const seasons = [...new Set(matchesAll.map(x => String(seasonYearFromDate(x.match.Date))).filter(Boolean))];
+      if(!seasons.includes(current)) seasons.push(current);
+      seasons.sort((a,b) => Number(b) - Number(a));
+
+      const selected = seasons.includes(String(wantedSeason)) ? String(wantedSeason) : current;
+      const matches = matchesAll.filter(x => String(seasonYearFromDate(x.match.Date)) === selected);
+
+      const totals = matches.reduce((s,x) => {
+        s.goals += x.stats.goals;
+        s.assists += x.stats.assists;
+        s.yellow += x.stats.yellow;
+        s.red += x.stats.red;
+        return s;
+      }, {goals:0, assists:0, yellow:0, red:0});
+
+      const national = assignments.find(x => normaliseText(x.teamType) === 'national team');
+      const clubs = assignments.filter(x => normaliseText(x.teamType) === 'club');
+      const teams = assignments.length
+        ? assignments.map(renderPlayerTeamAssignment).join('')
+        : '<div class="empty">Team information has not been added yet.</div>';
+      const rows = matches.length
+        ? matches.map(renderPlayerMatchRow).join('')
+        : '<div class="empty">No played games are available for this player in this season.</div>';
+      const options = seasons.map(y =>
+        `<option value="${escapeAttr(y)}" ${y===selected?'selected':''}>${escapeHTML(y)}</option>`
+      ).join('');
+
+      content.innerHTML =
+        `<section class="player-profile-hero">
+          <div class="player-profile-photo">${renderPlayerImage(name)}</div>
+          <div class="player-profile-copy">
+            <div class="eyebrow">Player profile</div>
+            <h2>${escapeHTML(name)}</h2>
+            ${national ? `<p>🌍 ${escapeHTML(national.team)}</p>` : ''}
+            ${clubs.length ? `<p>${clubs.map(x=>escapeHTML(x.team)).join(' · ')}</p>` : ''}
+          </div>
+          <label class="profile-season-select">
+            <span>Season</span>
+            <select id="hardPlayerSeasonSelect">${options}</select>
+          </label>
+        </section>
+        <section class="player-summary-grid">
+          <div><strong>${matches.length}</strong><span>Games</span></div>
+          <div><strong>${totals.goals}</strong><span>Goals</span></div>
+          <div><strong>${totals.assists}</strong><span>Assists</span></div>
+          <div><strong>${totals.yellow}</strong><span>Yellow</span></div>
+          <div><strong>${totals.red}</strong><span>Red</span></div>
+        </section>
+        <section class="player-teams-section"><h3>Teams</h3>${teams}</section>
+        <section class="player-matches-section"><h3>Played games · ${escapeHTML(selected)}</h3>${rows}</section>`;
+
+      $('hardPlayerSeasonSelect')?.addEventListener('change', e => render(e.target.value));
+    };
+
+    render(currentSeasonYear());
+    modal.classList.remove('hidden');
+    document.body.classList.add('modal-open');
+  };
+
+  function buildSearchData(){
+    const players = [], teams = [], seenPlayers = new Set(), seenTeams = new Set();
+    const addPlayer = n => {
+      n = String(n || '').trim();
+      const k = normalisePlayerName(n);
+      if(n && !seenPlayers.has(k)){ seenPlayers.add(k); players.push(n); }
+    };
+    const addTeam = n => {
+      n = String(n || '').trim();
+      const k = normaliseTeamName(n);
+      if(n && !seenTeams.has(k)){ seenTeams.add(k); teams.push(n); }
+    };
+
+    (appData?.players || []).forEach(r => addPlayer(r?.['Player Name'] ?? r?.Player ?? r?.Name ?? r?.[0]));
+    (appData?.playerTeams || []).forEach(r => {
+      addPlayer(r?.['Player Name'] ?? r?.Player ?? r?.[0]);
+      addTeam(r?.Team ?? r?.[1]);
+    });
+    allKnownMatches().forEach(m => { addTeam(m.HomeTeam); addTeam(m.AwayTeam); });
+    return {players, teams};
+  }
+
+  window.openTeamProfile = function(teamName){
+    const name = String(teamName || '').trim();
+    const key = normaliseTeamName(name);
+    const modal = $('teamModal');
+    const content = $('teamDetailContent');
+    if(!modal || !content) return;
+
+    const matches = allKnownMatches()
+      .filter(trulyPlayed)
+      .filter(m => normaliseTeamName(m.HomeTeam) === key || normaliseTeamName(m.AwayTeam) === key)
+      .sort((a,b) => matchDateSortValue(a) - matchDateSortValue(b));
+
+    const seen = new Set(), squad = [];
+    (appData?.playerTeams || []).forEach(r => {
+      const team = String(r?.Team ?? r?.[1] ?? '').trim();
+      const player = String(r?.['Player Name'] ?? r?.Player ?? r?.[0] ?? '').trim();
+      const pk = normalisePlayerName(player);
+      if(player && normaliseTeamName(team) === key && !seen.has(pk)){
+        seen.add(pk);
+        squad.push(player);
+      }
+    });
+
+    const squadHtml = squad.length
+      ? squad.sort((a,b)=>a.localeCompare(b)).map(p =>
+          `<button class="team-squad-player" type="button" onclick="closeTeamProfile();openPlayerProfile('${escapeAttr(p)}')">
+            ${renderPlayerImage(p)}<strong>${escapeHTML(p)}</strong>
+          </button>`
+        ).join('')
+      : '<div class="empty">No squad players found.</div>';
+
+    const gamesHtml = matches.length
+      ? matches.map(m =>
+          `<button class="team-profile-match" type="button" ${m.MatchID?`onclick="closeTeamProfile();openMatchDetail('${escapeAttr(m.MatchID)}')"`:''}>
+            <span>${escapeHTML(formatScoreboardDateParts(m.Date,m.Time).date)}</span>
+            <span>
+              <strong>${escapeHTML(m.HomeTeam)} ${escapeHTML(renderScoreText(m))} ${escapeHTML(m.AwayTeam)}</strong>
+              <small>${escapeHTML(m.Competition || m['Competition Name'] || 'Competition')}</small>
+            </span>
+          </button>`
+        ).join('')
+      : '<div class="empty">No played games found.</div>';
+
+    content.innerHTML =
+      `<section class="team-profile-hero">
+        ${renderTeamLogo(findTeamLogo(name),name)}
+        <div><div class="eyebrow">Team profile</div><h2>${escapeHTML(name)}</h2></div>
+      </section>
+      <section class="team-profile-section"><h3>Squad</h3><div class="team-squad-grid">${squadHtml}</div></section>
+      <section class="team-profile-section"><h3>All played games</h3>${gamesHtml}</section>`;
+
+    modal.classList.remove('hidden');
+    document.body.classList.add('modal-open');
+  };
+
+  window.closeTeamProfile = function(){
+    $('teamModal')?.classList.add('hidden');
+    if($('matchModal')?.classList.contains('hidden') && $('playerModal')?.classList.contains('hidden')){
+      document.body.classList.remove('modal-open');
+    }
+  };
+
+  function hardSearch(value){
+    const box = $('masterSearchResults');
+    const clear = $('masterSearchClear');
+    if(!box) return;
+    const q = normaliseText(value);
+    clear?.classList.toggle('hidden', !q);
+    if(!q){ box.classList.add('hidden'); box.innerHTML=''; return; }
+
+    const data = buildSearchData();
+    const players = data.players.filter(n => normaliseText(n).includes(q)).slice(0,8);
+    const teams = data.teams.filter(n => normaliseText(n).includes(q)).slice(0,8);
+
+    box.innerHTML =
+      (players.length ? `<div class="master-search-label">Players</div>${players.map(n =>
+        `<button class="master-search-result" type="button" data-hard-player="${escapeAttr(n)}">${renderPlayerImage(n)}<strong>${escapeHTML(n)}</strong></button>`
+      ).join('')}` : '') +
+      (teams.length ? `<div class="master-search-label">Teams</div>${teams.map(n =>
+        `<button class="master-search-result" type="button" data-hard-team="${escapeAttr(n)}">${renderTeamLogo(findTeamLogo(n),n)}<strong>${escapeHTML(n)}</strong></button>`
+      ).join('')}` : '') +
+      (!players.length && !teams.length ? '<div class="empty">No players or teams found.</div>' : '');
+
+    box.classList.remove('hidden');
+
+    box.querySelectorAll('[data-hard-player]').forEach(btn => btn.addEventListener('click', () => {
+      $('masterSearchInput').value=''; box.classList.add('hidden'); window.openPlayerProfile(btn.dataset.hardPlayer);
+    }));
+    box.querySelectorAll('[data-hard-team]').forEach(btn => btn.addEventListener('click', () => {
+      $('masterSearchInput').value=''; box.classList.add('hidden'); window.openTeamProfile(btn.dataset.hardTeam);
+    }));
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const input = $('masterSearchInput');
+    if(input){
+      const clone = input.cloneNode(true);
+      input.parentNode.replaceChild(clone,input);
+      clone.addEventListener('input', e => hardSearch(e.target.value));
+      clone.addEventListener('focus', e => hardSearch(e.target.value));
+    }
+  });
+})();
+</script>
+
 </body>
 </html>
