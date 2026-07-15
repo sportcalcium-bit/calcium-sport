@@ -1,13 +1,12 @@
 <!doctype html>
-<html lang="en">
-<head>
+<html lang="en"><head>
   <link rel="icon" type="image/jpeg" href="calcium-logo.jpeg">
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Calcium Sport</title>
-  <meta name="description" content="Calcium Sport football results centre" />
-  <link rel="preconnect" href="https://script.google.com" />
-  <link rel="stylesheet" href="style.css" />
+  <meta name="description" content="Calcium Sport football results centre">
+  <link rel="preconnect" href="https://script.google.com">
+  <link rel="stylesheet" href="style.css">
 
 <style>
 .team-profile-controls{
@@ -33,13 +32,10 @@
 </style>
 
 </head>
-<body>
+<body class="is-home-page">
   <header class="site-header">
     <a class="brand" href="./" aria-label="Calcium Sport home">
-      <img
-    src="calcium-logo.jpeg"
-    class="brand-logo"
-    alt="Calcium Sport">
+      <img src="calcium-logo.jpeg" class="brand-logo" alt="Calcium Sport">
       <div>
         <h1>Calcium Sport</h1>
         <p id="siteSubtitle">Football results centre</p>
@@ -47,7 +43,7 @@
     </a>
 
     <div class="top-nav-area">
-      <nav id="competitionCategoryNav" class="competition-category-nav" aria-label="Competition categories"></nav>
+      <nav id="competitionCategoryNav" class="competition-category-nav" aria-label="Competition categories"><div class="competition-category is-active"><button type="button" class="category-button" onclick="goHomePage()"><span class="category-icon">🏠</span><span class="category-name">Home</span></button></div><div class="competition-category  "><button type="button" class="category-button" onclick="toggleCompetitionCategory('england')"><span class="category-icon">🏴󠁧󠁢󠁥󠁮󠁧󠁿</span><span class="category-name">England</span><span class="category-arrow">⌄</span></button><div class="category-menu" data-category-menu="england"><div class="category-menu-title"><span>🏴󠁧󠁢󠁥󠁮󠁧󠁿</span><strong>England</strong></div><button type="button" class="category-menu-item " onclick="selectCompetitionFromCategory('premier-league-2027')"><span>Premier League</span></button><button type="button" class="category-menu-item " onclick="selectCompetitionFromCategory('fa-cup-2027')"><span>FA Cup</span></button><button type="button" class="category-menu-item " onclick="selectCompetitionFromCategory('carabao-cup-2027')"><span>Carabao Cup</span></button><button type="button" class="category-menu-item " onclick="selectCompetitionFromCategory('community-shield-2027')"><span>Community Shield</span></button></div></div><div class="competition-category  "><button type="button" class="category-button" onclick="toggleCompetitionCategory('italy')"><span class="category-icon">🇮🇹</span><span class="category-name">Italy</span><span class="category-arrow">⌄</span></button><div class="category-menu" data-category-menu="italy"><div class="category-menu-title"><span>🇮🇹</span><strong>Italy</strong></div><button type="button" class="category-menu-item " onclick="selectCompetitionFromCategory('serie-a-2027')"><span>Serie A</span></button><button type="button" class="category-menu-item " onclick="selectCompetitionFromCategory('coppa-italia-2027')"><span>Coppa Italia</span></button><button type="button" class="category-menu-item " onclick="selectCompetitionFromCategory('supercoppa-italia-2027')"><span>Supercoppa Italia</span></button></div></div><div class="competition-category  "><button type="button" class="category-button" onclick="toggleCompetitionCategory('spain')"><span class="category-icon">🇪🇸</span><span class="category-name">Spain</span><span class="category-arrow">⌄</span></button><div class="category-menu" data-category-menu="spain"><div class="category-menu-title"><span>🇪🇸</span><strong>Spain</strong></div><button type="button" class="category-menu-item " onclick="selectCompetitionFromCategory('la-liga-2027')"><span>La Liga</span></button><button type="button" class="category-menu-item " onclick="selectCompetitionFromCategory('copa-del-rey-2027')"><span>Copa del Rey</span></button><button type="button" class="category-menu-item " onclick="selectCompetitionFromCategory('supercopa-de-espana-2027')"><span>Supercopa de España</span></button></div></div><div class="competition-category  "><button type="button" class="category-button" onclick="toggleCompetitionCategory('germany')"><span class="category-icon">🇩🇪</span><span class="category-name">Germany</span><span class="category-arrow">⌄</span></button><div class="category-menu" data-category-menu="germany"><div class="category-menu-title"><span>🇩🇪</span><strong>Germany</strong></div><button type="button" class="category-menu-item " onclick="selectCompetitionFromCategory('bundesliga-2027')"><span>Bundesliga</span></button><button type="button" class="category-menu-item " onclick="selectCompetitionFromCategory('dfb-pokal-2027')"><span>DFB Pokal</span></button><button type="button" class="category-menu-item " onclick="selectCompetitionFromCategory('germany-super-cup-2027')"><span>Germany Super Cup</span></button></div></div><div class="competition-category  "><button type="button" class="category-button" onclick="toggleCompetitionCategory('france')"><span class="category-icon">🇫🇷</span><span class="category-name">France</span><span class="category-arrow">⌄</span></button><div class="category-menu" data-category-menu="france"><div class="category-menu-title"><span>🇫🇷</span><strong>France</strong></div><button type="button" class="category-menu-item " onclick="selectCompetitionFromCategory('ligue-1-2027')"><span>Ligue 1</span></button><button type="button" class="category-menu-item " onclick="selectCompetitionFromCategory('coupe-de-france-2027')"><span>Coupe de France</span></button><button type="button" class="category-menu-item " onclick="selectCompetitionFromCategory('trophee-des-champions-2027')"><span>Trophée des Champions</span></button></div></div><div class="competition-category  "><button type="button" class="category-button" onclick="toggleCompetitionCategory('europe')"><span class="category-icon">🇪🇺</span><span class="category-name">Europe</span><span class="category-arrow">⌄</span></button><div class="category-menu" data-category-menu="europe"><div class="category-menu-title"><span>🇪🇺</span><strong>Europe</strong></div><button type="button" class="category-menu-item " onclick="selectCompetitionFromCategory('uefa-champions-league-2027')"><span>UEFA Champions League</span></button><button type="button" class="category-menu-item " onclick="selectCompetitionFromCategory('uefa-europa-league-2027')"><span>UEFA Europa League</span></button><button type="button" class="category-menu-item " onclick="selectCompetitionFromCategory('uefa-conference-league-2027')"><span>UEFA Conference League</span></button><button type="button" class="category-menu-item " onclick="selectCompetitionFromCategory('uefa-super-cup-2027')"><span>UEFA Super Cup</span></button></div></div><div class="competition-category  "><button type="button" class="category-button" onclick="toggleCompetitionCategory('world')"><span class="category-icon">🌍</span><span class="category-name">World</span><span class="category-arrow">⌄</span></button><div class="category-menu" data-category-menu="world"><div class="category-menu-title"><span>🌍</span><strong>World</strong></div><button type="button" class="category-menu-item " onclick="selectCompetitionFromCategory('fifa-club-world-cup-2025')"><span>FIFA Club World Cup</span></button><button type="button" class="category-menu-item " onclick="selectCompetitionFromCategory('fifa-intercontinental-cup-2026')"><span>FIFA Intercontinental Cup</span></button></div></div><div class="competition-category  "><button type="button" class="category-button" onclick="toggleCompetitionCategory('national-teams')"><span class="category-icon">🏆</span><span class="category-name">National Teams</span><span class="category-arrow">⌄</span></button><div class="category-menu" data-category-menu="national-teams"><div class="category-menu-title"><span>🏆</span><strong>National Teams</strong></div><button type="button" class="category-menu-item " onclick="selectCompetitionFromCategory('world-cup-2026')"><span>World Cup</span></button><button type="button" class="category-menu-item " onclick="selectCompetitionFromCategory('nations-league-2027')"><span>Nations League</span></button><button type="button" class="category-menu-item " onclick="selectCompetitionFromCategory('afcon-2025')"><span>AFCON</span></button></div></div></nav>
 
       <div class="header-controls compact-controls">
         <label id="seasonSwitcherWrap" class="is-hidden">
@@ -79,10 +75,32 @@
     <section id="homeSection" class="mobile-home">
       <div class="mobile-title-row">
         <div class="football-title"><span class="football-icon">⚽</span><span>Football</span></div>
-        <span id="homeMatchCount" class="match-count-pill">0</span>
+        <span id="homeMatchCount" class="match-count-pill">1</span>
       </div>
 
-      <div id="dateTabs" class="date-tabs home-date-tabs"></div>
+      <div id="dateTabs" class="date-tabs home-date-tabs">
+    
+    <button type="button" class="" onclick="selectDateTab('2026-07-14')">
+      <span>Yesterday</span>
+      <strong>14.07.</strong>
+    </button>
+  
+    <button type="button" class="active" onclick="selectDateTab('2026-07-15')">
+      <span>Today</span>
+      <strong>15.07.</strong>
+    </button>
+  
+    <button type="button" class="" onclick="selectDateTab('2026-07-16')">
+      <span>Tomorrow</span>
+      <strong>16.07.</strong>
+    </button>
+  
+    <div class="date-picker-button " id="datePickerButton">
+      <span>📅</span>
+      <span>Pick a date</span>
+      <input id="homeDatePicker" type="date" value="2026-07-15">
+    </div>
+  </div>
 
       <div class="home-switch-tabs" role="tablist" aria-label="Home game tabs">
         <button type="button" class="active" data-home-tab="allGames">Matches of the day</button>
@@ -92,32 +110,32 @@
       <section id="allGamesPanel">
         <div id="allGamesHeader" class="all-games-header">
           <span class="list-icon">☰</span>
-          <span id="homeAllGamesTitle">All games</span>
+          <span id="homeAllGamesTitle">All games (1)</span>
         </div>
-        <div id="homeGamesList"><div class="empty">Loading games...</div></div>
+        <div id="homeGamesList"><section class="home-time-block"><div class="home-time-heading">23:00</div><section class="home-competition-block"><div class="home-competition-mini-title"><span>NATIONAL TEAMS</span><strong>World Cup</strong></div><article class="home-match-row" onclick="openMatchDetail('ARG-FRA-15072026')"><div class="score-team-home-name">Argentina</div><div class="score-team-home-logo"><span class="team-logo"><img src="https://static.flashscore.com/res/image/data/xQCUe9zB-AmY8ktbk.png" alt="Argentina" loading="lazy"></span></div><div class="home-match-score">- : -</div><div class="score-team-away-logo"><span class="team-logo"><img src="https://static.flashscore.com/res/image/data/I5PqTkcM-U3HPIwDq.png" alt="France" loading="lazy"></span></div><div class="score-team-away-name">France</div></article></section></section></div>
       </section>
 
       <section id="myGamesPanel" class="my-games-panel hidden">
         <div class="my-games-header">
           <div>
             <div class="eyebrow">Selected week</div>
-            <h2 id="myGamesTitle">My Games</h2>
-            <p id="myGamesSubtitle">Loading week...</p>
+            <h2 id="myGamesTitle">Week 50</h2>
+            <p id="myGamesSubtitle">13/07 - 19/07</p>
           </div>
-          <span id="myGamesCount" class="match-count-pill">0</span>
+          <span id="myGamesCount" class="match-count-pill">2</span>
         </div>
-        <div id="myGamesList"><div class="empty">Loading my games...</div></div>
+        <div id="myGamesList"><section class="my-games-league-card"><div class="my-games-league-head"><span class="my-games-region">National Teams</span><strong class="my-games-league-name">World Cup</strong></div><article class="my-games-match" onclick="openMatchDetail('ENGLAND-PORTUGAL-13072026')"><div class="my-games-date"><span>13.07</span><span>15:00</span></div><div class="my-games-team-name home">England</div><div class="my-games-logo"><span class="team-logo"><img src="https://static.flashscore.com/res/image/data/tCG9KQYA-Iyld3bDd.png" alt="England" loading="lazy"></span></div><div class="my-games-score">- : -</div><div class="my-games-logo"><span class="team-logo"><img src="https://static.flashscore.com/res/image/data/IBvrXaZg-vZG58BBc.png" alt="Portugal" loading="lazy"></span></div><div class="my-games-team-name away">Portugal</div><div class="my-games-status">Scheduled</div></article><article class="my-games-match" onclick="openMatchDetail('ARGENTINA-FRANCE-15072026')"><div class="my-games-date"><span>15.07</span><span>23:00</span></div><div class="my-games-team-name home">Argentina</div><div class="my-games-logo"><span class="team-logo"><img src="https://static.flashscore.com/res/image/data/xQCUe9zB-AmY8ktbk.png" alt="Argentina" loading="lazy"></span></div><div class="my-games-score">- : -</div><div class="my-games-logo"><span class="team-logo"><img src="https://static.flashscore.com/res/image/data/I5PqTkcM-U3HPIwDq.png" alt="France" loading="lazy"></span></div><div class="my-games-team-name away">France</div><div class="my-games-status">Scheduled</div></article></section></div>
       </section>
     </section>
 
     <section class="hero-card">
       <div class="hero-main">
         <div class="competition-logo-wrap">
-          <img id="competitionLogo" src="" alt="Competition logo" onerror="this.style.display='none'" />
+          <img id="competitionLogo" src="" alt="Competition logo" onerror="this.style.display='none'" style="display: none;">
         </div>
         <div class="hero-copy">
-          <h2 id="competitionTitle">Loading...</h2>
-          <p id="competitionSubtitle">Loading competition data</p>
+          <h2 id="competitionTitle">Football</h2>
+          <p id="competitionSubtitle">All games across every competition</p>
         </div>
       </div>
       <nav class="section-tabs" aria-label="Competition sections">
@@ -130,7 +148,7 @@
     </section>
 
     <section class="filters-card">
-      <input id="searchInput" type="search" placeholder="Search team, player, round..." aria-label="Search" />
+      <input id="searchInput" type="search" placeholder="Search team, player, round..." aria-label="Search">
       <select id="groupFilter" aria-label="Group filter"><option value="">All groups/tables</option></select>
       <select id="roundFilter" aria-label="Round filter"><option value="">All rounds</option></select>
       <button id="clearFilters" type="button">Clear</button>
@@ -138,22 +156,22 @@
 
     <section id="nextUpSection" class="scoreboard-card">
       <div class="competition-strip"><strong>Next up</strong></div>
-      <div id="scoreboardList"><div class="empty">Loading matches...</div></div>
+      <div id="scoreboardList"><div class="empty">Loading...</div></div>
     </section>
 
     <section id="resultsSection" class="scoreboard-card">
       <div class="competition-strip"><strong>Results</strong><span id="resultsCount" class="strip-count"></span></div>
-      <div id="resultsList"><div class="empty">Loading results...</div></div>
+      <div id="resultsList"><div class="empty">Loading...</div></div>
     </section>
 
     <section id="fixturesSection" class="scoreboard-card">
       <div class="competition-strip"><strong>Fixtures</strong><span id="fixturesCount" class="strip-count"></span></div>
-      <div id="fixturesList"><div class="empty">Loading fixtures...</div></div>
+      <div id="fixturesList"><div class="empty">Loading...</div></div>
     </section>
 
     <section id="standingsSection" class="panel">
       <div class="panel-header"><h2>Standings</h2><span>Live table</span></div>
-      <div id="standingsContainer"><div class="empty">Loading standings...</div></div>
+      <div id="standingsContainer"><div class="empty">Loading...</div></div>
     </section>
 
     <section id="statsSection" class="panel">
@@ -192,7 +210,7 @@
   <script src="script.js?v=7033"></script>
 
 <script>
-/* Calcium Sport hard override 7032: player seasons + master team/player search */
+/* Calcium Sport hard override 7034: player seasons + detailed competition events */
 (function(){
   function seasonYearFromDate(value){
     const d = parseDateOnly(value);
@@ -216,7 +234,7 @@
     );
   }
 
-  window.openPlayerProfile = function(playerName, event){
+  window.openPlayerProfile = async function(playerName, event){
     event?.stopPropagation?.();
     const name = String(playerName || '').trim();
     const modal = $('playerModal');
@@ -286,9 +304,11 @@
       $('hardPlayerSeasonSelect')?.addEventListener('change', e => render(e.target.value));
     };
 
-    render(currentSeasonYear());
     modal.classList.remove('hidden');
     document.body.classList.add('modal-open');
+    content.innerHTML = '<div class="empty">Loading games, goals, assists and cards...</div>';
+    await loadPlayerCompetitionDetails(name);
+    if(!modal.classList.contains('hidden')) render(currentSeasonYear());
   };
 
   function buildSearchData(){
@@ -555,5 +575,6 @@
 })();
 </script>
 
-</body>
-</html>
+
+
+</body><div id="codex-browser-sidebar-comments-root" style="position: fixed; inset: 0px; pointer-events: none; z-index: 2147483647;"></div></html>
