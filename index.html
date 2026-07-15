@@ -8,6 +8,30 @@
   <meta name="description" content="Calcium Sport football results centre" />
   <link rel="preconnect" href="https://script.google.com" />
   <link rel="stylesheet" href="style.css" />
+
+<style>
+.team-profile-controls{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,220px));
+  gap:14px;
+  padding:18px 22px;
+  border-bottom:1px solid var(--line);
+  background:#03242b;
+}
+.team-profile-controls label{display:grid;gap:7px}
+.team-profile-controls label span{
+  color:var(--muted);
+  font-size:11px;
+  font-weight:950;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+}
+.team-profile-controls select{width:100%;min-width:0}
+@media(max-width:700px){
+  .team-profile-controls{grid-template-columns:1fr 1fr;padding:14px}
+}
+</style>
+
 </head>
 <body>
   <header class="site-header">
@@ -391,6 +415,143 @@
       clone.addEventListener('focus', e => hardSearch(e.target.value));
     }
   });
+})();
+</script>
+
+
+<script>
+/* Calcium Sport hard override 7033: team profile view + season dropdowns */
+(function(){
+  function teamCurrentSeasonYear(){
+    const d = new Date();
+    return d.getMonth() >= 7 ? d.getFullYear() + 1 : d.getFullYear();
+  }
+
+  function teamSeasonYearFromDate(value){
+    const d = parseDateOnly(value);
+    return d ? (d.getMonth() >= 7 ? d.getFullYear() + 1 : d.getFullYear()) : '';
+  }
+
+  function teamSeasonBounds(seasonYear){
+    const y = Number(seasonYear);
+    return { start: `${y-1}-08-01`, end: `${y}-07-31` };
+  }
+
+  function assignmentActiveInSeason(row, seasonYear){
+    const bounds = teamSeasonBounds(seasonYear);
+    const start = String(row?.['Start Date'] ?? row?.StartDate ?? row?.[3] ?? '').trim();
+    const end = String(row?.['End Date'] ?? row?.EndDate ?? row?.[4] ?? '').trim();
+    const startKey = start ? getDateKey(start) : '';
+    const endKey = end ? getDateKey(end) : '';
+    if(startKey && startKey > bounds.end) return false;
+    if(endKey && endKey < bounds.start) return false;
+    return true;
+  }
+
+  window.openTeamProfile = function(teamName){
+    const name = String(teamName || '').trim();
+    const key = normaliseTeamName(name);
+    const modal = $('teamModal');
+    const content = $('teamDetailContent');
+    if(!modal || !content) return;
+
+    const allMatches = dedupeMatchArray(
+      getGlobalMatches()
+        .concat(getCompetitionMatches())
+        .concat(Array.isArray(appData?.myGames) ? appData.myGames : [])
+    ).filter(m => {
+      const played = String(m?.Status || '').toUpperCase() === 'FT' ||
+        (/^\d+$/.test(String(m?.HomeScore ?? '').trim()) && /^\d+$/.test(String(m?.AwayScore ?? '').trim()));
+      return played && (normaliseTeamName(m.HomeTeam) === key || normaliseTeamName(m.AwayTeam) === key);
+    });
+
+    const currentSeason = String(teamCurrentSeasonYear());
+    const seasons = [...new Set(allMatches.map(m => String(teamSeasonYearFromDate(m.Date))).filter(Boolean))];
+    if(!seasons.includes(currentSeason)) seasons.push(currentSeason);
+    seasons.sort((a,b) => Number(b) - Number(a));
+
+    let selectedSeason = currentSeason;
+    let selectedView = 'games';
+
+    const render = () => {
+      const seasonMatches = allMatches
+        .filter(m => String(teamSeasonYearFromDate(m.Date)) === selectedSeason)
+        .sort((a,b) => matchDateSortValue(a) - matchDateSortValue(b));
+
+      const seen = new Set();
+      const squad = [];
+      (appData?.playerTeams || []).forEach(row => {
+        const team = String(row?.Team ?? row?.[1] ?? '').trim();
+        const player = String(row?.['Player Name'] ?? row?.Player ?? row?.[0] ?? '').trim();
+        if(!player || normaliseTeamName(team) !== key || !assignmentActiveInSeason(row, selectedSeason)) return;
+        const pk = normalisePlayerName(player);
+        if(seen.has(pk)) return;
+        seen.add(pk);
+        squad.push(player);
+      });
+
+      const seasonOptions = seasons.map(y =>
+        `<option value="${escapeAttr(y)}" ${y===selectedSeason?'selected':''}>${escapeHTML(y)}</option>`
+      ).join('');
+
+      const gamesHtml = seasonMatches.length
+        ? seasonMatches.map(m =>
+            `<button class="team-profile-match" type="button" ${m.MatchID?`onclick="closeTeamProfile();openMatchDetail('${escapeAttr(m.MatchID)}')"`:''}>
+              <span>${escapeHTML(formatScoreboardDateParts(m.Date,m.Time).date)}</span>
+              <span>
+                <strong>${escapeHTML(m.HomeTeam)} ${escapeHTML(renderScoreText(m))} ${escapeHTML(m.AwayTeam)}</strong>
+                <small>${escapeHTML(m.Competition || m['Competition Name'] || 'Competition')}</small>
+              </span>
+            </button>`
+          ).join('')
+        : '<div class="empty">No played games found for this season.</div>';
+
+      const squadHtml = squad.length
+        ? squad.sort((a,b)=>a.localeCompare(b)).map(p =>
+            `<button class="team-squad-player" type="button" onclick="closeTeamProfile();openPlayerProfile('${escapeAttr(p)}')">
+              ${renderPlayerImage(p)}<strong>${escapeHTML(p)}</strong>
+            </button>`
+          ).join('')
+        : '<div class="empty">No squad players found for this season.</div>';
+
+      content.innerHTML =
+        `<section class="team-profile-hero">
+          ${renderTeamLogo(findTeamLogo(name),name)}
+          <div><div class="eyebrow">Team profile</div><h2>${escapeHTML(name)}</h2></div>
+        </section>
+        <section class="team-profile-controls">
+          <label><span>View</span>
+            <select id="teamProfileViewSelect">
+              <option value="games" ${selectedView==='games'?'selected':''}>Games</option>
+              <option value="squad" ${selectedView==='squad'?'selected':''}>Squad</option>
+            </select>
+          </label>
+          <label><span>Season</span>
+            <select id="teamProfileSeasonSelect">${seasonOptions}</select>
+          </label>
+        </section>
+        <section class="team-profile-section ${selectedView==='games'?'':'hidden'}">
+          <h3>Played games · ${escapeHTML(selectedSeason)}</h3>${gamesHtml}
+        </section>
+        <section class="team-profile-section ${selectedView==='squad'?'':'hidden'}">
+          <h3>Squad · ${escapeHTML(selectedSeason)}</h3><div class="team-squad-grid">${squadHtml}</div>
+        </section>`;
+
+      $('teamProfileViewSelect')?.addEventListener('change', e => {
+        selectedView = e.target.value || 'games';
+        render();
+      });
+
+      $('teamProfileSeasonSelect')?.addEventListener('change', e => {
+        selectedSeason = e.target.value || currentSeason;
+        render();
+      });
+    };
+
+    render();
+    modal.classList.remove('hidden');
+    document.body.classList.add('modal-open');
+  };
 })();
 </script>
 
