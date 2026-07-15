@@ -444,7 +444,12 @@ function changePlayerSeason(value){ activePlayerSeason=String(value); renderActi
 window.changePlayerSeason=changePlayerSeason;
 function getCurrentSeasonYear(date=new Date()){ return date.getMonth()>=7?date.getFullYear()+1:date.getFullYear(); }
 function getSeasonYearForDate(value){ const d=parseDateOnly(value); return d?(d.getMonth()>=7?d.getFullYear()+1:d.getFullYear()):''; }
-function isPlayedMatch(match){ if(String(match?.Status||'').toUpperCase()==='FT') return true; return match?.HomeScore!==''&&match?.HomeScore!=null&&match?.AwayScore!==''&&match?.AwayScore!=null; }
+function isPlayedMatch(match){
+  if(String(match?.Status||'').toUpperCase()==='FT') return true;
+  const home=String(match?.HomeScore??'').trim();
+  const away=String(match?.AwayScore??'').trim();
+  return /^\d+$/.test(home) && /^\d+$/.test(away);
+}
 function renderPlayerProfile(playerName,seasonYear=getCurrentSeasonYear()){
   const name=String(playerName||'').trim(),assignments=playerTeamsLookup.get(normalisePlayerName(name))||[],allMatches=getPlayerMatches(assignments,name);
   const current=String(getCurrentSeasonYear()),seasons=[...new Set(allMatches.map(x=>String(getSeasonYearForDate(x.match.Date))).filter(Boolean))];
@@ -493,7 +498,7 @@ function renderPlayerMatchRow(item){
 }
 
 function getMasterSearchItems(){
- const players=[],teamsP=new Set(),teams=[],seenT=new Set();
+ const players=[],seenP=new Set(),teams=[],seenT=new Set();
  const addP=n=>{n=String(n||'').trim();const k=normalisePlayerName(n);if(n&&!seenP.has(k)){seenP.add(k);players.push(n)}};
  const addT=n=>{n=String(n||'').trim();const k=normaliseTeamName(n);if(n&&!seenT.has(k)){seenT.add(k);teams.push(n)}};
  (appData?.players||[]).forEach(r=>addP(r?.['Player Name']??r?.Player??r?.Name??r?.[0]));
@@ -768,4 +773,4 @@ function safeScore(v){ return v===''||v===undefined||v===null?'-':v; }
 function formatGoalDifference(v){ const n=Number(v); if(!Number.isFinite(n))return'0'; return n>0?`+${n}`:String(n); }
 function escapeHTML(v){ return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
 function escapeAttr(v){ return escapeHTML(v); }
-window.CALCIUM_SCRIPT_VERSION='7030-player-seasons-master-search';
+window.CALCIUM_SCRIPT_VERSION='7031-player-seasons-master-search-fix';
