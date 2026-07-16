@@ -772,7 +772,7 @@ function formatShortDateFromDate(d){ return `${String(d.getDate()).padStart(2,'0
 function formatMyGamesDate(d){ return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`; }
 function normaliseKickoffTime(v){ return String(v||'').trim()||'Scheduled'; }
 function timeSortValue(v){ const m=String(v||'').trim().match(/^(\d{1,2}):(\d{2})$/); return m?(+m[1]*60)+(+m[2]):99999; }
-function renderScoreText(m){ const home=safeScore(m.HomeScore), away=safeScore(m.AwayScore); return `${escapeHTML(home)} - ${escapeHTML(away)}`; }) ${escapeHTML(home)} - ${escapeHTML(away)} (${escapeHTML(ap)})`:`${escapeHTML(home)} - ${escapeHTML(away)}`; }
+function renderScoreText(m){ const home=safeScore(m.HomeScore), away=safeScore(m.AwayScore); return `${escapeHTML(home)} - ${escapeHTML(away)}`; }
 function getPenaltyWinnerText(m){ const hp=Number(m.HomePens), ap=Number(m.AwayPens); if(!Number.isFinite(hp)||!Number.isFinite(ap))return''; if(hp>ap)return`${m.HomeTeam} win ${hp}-${ap} on penalties`; if(ap>hp)return`${m.AwayTeam} win ${ap}-${hp} on penalties`; return''; }
 function isGoalEvent(e){ return String(e.Event||'').toLowerCase().trim()==='goal'; }
 function sameTeam(a,b){ return normaliseTeamName(a)===normaliseTeamName(b); }
