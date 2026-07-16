@@ -464,6 +464,17 @@ function renderHighlights(url){
     </a>
   </section>`;
 }
+function openPlayerProfile(playerName,event){
+  event?.stopPropagation?.();
+  activePlayerProfileName=String(playerName||'').trim();
+  if(!activePlayerProfileName) return;
+  activePlayerSeason=String(getCurrentSeasonYear());
+  const modal=$('playerModal'),content=$('playerDetailContent');
+  if(!modal||!content) return;
+  content.innerHTML=renderPlayerProfile(activePlayerProfileName,activePlayerSeason);
+  modal.classList.remove('hidden');
+  document.body.classList.add('modal-open');
+}
 window.openPlayerProfile=openPlayerProfile;
 function closePlayerProfile(){ $('playerModal')?.classList.add('hidden'); if($('matchModal')?.classList.contains('hidden')&&$('teamModal')?.classList.contains('hidden')) document.body.classList.remove('modal-open'); }
 window.closePlayerProfile=closePlayerProfile;
