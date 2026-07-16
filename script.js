@@ -245,6 +245,18 @@ function renderHomeGames(){
   setHTML('homeGamesList', html);
 }
 function renderHomeMatchRow(match){ const click=match.MatchID?`onclick="openMatchDetail('${escapeAttr(match.MatchID)}')"`:''; return `<article class="home-match-row" ${click}><div class="score-team-home-name">${escapeHTML(match.HomeTeam)}</div><div class="score-team-home-logo">${renderTeamLogo(match.HomeLogo,match.HomeTeam)}</div><div class="home-match-score compact-match-score">${renderCompactMatchScore(match)}</div><div class="score-team-away-logo">${renderTeamLogo(match.AwayLogo,match.AwayTeam)}</div><div class="score-team-away-name">${escapeHTML(match.AwayTeam)}</div></article>`; }
+function renderMyGames(){
+  const all=Array.isArray(appData?.myGames)?appData.myGames:[]; const selected=parseDateOnly(selectedDateKey)||new Date(); const weekStart=getMonday(selected); const weekEnd=addDays(weekStart,6);
+  const weekMatches=all.filter(match=>{ const d=parseDateOnly(match.Date); if(!d) return false; const cd=new Date(d.getFullYear(),d.getMonth(),d.getDate()); return cd>=weekStart && cd<=weekEnd; }).sort(compareMyGamesMatches);
+  setText('myGamesTitle', getSeasonWeekLabel(selected)); setText('myGamesSubtitle', getWeekRangeLabel(selected)); setText('myGamesCount', weekMatches.length);
+  if(!weekMatches.length){ setHTML('myGamesList','<div class="empty home-empty">No My Games found for this week.</div>'); return; }
+  const grouped=groupBy(weekMatches, m=>getMyGamesGroupLabel(m)); const order=['England','Italy','Spain','Germany','France','Europe','World','National Teams'];
+  const html=Object.keys(grouped).sort((a,b)=>(order.indexOf(a)===-1?999:order.indexOf(a))-(order.indexOf(b)===-1?999:order.indexOf(b))||a.localeCompare(b)).map(groupName=>{
+    const leagues=groupBy(grouped[groupName], m=>m.Competition||'Competition');
+    return Object.keys(leagues).sort((a,b)=>compareCompetitionNamePriorityFromName(groupName,a,b)).map(league=>`<section class="my-games-league-card"><div class="my-games-league-head"><span class="my-games-region">${escapeHTML(groupName)}</span><strong class="my-games-league-name">${escapeHTML(league)}</strong></div>${leagues[league].sort(compareMyGamesMatches).map(renderMyGamesRow).join('')}</section>`).join('');
+  }).join('');
+  setHTML('myGamesList', html);
+}
 function renderMyGamesRow(match){ const p=formatScoreboardDateParts(match.Date,match.Time); const click=match.MatchID?`onclick="openMatchDetail('${escapeAttr(match.MatchID)}')"`:''; return `<article class="my-games-match" ${click}><div class="my-games-date"><span>${escapeHTML(p.date)}</span><span>${escapeHTML(p.time)}</span></div><div class="my-games-team-name home">${escapeHTML(match.HomeTeam)}</div><div class="my-games-logo">${renderTeamLogo(match.HomeLogo,match.HomeTeam)}</div><div class="my-games-score compact-match-score">${renderCompactMatchScore(match)}</div><div class="my-games-logo">${renderTeamLogo(match.AwayLogo,match.AwayTeam)}</div><div class="my-games-team-name away">${escapeHTML(match.AwayTeam)}</div><div class="my-games-status">${escapeHTML(match.Status||'Scheduled')}</div></article>`; }
 function getMatchCompetitionContext(match){
   const competitionName=String(match.Competition||match['Competition Name']||appData?.selectedCompetition?.['Competition Name']||appData?.site?.competition||'Competition').trim();
