@@ -3,6 +3,8 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbyFU-9M16UBls1YvTZfXxCD
 let appData = null;
 let playerImageLookup = new Map();
 let playerTeamsLookup = new Map();
+let activePlayerProfileName='';
+let activePlayerSeason='';
 const competitionDetailCache = new Map();
 let currentCompetition = new URLSearchParams(window.location.search).get('competition') || '';
 let currentSearch = '';
@@ -48,6 +50,9 @@ function bindEvents(){
   $('roundFilter')?.addEventListener('change', e => { currentRound = e.target.value; renderAll(); });
   $('clearFilters')?.addEventListener('click', () => { resetFilters(); renderAll(); });
   $('backToTop')?.addEventListener('click', () => window.scrollTo({top:0,behavior:'smooth'}));
+  $('masterSearchInput')?.addEventListener('input', e => renderMasterSearchResults(e.target.value));
+  $('masterSearchInput')?.addEventListener('focus', e => renderMasterSearchResults(e.target.value));
+  $('masterSearchClear')?.addEventListener('click', clearMasterSearch);
   document.addEventListener('click', event => {
     if(event.target.closest('[data-view]')){ const view = event.target.closest('[data-view]').dataset.view; setActiveTab(view); jumpToSection(view); }
     if(event.target.closest('[data-home-tab]')){ currentHomeTab = event.target.closest('[data-home-tab]').dataset.homeTab || 'allGames'; renderHomeTab(); }
@@ -239,56 +244,67 @@ function renderHomeGames(){
   }).join('');
   setHTML('homeGamesList', html);
 }
-function renderHomeMatchRow(match){ const score=match.Status==='FT'?renderScoreText(match):'- : -'; const click=match.MatchID?`onclick="openMatchDetail('${escapeAttr(match.MatchID)}')"`:''; return `<article class="home-match-row" ${click}><div class="score-team-home-name">${escapeHTML(match.HomeTeam)}</div><div class="score-team-home-logo">${renderTeamLogo(match.HomeLogo,match.HomeTeam)}</div><div class="home-match-score">${score}</div><div class="score-team-away-logo">${renderTeamLogo(match.AwayLogo,match.AwayTeam)}</div><div class="score-team-away-name">${escapeHTML(match.AwayTeam)}</div></article>`; }
-function renderHomeTab(){ const allPanel=$('allGamesPanel'), myPanel=$('myGamesPanel'), jump=$('jumpSelect'); document.querySelectorAll('[data-home-tab]').forEach(b=>b.classList.toggle('active',b.dataset.homeTab===currentHomeTab)); allPanel?.classList.toggle('hidden',currentHomeTab!=='allGames'); myPanel?.classList.toggle('hidden',currentHomeTab!=='myGames'); if(jump&&isHomePage()) jump.value=currentHomeTab==='myGames'?'myGames':'nextUp'; }
-function renderMyGames(){
-  const all=Array.isArray(appData?.myGames)?appData.myGames:[]; const selected=parseDateOnly(selectedDateKey)||new Date(); const weekStart=getMonday(selected); const weekEnd=addDays(weekStart,6);
-  const weekMatches=all.filter(match=>{ const d=parseDateOnly(match.Date); if(!d) return false; const cd=new Date(d.getFullYear(),d.getMonth(),d.getDate()); return cd>=weekStart && cd<=weekEnd; }).sort(compareMyGamesMatches);
-  setText('myGamesTitle', getSeasonWeekLabel(selected)); setText('myGamesSubtitle', getWeekRangeLabel(selected)); setText('myGamesCount', weekMatches.length);
-  if(!weekMatches.length){ setHTML('myGamesList','<div class="empty home-empty">No My Games found for this week.</div>'); return; }
-  const grouped=groupBy(weekMatches, m=>getMyGamesGroupLabel(m)); const order=['England','Italy','Spain','Germany','France','Europe','World','National Teams'];
-  const html=Object.keys(grouped).sort((a,b)=>(order.indexOf(a)===-1?999:order.indexOf(a))-(order.indexOf(b)===-1?999:order.indexOf(b))||a.localeCompare(b)).map(groupName=>{
-    const leagues=groupBy(grouped[groupName], m=>m.Competition||'Competition');
-    return Object.keys(leagues).sort((a,b)=>compareCompetitionNamePriorityFromName(groupName,a,b)).map(league=>`<section class="my-games-league-card"><div class="my-games-league-head"><span class="my-games-region">${escapeHTML(groupName)}</span><strong class="my-games-league-name">${escapeHTML(league)}</strong></div>${leagues[league].sort(compareMyGamesMatches).map(renderMyGamesRow).join('')}</section>`).join('');
-  }).join('');
-  setHTML('myGamesList', html);
-}
-function renderMyGamesRow(match){ const p=formatScoreboardDateParts(match.Date,match.Time); const score=match.Status==='FT'?renderScoreText(match):'- : -'; const click=match.MatchID?`onclick="openMatchDetail('${escapeAttr(match.MatchID)}')"`:''; return `<article class="my-games-match" ${click}><div class="my-games-date"><span>${escapeHTML(p.date)}</span><span>${escapeHTML(p.time)}</span></div><div class="my-games-team-name home">${escapeHTML(match.HomeTeam)}</div><div class="my-games-logo">${renderTeamLogo(match.HomeLogo,match.HomeTeam)}</div><div class="my-games-score">${score}</div><div class="my-games-logo">${renderTeamLogo(match.AwayLogo,match.AwayTeam)}</div><div class="my-games-team-name away">${escapeHTML(match.AwayTeam)}</div><div class="my-games-status">${escapeHTML(match.Status||'Scheduled')}</div></article>`; }
-function renderScoreboard(){ const matches=getFilteredMatches(); if(!matches.length){ setHTML('scoreboardList','<div class="empty">No matches found.</div>'); return; } const round=getNextUpRound(matches); if(!round){ setHTML('scoreboardList','<div class="empty">No matches found.</div>'); return; } const rows=matches.filter(m=>normaliseText(m.Round||'')===normaliseText(round)).sort((a,b)=>matchDateSortValue(a)-matchDateSortValue(b)); const scheduled=rows.some(m=>m.Status!=='FT'); setHTML('scoreboardList',`${scheduled?'':'<div class="season-complete-note">Season completed. Showing the last round played.</div>'}<section class="round-block"><div class="round-heading">${escapeHTML(formatRoundLabel(round))}</div>${rows.map(renderScoreboardRow).join('')}</section>`); }
-function renderScoreboardRow(match){ const p=formatScoreboardDateParts(match.Date,match.Time); const score=match.Status==='FT'?renderScoreText(match):'- : -'; const click=match.MatchID?`onclick="openMatchDetail('${escapeAttr(match.MatchID)}')"`:''; return `<article class="scoreboard-row ${match.MatchID?'is-clickable':''}" ${click}><div class="scoreboard-date"><span class="scoreboard-date-main">${escapeHTML(p.date)}</span><span class="scoreboard-time-main">${escapeHTML(p.time)}</span></div><div class="score-team-home-name">${escapeHTML(match.HomeTeam)}</div><div class="score-team-home-logo">${renderTeamLogo(match.HomeLogo,match.HomeTeam)}</div><div class="scoreboard-score">${score}</div><div class="score-team-away-logo">${renderTeamLogo(match.AwayLogo,match.AwayTeam)}</div><div class="score-team-away-name">${escapeHTML(match.AwayTeam)}</div></article>`; }
-function renderResults(){ const results=getFilteredMatches().filter(m=>m.Status==='FT').sort((a,b)=>matchDateSortValue(b)-matchDateSortValue(a)); setHTML('resultsList',results.length?renderGroupedScoreboard(results):'<div class="empty">No results found.</div>'); setText('resultsCount',`${results.length} matches`); }
-function renderFixtures(){ const fixtures=getFilteredMatches().filter(m=>m.Status!=='FT').sort((a,b)=>matchDateSortValue(a)-matchDateSortValue(b)); setHTML('fixturesList',fixtures.length?renderGroupedScoreboard(fixtures):'<div class="empty">No scheduled games found.</div>'); setText('fixturesCount',`${fixtures.length} matches`); }
-function renderGroupedScoreboard(matches){ const grouped=groupBy(matches,m=>formatRoundLabel(m.Round)); return Object.keys(grouped).map(round=>`<section class="round-block"><div class="round-heading">${escapeHTML(round)}</div>${grouped[round].map(renderScoreboardRow).join('')}</section>`).join(''); }
-function renderStandings(){
-  const standings=getFilteredStandings(); 
-  if(!standings.length){
-    setHTML('standingsContainer','<div class="empty">No standings found.</div>'); 
-    return; 
+function renderHomeMatchRow(match){ const click=match.MatchID?`onclick="openMatchDetail('${escapeAttr(match.MatchID)}')"`:''; return `<article class="home-match-row" ${click}><div class="score-team-home-name">${escapeHTML(match.HomeTeam)}</div><div class="score-team-home-logo">${renderTeamLogo(match.HomeLogo,match.HomeTeam)}</div><div class="home-match-score compact-match-score">${renderCompactMatchScore(match)}</div><div class="score-team-away-logo">${renderTeamLogo(match.AwayLogo,match.AwayTeam)}</div><div class="score-team-away-name">${escapeHTML(match.AwayTeam)}</div></article>`; }
+function renderMyGamesRow(match){ const p=formatScoreboardDateParts(match.Date,match.Time); const click=match.MatchID?`onclick="openMatchDetail('${escapeAttr(match.MatchID)}')"`:''; return `<article class="my-games-match" ${click}><div class="my-games-date"><span>${escapeHTML(p.date)}</span><span>${escapeHTML(p.time)}</span></div><div class="my-games-team-name home">${escapeHTML(match.HomeTeam)}</div><div class="my-games-logo">${renderTeamLogo(match.HomeLogo,match.HomeTeam)}</div><div class="my-games-score compact-match-score">${renderCompactMatchScore(match)}</div><div class="my-games-logo">${renderTeamLogo(match.AwayLogo,match.AwayTeam)}</div><div class="my-games-team-name away">${escapeHTML(match.AwayTeam)}</div><div class="my-games-status">${escapeHTML(match.Status||'Scheduled')}</div></article>`; }
+function getMatchCompetitionContext(match){
+  const competitionName=String(match.Competition||match['Competition Name']||appData?.selectedCompetition?.['Competition Name']||appData?.site?.competition||'Competition').trim();
+  const year=String(match.Year||match.Season||appData?.selectedCompetition?.Year||appData?.site?.year||'').trim();
+  const lower=competitionName.toLowerCase();
+  let region=String(match.Region||appData?.selectedCompetition?.Region||'').trim();
+  let icon='🌍', label='WORLD';
+
+  if(lower.includes('champions league')||lower.includes('europa league')||lower.includes('conference league')||lower.includes('uefa super cup')){
+    icon='🇪🇺'; label='EUROPE';
+  }else if(lower.includes('premier league')||lower.includes('fa cup')||lower.includes('carabao')||lower.includes('community shield')||normaliseRegion(region)==='england'){
+    icon='🏴'; label='ENGLAND';
+  }else if(lower.includes('serie a')||lower.includes('coppa')||lower.includes('supercoppa')||normaliseRegion(region)==='italy'){
+    icon='🇮🇹'; label='ITALY';
+  }else if(lower.includes('la liga')||lower.includes('copa del rey')||lower.includes('supercopa')||normaliseRegion(region)==='spain'){
+    icon='🇪🇸'; label='SPAIN';
+  }else if(lower.includes('bundesliga')||lower.includes('dfb')||lower.includes('dfl')||normaliseRegion(region)==='germany'){
+    icon='🇩🇪'; label='GERMANY';
+  }else if(lower.includes('ligue 1')||lower.includes('coupe de france')||lower.includes('troph')||normaliseRegion(region)==='france'){
+    icon='🇫🇷'; label='FRANCE';
+  }else if(lower.includes('world cup')||lower.includes('club world cup')||lower.includes('intercontinental cup')){
+    icon='🌍'; label='WORLD';
+  }else if(region){
+    label=region.toUpperCase();
   }
 
-  const groups=groupBy(standings,getStandingGroupKey);
-
-  const orderedGroups = Object.keys(groups).sort((a, b) =>
-  a.localeCompare(b, undefined, { numeric: true })
-);
-
-const html = orderedGroups.map(groupName => {
-    const rows=[...groups[groupName]].sort(compareStandingRows); 
-    const isGroupStage=isGroupStageCompetition();
-
-    const legend = isLeaguePhaseCompetition()
-      ? '<div class="qualification-note"><span class="note-dot qualified"></span> Top 8 qualify to Round of 16 <span class="note-dot ucl"></span> 9–24 qualify to Play-off <span class="note-dot eliminated"></span> 25–36 eliminated</div>'
-      : (
-          isGroupStage
-            ? '<div class="qualification-note"><span class="note-dot qualified"></span> Top 2 qualify <span class="note-dot eliminated"></span> Bottom 2 eliminated</div>'
-            : renderLeagueLegend()
-        );
-
-    return `<section class="table-card"><div class="table-card-header"><h3>${escapeHTML(groupName)}</h3><span>${rows.length} teams</span></div><div class="standings-table-wrap"><table class="standings-table"><thead><tr><th>#</th><th>Team</th><th>PT</th><th>GW</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th></tr></thead><tbody>${rows.map((team,i)=>`<tr><td><span class="rank-badge ${getRankClass(i,rows.length,isGroupStage)}">${i+1}</span></td><td class="team-cell">${renderTeamLogo(getStandingTeamLogo(team),team.Team)}<span>${escapeHTML(team.Team)}</span></td><td><strong>${safeNumber(team.Points)}</strong></td><td>${safeNumber(team.Played)}</td><td>${safeNumber(team.Won)}</td><td>${safeNumber(team.Drawn)}</td><td>${safeNumber(team.Lost)}</td><td>${safeNumber(team.GoalsFor)}</td><td>${safeNumber(team.GoalsAgainst)}</td><td>${formatGoalDifference(team.GoalDifference)}</td></tr>`).join('')}</tbody></table></div>${legend}</section>`;
-  }).join('');
-
-  setHTML('standingsContainer',html);
+  const competitionLabel = year && !competitionName.includes(year) ? `${competitionName} ${year}` : competitionName;
+  const round=String(formatRoundLabel(match.Round||'')).trim();
+  return {icon,label,competitionLabel,round};
 }
+function renderMatchBreadcrumb(match){
+  const ctx=getMatchCompetitionContext(match);
+  return `<div class="match-breadcrumb">
+    <span class="match-breadcrumb-segment"><span>${ctx.icon}</span><strong>${escapeHTML(ctx.label)}</strong></span>
+    <span class="match-breadcrumb-arrow">›</span>
+    <span class="match-breadcrumb-segment"><strong>${escapeHTML(ctx.competitionLabel.toUpperCase())}</strong></span>
+    ${ctx.round?`<span class="match-breadcrumb-arrow">›</span><span class="match-breadcrumb-segment"><strong>${escapeHTML(ctx.round.toUpperCase())}</strong></span>`:''}
+  </div>`;
+}
+function renderEliteTimelineEvents(events,match){
+  if(!events.length) return '<div class="empty elite-events-empty">No match events recorded.</div>';
+  let liveHome=0,liveAway=0;
+  const rows=events.map(event=>{
+    if(isGoalEvent(event)){
+      if(sameTeam(event.Team,match.HomeTeam)) liveHome++;
+      if(sameTeam(event.Team,match.AwayTeam)) liveAway++;
+    }
+    const isHome=sameTeam(event.Team,match.HomeTeam);
+    const label=getEventLabel(event,liveHome,liveAway);
+    return `<div class="elite-event-row ${isHome?'elite-event-home':'elite-event-away'}">
+      <div class="elite-event-side elite-event-left">${isHome?label:''}</div>
+      <div class="elite-event-minute"><span>${escapeHTML(event.Minute)}'</span></div>
+      <div class="elite-event-side elite-event-right">${isHome?'':label}</div>
+    </div>`;
+  }).join('');
+  return `<div class="elite-timeline"><div class="elite-events-title">MATCH EVENTS</div>${rows}</div>`;
+}
+
+function renderScoreboard(){ const matches=getFilteredMatches(); if(!matches.length){ setHTML('scoreboardList','<div class="empty">No matches found.</div>'); return; } const round=getNextUpRound(matches); if(!round){ setHTML('scoreboardList','<div class="empty">No matches found.</div>'); return; } const rows=matches.filter(m=>normaliseText(m.Round||'')===normaliseText(round)).sort((a,b)=>matchDateSortValue(a)-matchDateSortValue(b)); const scheduled=rows.some(m=>m.Status!=='FT'); setHTML('scoreboardList',`${scheduled?'':'<div class="season-complete-note">Season completed. Showing the last round played.</div>'}<section class="round-block"><div class="round-heading">${escapeHTML(formatRoundLabel(round))}</div>${rows.map(renderScoreboardRow).join('')}</section>`); }
+function renderScoreboardRow(match){ const p=formatScoreboardDateParts(match.Date,match.Time); const click=match.MatchID?`onclick="openMatchDetail('${escapeAttr(match.MatchID)}')"`:''; return `<article class="scoreboard-row ${match.MatchID?'is-clickable':''}" ${click}><div class="scoreboard-date"><span class="scoreboard-date-main">${escapeHTML(p.date)}</span><span class="scoreboard-time-main">${escapeHTML(p.time)}</span></div><div class="score-team-home-name">${escapeHTML(match.HomeTeam)}</div><div class="score-team-home-logo">${renderTeamLogo(match.HomeLogo,match.HomeTeam)}</div><div class="scoreboard-score compact-match-score">${renderCompactMatchScore(match)}</div><div class="score-team-away-logo">${renderTeamLogo(match.AwayLogo,match.AwayTeam)}</div><div class="score-team-away-name">${escapeHTML(match.AwayTeam)}</div></article>`; }
 function renderStats(){ const stats=getFilteredStats(); renderStatList('topScorers',stats,'Goals','topScorers'); renderStatList('topAssists',stats,'Assists','topAssists'); renderStatList('cleanSheets',stats,'CleanSheets','cleanSheets'); renderStatList('yellowCards',stats,'YellowCards','yellowCards'); renderStatList('redCards',stats,'RedCards','redCards'); }
 function renderStatList(id,stats,key,expandKey){ const all=stats.filter(r=>Number(r[key])>0).sort((a,b)=>Number(b[key])-Number(a[key])||String(a.Player||'').localeCompare(String(b.Player||''))); if(!all.length){ setHTML(id,'<div class="empty">No data yet.</div>'); return; } const visible=expandedStats[expandKey]?all:all.slice(0,3); const rows=visible.map((r,i)=>`<div class="stat-row"><span class="stat-rank">${i+1}</span><span class="stat-player">${renderTeamLogo(r.Logo,r.Team)}${renderPlayerLink(r.Player,'stat-player-name')}</span><strong class="stat-value">${safeNumber(r[key])}</strong></div>`).join(''); const btn=all.length>3?`<button class="stat-toggle" type="button" onclick="toggleStatList('${expandKey}')">${expandedStats[expandKey]?'Show less':`See more (${all.length})`}</button>`:''; setHTML(id,rows+btn); }
 window.toggleStatList = key => { expandedStats[key]=!expandedStats[key]; renderStats(); };
@@ -361,28 +377,34 @@ async function openMatchDetail(matchId){
 window.openMatchDetail=openMatchDetail;
 function closeMatchModal(){ $('matchModal')?.classList.add('hidden'); document.body.classList.remove('modal-open'); }
 window.closeMatchModal=closeMatchModal;
-function renderMatchDetail(match,eventsLoading=false){ const events=getMatchEvents(match.MatchID||match.ID); const youtube=match.YouTubeURL||match.YoutubeURL||match.HighlightsURL||''; const penalty=getPenaltyWinnerText(match); const motm=getMatchMOTM(match); const eventContent=eventsLoading?'<div class="empty">Loading goals, assists and cards...</div>':renderTimelineEvents(events,match); return `<section class="match-hero"><div class="match-date-main">${escapeHTML(formatFullDateTime(match.Date,match.Time))}</div><div class="match-main-teams"><div class="match-main-team"><div class="match-main-logo">${match.HomeLogo?`<img src="${escapeAttr(match.HomeLogo)}" alt="">`:''}</div><strong>${escapeHTML(match.HomeTeam)}</strong></div><div class="match-main-score"><div>${renderScoreText(match)}</div>${penalty?`<span>${escapeHTML(penalty)}</span>`:''}</div><div class="match-main-team"><div class="match-main-logo">${match.AwayLogo?`<img src="${escapeAttr(match.AwayLogo)}" alt="">`:''}</div><strong>${escapeHTML(match.AwayTeam)}</strong></div></div></section><section class="venue-row"><span>🏟️ Venue:</span><strong>${escapeHTML(match.Venue||match.Stadium||'Venue unavailable')}</strong></section><section class="event-section">${eventContent}</section>${motm?`<section class="motm-row"><span>⭐ Man of the Match:</span>${renderPlayerLink(motm)}</section>`:''}${renderHighlights(youtube)}`; }
-async function loadCompetitionDetailsForMatch(match){
-  const slug=resolveMatchCompetitionSlug(match);
-  if(!slug) return;
-  let detail=competitionDetailCache.get(slug);
-  if(!detail){
-    try{
-      const response=await fetch(`${API_URL}?competition=${encodeURIComponent(slug)}&v=${Date.now()}`,{cache:'no-store'});
-      if(!response.ok) return;
-      detail=await response.json();
-      if(detail?.error) return;
-      competitionDetailCache.set(slug,detail);
-    }catch(error){ console.warn('Could not load match events for the home popup.',error); return; }
-  }
-  appData.allEvents=mergeUniqueEvents(appData.allEvents,detail.allEvents||detail.events||[]);
-  appData.matches=dedupeMatchArray(
-    (Array.isArray(appData.matches)?appData.matches:[])
-      .concat(Array.isArray(detail.matches)?detail.matches:[])
-      .concat(Array.isArray(detail.playoffs)?detail.playoffs:[])
-  );
-  appData.matchData=(appData.matchData||[]).concat(detail.matchData||detail.data||[]);
-}
+function renderMatchDetail(match,eventsLoading=false){
+  const events=getMatchEvents(match.MatchID||match.ID);
+  const youtube=match.YouTubeURL||match.YoutubeURL||match.HighlightsURL||'';
+  const penalty=getPenaltyWinnerText(match);
+  const motm=getMatchMOTM(match);
+  const eventContent=eventsLoading?'<div class="empty">Loading goals, assists and cards...</div>':renderEliteTimelineEvents(events,match);
+  return `${renderMatchBreadcrumb(match)}
+  <section class="match-hero elite-match-hero">
+    <div class="match-date-main">${escapeHTML(formatFullDateTime(match.Date,match.Time))}</div>
+    <div class="match-main-teams">
+      <div class="match-main-team">
+        <div class="match-main-logo">${match.HomeLogo?`<img src="${escapeAttr(match.HomeLogo)}" alt="">`:''}</div>
+        <strong>${escapeHTML(match.HomeTeam)}</strong>
+      </div>
+      <div class="match-main-score">
+        <div>${renderScoreText(match)}</div>
+        ${penalty?`<span class="match-penalty-result">${escapeHTML(penalty)}</span>`:''}
+      </div>
+      <div class="match-main-team">
+        <div class="match-main-logo">${match.AwayLogo?`<img src="${escapeAttr(match.AwayLogo)}" alt="">`:''}</div>
+        <strong>${escapeHTML(match.AwayTeam)}</strong>
+      </div>
+    </div>
+  </section>
+  <section class="venue-row"><span>🏟️ Venue:</span><strong>${escapeHTML(match.Venue||match.Stadium||'Venue unavailable')}</strong></section>
+  <section class="event-section elite-event-section">${eventContent}</section>
+  ${motm?`<section class="elite-motm-card"><div class="elite-motm-label">⭐ MAN OF THE MATCH</div><div class="elite-motm-player">${renderPlayerLink(motm)}</div></section>`:''}
+  ${renderHighlights(youtube)}`; }
 function resolveMatchCompetitionSlug(match){
   const direct=String(match.CompetitionSlug||match.Slug||'').trim();
   if(direct) return direct;
@@ -429,32 +451,39 @@ function renderEventDetail(detail){
 function renderTimelineEvents(events,match){ if(!events.length) return '<div class="empty">No events.</div>'; let liveHome=0, liveAway=0; const rows=events.map(e=>{ if(isGoalEvent(e)){ if(sameTeam(e.Team,match.HomeTeam)) liveHome++; if(sameTeam(e.Team,match.AwayTeam)) liveAway++; } return renderEventRow(e,match,liveHome,liveAway); }).join(''); return `<div class="timeline-block">${rows}</div>`; }
 function cleanEventDetail(detail){ const text=String(detail||'').trim(); if(!text) return ''; return text.replace(/^Assist:\s*/i,'').replace(/^Penalty,\s*Assist:\s*/i,'Penalty, ').replace(/,\s*Assist:\s*/i,', '); }
 function getMatchMOTM(match){ if(match.MOTM) return match.MOTM; const matchId=match.MatchID||match.ID; const row=(appData.matchData||appData.data||[]).find(item=>(item.MatchID||item['Match ID'])===matchId); return row ? (row.MOTM || row.Motm || '') : ''; }
-function renderHighlights(url){ const cleanUrl=String(url||'').trim(); if(!cleanUrl) return ''; const id=getYouTubeId(cleanUrl); if(!id) return `<section class="highlights-card"><div class="highlights-header"><span>📺 Highlights</span><a href="${escapeAttr(cleanUrl)}" target="_blank" rel="noopener noreferrer">Open video</a></div></section>`; return `<section class="highlights-card"><div class="highlights-header"><span>📺 Highlights</span><a href="${escapeAttr(cleanUrl)}" target="_blank" rel="noopener noreferrer">Open on YouTube</a></div><a class="youtube-preview" href="${escapeAttr(cleanUrl)}" target="_blank" rel="noopener noreferrer"><img src="https://img.youtube.com/vi/${escapeAttr(id)}/maxresdefault.jpg" alt="YouTube highlights thumbnail" onerror="this.src='https://img.youtube.com/vi/${escapeAttr(id)}/hqdefault.jpg'"><span class="youtube-play">▶</span></a></section>`; }
-function getYouTubeId(url){ const text=String(url||'').trim(); const patterns=[/youtube\.com\/watch\?v=([^&]+)/i,/youtu\.be\/([^?&]+)/i,/youtube\.com\/shorts\/([^?&]+)/i,/youtube\.com\/embed\/([^?&]+)/i]; for(const p of patterns){ const m=text.match(p); if(m?.[1]) return m[1]; } return ''; }
-
-async function openPlayerProfile(playerName,event){
-  event?.stopPropagation?.();
-  const modal=$('playerModal'),content=$('playerDetailContent');
-  if(!modal||!content) return;
-  content.innerHTML=renderPlayerProfile(playerName);
-  modal.classList.remove('hidden');
-  document.body.classList.add('modal-open');
-  await loadPlayerCompetitionDetails(playerName);
-  if(!modal.classList.contains('hidden')) content.innerHTML=renderPlayerProfile(playerName);
+function renderHighlights(url){
+  const cleanUrl=String(url||'').trim();
+  if(!cleanUrl) return '';
+  const id=getYouTubeId(cleanUrl);
+  if(!id) return `<section class="highlights-card elite-highlights"><div class="highlights-header"><span>📺 MATCH HIGHLIGHTS</span></div><a class="elite-video-link" href="${escapeAttr(cleanUrl)}" target="_blank" rel="noopener noreferrer">▶ PLAY HIGHLIGHTS</a></section>`;
+  return `<section class="highlights-card elite-highlights">
+    <div class="highlights-header"><span>📺 MATCH HIGHLIGHTS</span></div>
+    <a class="youtube-preview" href="${escapeAttr(cleanUrl)}" target="_blank" rel="noopener noreferrer">
+      <img src="https://img.youtube.com/vi/${escapeAttr(id)}/maxresdefault.jpg" alt="YouTube highlights thumbnail" onerror="this.src='https://img.youtube.com/vi/${escapeAttr(id)}/hqdefault.jpg'">
+      <span class="elite-youtube-overlay"><span class="elite-play-circle">▶</span><strong>PLAY HIGHLIGHTS</strong></span>
+    </a>
+  </section>`;
 }
 window.openPlayerProfile=openPlayerProfile;
-function closePlayerProfile(){ $('playerModal')?.classList.add('hidden'); if($('matchModal')?.classList.contains('hidden')) document.body.classList.remove('modal-open'); }
+function closePlayerProfile(){ $('playerModal')?.classList.add('hidden'); if($('matchModal')?.classList.contains('hidden')&&$('teamModal')?.classList.contains('hidden')) document.body.classList.remove('modal-open'); }
 window.closePlayerProfile=closePlayerProfile;
-function renderPlayerProfile(playerName){
-  const name=String(playerName||'').trim();
-  const assignments=playerTeamsLookup.get(normalisePlayerName(name))||[];
-  const matches=getPlayerMatches(assignments,name);
-  const totals=matches.reduce((sum,item)=>{ sum.goals+=item.stats.goals; sum.assists+=item.stats.assists; sum.yellow+=item.stats.yellow; sum.red+=item.stats.red; return sum; },{goals:0,assists:0,yellow:0,red:0});
-  const national=assignments.find(item=>normaliseText(item.teamType)==='national team');
-  const clubs=assignments.filter(item=>normaliseText(item.teamType)==='club');
+function renderActivePlayerProfile(){ if($('playerDetailContent')) $('playerDetailContent').innerHTML=renderPlayerProfile(activePlayerProfileName,activePlayerSeason); }
+function changePlayerSeason(value){ activePlayerSeason=String(value); renderActivePlayerProfile(); }
+window.changePlayerSeason=changePlayerSeason;
+function getCurrentSeasonYear(date=new Date()){ return date.getMonth()>=7?date.getFullYear()+1:date.getFullYear(); }
+function getSeasonYearForDate(value){ const d=parseDateOnly(value); return d?(d.getMonth()>=7?d.getFullYear()+1:d.getFullYear()):''; }
+function isPlayedMatch(match){ if(String(match?.Status||'').toUpperCase()==='FT') return true; return match?.HomeScore!==''&&match?.HomeScore!=null&&match?.AwayScore!==''&&match?.AwayScore!=null; }
+function renderPlayerProfile(playerName,seasonYear=getCurrentSeasonYear()){
+  const name=String(playerName||'').trim(),assignments=playerTeamsLookup.get(normalisePlayerName(name))||[],allMatches=getPlayerMatches(assignments,name);
+  const current=String(getCurrentSeasonYear()),seasons=[...new Set(allMatches.map(x=>String(getSeasonYearForDate(x.match.Date))).filter(Boolean))];
+  if(!seasons.includes(current)) seasons.push(current); seasons.sort((a,b)=>Number(b)-Number(a));
+  const selected=seasons.includes(String(seasonYear))?String(seasonYear):current,matches=allMatches.filter(x=>String(getSeasonYearForDate(x.match.Date))===selected);
+  const totals=matches.reduce((s,x)=>{s.goals+=x.stats.goals;s.assists+=x.stats.assists;s.yellow+=x.stats.yellow;s.red+=x.stats.red;return s},{goals:0,assists:0,yellow:0,red:0});
+  const national=assignments.find(x=>normaliseText(x.teamType)==='national team'),clubs=assignments.filter(x=>normaliseText(x.teamType)==='club');
   const teams=assignments.length?assignments.map(renderPlayerTeamAssignment).join(''):'<div class="empty">Team information has not been added yet.</div>';
-  const rows=matches.length?matches.map(renderPlayerMatchRow).join(''):'<div class="empty">No matching games are available for this player.</div>';
-  return `<section class="player-profile-hero"><div class="player-profile-photo">${renderPlayerImage(name)}</div><div><div class="eyebrow">Player profile</div><h2>${escapeHTML(name)}</h2>${national?`<p>🌍 ${escapeHTML(national.team)}</p>`:''}${clubs.length?`<p>${clubs.map(item=>escapeHTML(item.team)).join(' · ')}</p>`:''}</div></section><section class="player-summary-grid"><div><strong>${matches.length}</strong><span>Games</span></div><div><strong>${totals.goals}</strong><span>Goals</span></div><div><strong>${totals.assists}</strong><span>Assists</span></div><div><strong>${totals.yellow}</strong><span>Yellow</span></div><div><strong>${totals.red}</strong><span>Red</span></div></section><section class="player-teams-section"><h3>Teams</h3>${teams}</section><section class="player-matches-section"><h3>Games</h3>${rows}</section>`;
+  const rows=matches.length?matches.map(renderPlayerMatchRow).join(''):'<div class="empty">No played games are available for this player in this season.</div>';
+  const options=seasons.map(y=>`<option value="${escapeAttr(y)}" ${y===selected?'selected':''}>${escapeHTML(y)}</option>`).join('');
+  return `<section class="player-profile-hero"><div class="player-profile-photo">${renderPlayerImage(name)}</div><div class="player-profile-copy"><div class="eyebrow">Player profile</div><h2>${escapeHTML(name)}</h2>${national?`<p>🌍 ${escapeHTML(national.team)}</p>`:''}${clubs.length?`<p>${clubs.map(x=>escapeHTML(x.team)).join(' · ')}</p>`:''}</div><label class="profile-season-select"><span>Season</span><select onchange="changePlayerSeason(this.value)">${options}</select></label></section><section class="player-summary-grid"><div><strong>${matches.length}</strong><span>Games</span></div><div><strong>${totals.goals}</strong><span>Goals</span></div><div><strong>${totals.assists}</strong><span>Assists</span></div><div><strong>${totals.yellow}</strong><span>Yellow</span></div><div><strong>${totals.red}</strong><span>Red</span></div></section><section class="player-teams-section"><h3>Teams</h3>${teams}</section><section class="player-matches-section"><h3>Played games · ${escapeHTML(selected)}</h3>${rows}</section>`;
 }
 function renderPlayerTeamAssignment(item){
   const dates=item.startDate||item.endDate?`${item.startDate||'Beginning'} → ${item.endDate||'Present'}`:'Dates not restricted';
@@ -463,20 +492,7 @@ function renderPlayerTeamAssignment(item){
 function getPlayerMatches(assignments,playerName){
   if(!assignments.length) return [];
   const matches=dedupeMatchArray(getGlobalMatches().concat(getCompetitionMatches()).concat(Array.isArray(appData?.myGames)?appData.myGames:[]));
-  return matches.filter(match=>assignments.some(item=>assignmentIncludesMatch(item,match))).map(match=>({match,stats:getPlayerMatchStats(match,playerName)})).sort((a,b)=>matchDateSortValue(b.match)-matchDateSortValue(a.match));
-}
-async function loadPlayerCompetitionDetails(playerName){
-  const assignments=playerTeamsLookup.get(normalisePlayerName(playerName))||[];
-  if(!assignments.length) return;
-  const matches=dedupeMatchArray(getGlobalMatches().concat(getCompetitionMatches()).concat(Array.isArray(appData?.myGames)?appData.myGames:[]))
-    .filter(match=>assignments.some(item=>assignmentIncludesMatch(item,match)));
-  const pending=new Map();
-  matches.forEach(match=>{
-    if(getMatchEvents(match.MatchID||match.ID).length) return;
-    const slug=resolveMatchCompetitionSlug(match);
-    if(slug&&!pending.has(slug)) pending.set(slug,loadCompetitionDetailsForMatch(match));
-  });
-  await Promise.all(Array.from(pending.values()));
+  return matches.filter(match=>isPlayedMatch(match)&&assignments.some(item=>assignmentIncludesMatch(item,match))).map(match=>({match,stats:getPlayerMatchStats(match,playerName)})).sort((a,b)=>matchDateSortValue(b.match)-matchDateSortValue(a.match));
 }
 function assignmentIncludesMatch(item,match){
   if(normaliseText(item.includeGames)==='no') return false;
@@ -503,6 +519,39 @@ function renderPlayerMatchRow(item){
   const badges=[s.goals?`⚽ ${s.goals}`:'',s.assists?`A ${s.assists}`:'',s.yellow?`🟨 ${s.yellow}`:'',s.red?`🟥 ${s.red}`:''].filter(Boolean).join(' ');
   return `<button class="player-match-row" type="button" ${click}><span class="player-match-date">${escapeHTML(formatScoreboardDateParts(match.Date,match.Time).date)}</span><span class="player-match-teams"><strong>${escapeHTML(match.HomeTeam)} ${escapeHTML(renderScoreText(match))} ${escapeHTML(match.AwayTeam)}</strong><small>${escapeHTML(match.Competition||match['Competition Name']||match.Round||'')}</small></span><span class="player-match-events">${badges||'—'}</span></button>`;
 }
+
+function getMasterSearchItems(){
+ const players=[],teamsP=new Set(),teams=[],seenT=new Set();
+ const addP=n=>{n=String(n||'').trim();const k=normalisePlayerName(n);if(n&&!seenP.has(k)){seenP.add(k);players.push(n)}};
+ const addT=n=>{n=String(n||'').trim();const k=normaliseTeamName(n);if(n&&!seenT.has(k)){seenT.add(k);teams.push(n)}};
+ (appData?.players||[]).forEach(r=>addP(r?.['Player Name']??r?.Player??r?.Name??r?.[0]));
+ (appData?.playerTeams||[]).forEach(r=>{addP(r?.['Player Name']??r?.Player??r?.[0]);addT(r?.Team??r?.[1])});
+ getGlobalMatches().concat(getCompetitionMatches()).concat(appData?.myGames||[]).forEach(m=>{addT(m.HomeTeam);addT(m.AwayTeam)});
+ return {players,teams};
+}
+function renderMasterSearchResults(value){
+ const box=$('masterSearchResults'),q=normaliseText(value); $('masterSearchClear')?.classList.toggle('hidden',!q);
+ if(!box)return;if(!q){box.classList.add('hidden');box.innerHTML='';return}
+ const data=getMasterSearchItems(),players=data.players.filter(n=>normaliseText(n).includes(q)).slice(0,8),teams=data.teams.filter(n=>normaliseText(n).includes(q)).slice(0,8);
+ box.innerHTML=(players.length?`<div class="master-search-label">Players</div>${players.map(n=>`<button class="master-search-result" onclick="selectMasterPlayer('${escapeAttr(n)}')">${renderPlayerImage(n)}<strong>${escapeHTML(n)}</strong></button>`).join('')}`:'')+(teams.length?`<div class="master-search-label">Teams</div>${teams.map(n=>`<button class="master-search-result" onclick="selectMasterTeam('${escapeAttr(n)}')">${renderTeamLogo(findTeamLogo(n),n)}<strong>${escapeHTML(n)}</strong></button>`).join('')}`:'')+(!players.length&&!teams.length?'<div class="empty">No players or teams found.</div>':''); box.classList.remove('hidden');
+}
+function clearMasterSearch(){if($('masterSearchInput'))$('masterSearchInput').value='';$('masterSearchResults')?.classList.add('hidden');$('masterSearchClear')?.classList.add('hidden')}
+window.clearMasterSearch=clearMasterSearch;
+function selectMasterPlayer(n){clearMasterSearch();openPlayerProfile(n)} window.selectMasterPlayer=selectMasterPlayer;
+function selectMasterTeam(n){clearMasterSearch();openTeamProfile(n)} window.selectMasterTeam=selectMasterTeam;
+function openTeamProfile(teamName){if(!$('teamModal')||!$('teamDetailContent'))return;$('teamDetailContent').innerHTML=renderTeamProfile(teamName);$('teamModal').classList.remove('hidden');document.body.classList.add('modal-open')}
+window.openTeamProfile=openTeamProfile;
+function closeTeamProfile(){$('teamModal')?.classList.add('hidden');if($('matchModal')?.classList.contains('hidden')&&$('playerModal')?.classList.contains('hidden'))document.body.classList.remove('modal-open')}
+window.closeTeamProfile=closeTeamProfile;
+function renderTeamProfile(teamName){
+ const name=String(teamName||'').trim(),key=normaliseTeamName(name);
+ const matches=dedupeMatchArray(getGlobalMatches().concat(getCompetitionMatches()).concat(appData?.myGames||[])).filter(m=>isPlayedMatch(m)&&(normaliseTeamName(m.HomeTeam)===key||normaliseTeamName(m.AwayTeam)===key)).sort((a,b)=>matchDateSortValue(b)-matchDateSortValue(a));
+ const seen=new Set(),squad=[];(appData?.playerTeams||[]).forEach(r=>{const t=String(r?.Team??r?.[1]??''),p=String(r?.['Player Name']??r?.Player??r?.[0]??'').trim(),pk=normalisePlayerName(p);if(p&&normaliseTeamName(t)===key&&!seen.has(pk)){seen.add(pk);squad.push(p)}});
+ const sq=squad.length?squad.sort().map(p=>`<button class="team-squad-player" onclick="closeTeamProfile();openPlayerProfile('${escapeAttr(p)}')">${renderPlayerImage(p)}<strong>${escapeHTML(p)}</strong></button>`).join(''):'<div class="empty">No squad players found.</div>';
+ const games=matches.length?matches.map(m=>`<button class="team-profile-match" ${m.MatchID?`onclick="closeTeamProfile();openMatchDetail('${escapeAttr(m.MatchID)}')"`:''}><span>${escapeHTML(formatScoreboardDateParts(m.Date,m.Time).date)}</span><span><strong>${escapeHTML(m.HomeTeam)} ${escapeHTML(renderScoreText(m))} ${escapeHTML(m.AwayTeam)}</strong><small>${escapeHTML(m.Competition||m['Competition Name']||'Competition')}</small></span></button>`).join(''):'<div class="empty">No played games found.</div>';
+ return `<section class="team-profile-hero">${renderTeamLogo(findTeamLogo(name),name)}<div><div class="eyebrow">Team profile</div><h2>${escapeHTML(name)}</h2></div></section><section class="team-profile-section"><h3>Squad</h3><div class="team-squad-grid">${sq}</div></section><section class="team-profile-section"><h3>All played games</h3>${games}</section>`;
+}
+
 function getCompetitionMatches(){ return dedupeMatchArray((Array.isArray(appData?.matches)?appData.matches:[]).concat(Array.isArray(appData?.playoffs)?appData.playoffs:[])); }
 function getGlobalMatches(){ return dedupeMatchArray(Array.isArray(appData?.allMatches)?appData.allMatches:[]); }
 function findTeamLogo(teamName){
@@ -529,25 +578,7 @@ function getStandingTeamLogo(standing){
   }
   return '';
 }
-function dedupeMatchArray(matches){
-  const unique=new Map();
-  (matches||[]).forEach(match=>{
-    if(!match) return;
-    const date=getDateKey(match.Date);
-    const home=normaliseTeamName(match.HomeTeam);
-    const away=normaliseTeamName(match.AwayTeam);
-    const time=String(match.Time||'').trim();
-    const semanticKey=date&&home&&away?`game|${date}|${time}|${home}|${away}`:`id|${String(match.MatchID||match.ID||'').trim()}`;
-    if(!semanticKey||semanticKey==='id|') return;
-    const saved=unique.get(semanticKey);
-    if(!saved){ unique.set(semanticKey,match); return; }
-    const savedEvents=getMatchEvents(saved.MatchID||saved.ID).length;
-    const newEvents=getMatchEvents(match.MatchID||match.ID).length;
-    if(newEvents>savedEvents) unique.set(semanticKey,{...saved,...match});
-    else unique.set(semanticKey,{...match,...saved});
-  });
-  return Array.from(unique.values());
-}
+function dedupeMatchArray(matches){ const seen=new Set(); return (matches||[]).filter(m=>{ const key=String(m.MatchID||m.ID||'').trim(); if(!key||seen.has(key)) return false; seen.add(key); return true; }); }
 function getFilteredMatches(){ let matches=getCompetitionMatches(); if(currentSearch) matches=matches.filter(m=>[m.HomeTeam,m.AwayTeam,m.Round,m.Competition,m.Date,m.Time].join(' ').toLowerCase().includes(currentSearch)); if(currentRound){ const key=normaliseText(currentRound); matches=matches.filter(m=>normaliseText(m.Round)===key); } if(currentGroup){ const key=normaliseText(currentGroup); const teams=(appData.standings||[]).filter(r=>normaliseText(getStandingGroupKey(r))===key).map(r=>normaliseTeamName(r.Team)).filter(Boolean); matches=matches.filter(m=>teams.includes(normaliseTeamName(m.HomeTeam))||teams.includes(normaliseTeamName(m.AwayTeam))||normaliseText(m.Round)===key||normaliseText(m.Round).includes(key)); } return matches; }
 function getFilteredStandings(){ let standings=appData.standings||[]; if(currentSearch) standings=standings.filter(r=>[r.Team,r.League,r.Group,r.Competition].join(' ').toLowerCase().includes(currentSearch)); if(currentGroup) standings=standings.filter(r=>normaliseText(getStandingGroupKey(r))===normaliseText(currentGroup)); return standings; }
 function getFilteredStats(){ let stats=appData.stats||[]; if(currentSearch) stats=stats.filter(r=>[r.Player,r.Team].join(' ').toLowerCase().includes(currentSearch)); return stats; }
@@ -741,7 +772,7 @@ function formatShortDateFromDate(d){ return `${String(d.getDate()).padStart(2,'0
 function formatMyGamesDate(d){ return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`; }
 function normaliseKickoffTime(v){ return String(v||'').trim()||'Scheduled'; }
 function timeSortValue(v){ const m=String(v||'').trim().match(/^(\d{1,2}):(\d{2})$/); return m?(+m[1]*60)+(+m[2]):99999; }
-function renderScoreText(m){ const hp=String(m.HomePens||'').trim(), ap=String(m.AwayPens||'').trim(), home=safeScore(m.HomeScore), away=safeScore(m.AwayScore); return hp&&ap?`(${escapeHTML(hp)}) ${escapeHTML(home)} - ${escapeHTML(away)} (${escapeHTML(ap)})`:`${escapeHTML(home)} - ${escapeHTML(away)}`; }
+function renderScoreText(m){ const home=safeScore(m.HomeScore), away=safeScore(m.AwayScore); return `${escapeHTML(home)} - ${escapeHTML(away)}`; }) ${escapeHTML(home)} - ${escapeHTML(away)} (${escapeHTML(ap)})`:`${escapeHTML(home)} - ${escapeHTML(away)}`; }
 function getPenaltyWinnerText(m){ const hp=Number(m.HomePens), ap=Number(m.AwayPens); if(!Number.isFinite(hp)||!Number.isFinite(ap))return''; if(hp>ap)return`${m.HomeTeam} win ${hp}-${ap} on penalties`; if(ap>hp)return`${m.AwayTeam} win ${ap}-${hp} on penalties`; return''; }
 function isGoalEvent(e){ return String(e.Event||'').toLowerCase().trim()==='goal'; }
 function sameTeam(a,b){ return normaliseTeamName(a)===normaliseTeamName(b); }
@@ -765,4 +796,4 @@ function safeScore(v){ return v===''||v===undefined||v===null?'-':v; }
 function formatGoalDifference(v){ const n=Number(v); if(!Number.isFinite(n))return'0'; return n>0?`+${n}`:String(n); }
 function escapeHTML(v){ return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
 function escapeAttr(v){ return escapeHTML(v); }
-window.CALCIUM_SCRIPT_VERSION='7021-standings-logo-fix';
+window.CALCIUM_SCRIPT_VERSION='7035-elite-match-centre';

@@ -403,3 +403,313 @@
 }
 
 .master-search-shell{position:relative;z-index:19;padding:14px 34px 0}.master-search-wrap{position:relative;width:min(760px,100%);margin:auto}#masterSearchInput{width:100%;min-width:0;padding:15px 48px 15px 18px;border-radius:18px}.master-search-clear{position:absolute;right:10px;top:9px;width:34px;height:34px;border:0;border-radius:50%;background:rgba(255,255,255,.08);color:#fff;font-size:22px}.master-search-results{position:absolute;left:0;right:0;top:calc(100% + 8px);max-height:520px;overflow:auto;background:#021b22;border:1px solid rgba(89,220,235,.28);border-radius:18px;box-shadow:0 28px 80px rgba(0,0,0,.55)}.master-search-label{padding:11px 16px;color:var(--accent);font-size:11px;font-weight:950;text-transform:uppercase;background:#052f38}.master-search-result{width:100%;display:flex;align-items:center;gap:12px;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--text);padding:11px 16px;text-align:left}.profile-season-select{margin-left:auto;display:grid;gap:7px}.profile-season-select span{color:var(--muted);font-size:11px;font-weight:950;text-transform:uppercase}.profile-season-select select{min-width:130px;width:130px}.team-detail-card{width:min(920px,100%)}.team-profile-hero{display:flex;align-items:center;gap:20px;padding:34px 30px;border-bottom:1px solid var(--line)}.team-profile-hero>.team-logo{width:86px;height:86px;min-width:86px;min-height:86px}.team-profile-hero h2{margin:5px 0;font-size:36px}.team-profile-section{padding:22px;border-bottom:1px solid var(--line)}.team-squad-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.team-squad-player{display:flex;align-items:center;gap:11px;border:1px solid var(--line);border-radius:13px;background:rgba(255,255,255,.025);color:var(--text);padding:10px;text-align:left}.team-profile-match{width:100%;display:grid;grid-template-columns:90px minmax(0,1fr);gap:14px;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--text);padding:14px 8px;text-align:left}.team-profile-match>span:last-child{display:grid;gap:5px}.team-profile-match small{color:var(--muted)}@media(max-width:700px){.master-search-shell{padding:10px}.player-profile-hero{flex-wrap:wrap}.profile-season-select{width:100%;margin-left:0}.profile-season-select select{width:100%}.team-squad-grid{grid-template-columns:1fr}}
+
+
+/* =========================================
+   Calcium Sport 7035 - Elite Match Centre
+========================================= */
+.compact-match-score{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:5px;
+  line-height:1;
+}
+.score-main-line{
+  display:block;
+  font-size:inherit;
+  font-weight:950;
+  white-space:nowrap;
+}
+.score-penalty-pill{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:4px 8px;
+  border-radius:999px;
+  background:rgba(255,19,97,.12);
+  border:1px solid rgba(255,19,97,.32);
+  color:#ff78a5;
+  font-size:10px;
+  font-weight:950;
+  letter-spacing:.08em;
+  white-space:nowrap;
+}
+.match-detail-card{
+  width:min(840px,100%);
+  border-radius:24px;
+}
+.match-breadcrumb{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  min-height:58px;
+  padding:15px 66px 15px 22px;
+  background:#07343d;
+  border-bottom:1px solid rgba(255,255,255,.09);
+  color:#d9e6ea;
+  font-size:13px;
+  font-weight:900;
+  letter-spacing:.04em;
+  overflow-x:auto;
+  white-space:nowrap;
+}
+.match-breadcrumb-segment{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+}
+.match-breadcrumb-arrow{
+  color:#6e8a92;
+  font-size:22px;
+  font-weight:500;
+}
+.elite-match-hero{
+  padding:24px 34px 28px;
+  background:linear-gradient(180deg,#021b22 0%,#022128 100%);
+}
+.elite-match-hero .match-date-main{
+  margin-bottom:22px;
+  color:#c9dce2;
+  font-size:16px;
+  font-weight:750;
+}
+.elite-match-hero .match-main-logo{
+  width:88px;
+  height:88px;
+}
+.elite-match-hero .match-main-logo img{
+  max-width:66px;
+  max-height:66px;
+}
+.elite-match-hero .match-main-team{
+  font-size:19px;
+}
+.elite-match-hero .match-main-score div{
+  font-size:58px;
+  letter-spacing:-.04em;
+}
+.match-penalty-result{
+  display:inline-flex!important;
+  align-items:center;
+  justify-content:center;
+  margin-top:12px!important;
+  padding:7px 12px;
+  border-radius:999px;
+  background:rgba(255,255,255,.055);
+  border:1px solid rgba(255,255,255,.08);
+  color:#b8cbd1!important;
+  font-size:11px!important;
+  letter-spacing:.1em!important;
+}
+.venue-row{
+  padding:15px 22px;
+  background:#053139;
+}
+.elite-event-section{
+  background:#021b22;
+}
+.elite-timeline{
+  position:relative;
+  padding:0 20px 10px;
+}
+.elite-events-title{
+  padding:17px 0 14px;
+  color:#9fb6be;
+  font-size:11px;
+  font-weight:950;
+  letter-spacing:.14em;
+  text-align:center;
+}
+.elite-timeline:after{
+  content:"";
+  position:absolute;
+  top:48px;
+  bottom:20px;
+  left:50%;
+  width:1px;
+  background:rgba(255,255,255,.1);
+  transform:translateX(-50%);
+  pointer-events:none;
+}
+.elite-event-row{
+  position:relative;
+  z-index:1;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 58px minmax(0,1fr);
+  align-items:center;
+  min-height:62px;
+  border-bottom:1px solid rgba(255,255,255,.055);
+}
+.elite-event-side{
+  display:flex;
+  align-items:center;
+  min-width:0;
+}
+.elite-event-left{
+  justify-content:flex-end;
+  text-align:right;
+  padding-right:14px;
+}
+.elite-event-right{
+  justify-content:flex-start;
+  text-align:left;
+  padding-left:14px;
+}
+.elite-event-minute{
+  position:relative;
+  z-index:2;
+  display:grid;
+  place-items:center;
+}
+.elite-event-minute span{
+  display:grid;
+  place-items:center;
+  min-width:42px;
+  height:30px;
+  padding:0 7px;
+  border-radius:999px;
+  background:#07343d;
+  border:1px solid rgba(89,220,235,.22);
+  color:#f4fbfd;
+  font-size:13px;
+  font-weight:950;
+}
+.elite-event-side .event-content,
+.elite-event-side{
+  gap:8px;
+}
+.elite-event-side .player-link{
+  max-width:100%;
+}
+.elite-event-side .player-photo{
+  width:36px;
+  height:36px;
+  min-width:36px;
+}
+.elite-event-side .goal-pill{
+  padding:5px 7px;
+  font-size:11px;
+}
+.elite-motm-card{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+  padding:18px 22px;
+  background:linear-gradient(90deg,rgba(196,145,2,.09),rgba(5,49,57,.9));
+  border-top:1px solid rgba(235,184,47,.18);
+  border-bottom:1px solid rgba(235,184,47,.18);
+}
+.elite-motm-label{
+  color:#e6c65b;
+  font-size:11px;
+  font-weight:950;
+  letter-spacing:.12em;
+}
+.elite-motm-player .player-link{
+  font-size:16px;
+}
+.elite-motm-player .player-photo{
+  width:48px;
+  height:48px;
+  min-width:48px;
+}
+.elite-highlights{
+  padding:20px 22px 24px;
+  background:#031f26;
+}
+.elite-highlights .highlights-header{
+  margin-bottom:13px;
+}
+.elite-highlights .highlights-header span{
+  color:#b9cbd1;
+  font-size:11px;
+  letter-spacing:.12em;
+  font-weight:950;
+}
+.elite-youtube-overlay{
+  position:absolute;
+  inset:0;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  background:linear-gradient(180deg,rgba(0,0,0,.08),rgba(0,0,0,.34));
+  color:#fff;
+  text-shadow:0 2px 10px rgba(0,0,0,.5);
+}
+.elite-play-circle{
+  display:grid;
+  place-items:center;
+  width:58px;
+  height:58px;
+  padding-left:4px;
+  border-radius:50%;
+  background:rgba(255,19,97,.94);
+  box-shadow:0 10px 30px rgba(255,19,97,.28);
+  font-size:23px;
+}
+.elite-youtube-overlay strong{
+  font-size:13px;
+  letter-spacing:.1em;
+}
+.elite-video-link{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  min-height:72px;
+  border-radius:14px;
+  background:#07343d;
+  border:1px solid rgba(89,220,235,.22);
+  font-weight:950;
+}
+@media(max-width:700px){
+  .match-breadcrumb{
+    padding:13px 54px 13px 16px;
+    gap:8px;
+    font-size:10px;
+  }
+  .elite-match-hero{
+    padding:22px 14px 24px;
+  }
+  .elite-match-hero .match-main-teams{
+    gap:8px;
+  }
+  .elite-match-hero .match-main-logo{
+    width:68px;
+    height:68px;
+  }
+  .elite-match-hero .match-main-logo img{
+    max-width:52px;
+    max-height:52px;
+  }
+  .elite-match-hero .match-main-team{
+    font-size:14px;
+  }
+  .elite-match-hero .match-main-score div{
+    font-size:38px;
+  }
+  .match-penalty-result{
+    max-width:160px;
+    font-size:9px!important;
+  }
+  .elite-event-row{
+    grid-template-columns:minmax(0,1fr) 48px minmax(0,1fr);
+  }
+  .elite-event-left{padding-right:7px}
+  .elite-event-right{padding-left:7px}
+  .elite-event-side .player-photo{
+    width:30px;
+    height:30px;
+    min-width:30px;
+  }
+  .elite-event-side .player-link{
+    font-size:12px;
+  }
+  .elite-motm-card{
+    padding:15px 16px;
+  }
+}
