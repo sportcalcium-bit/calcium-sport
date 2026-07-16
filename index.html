@@ -7,7 +7,8 @@
   <title>Calcium Sport</title>
   <meta name="description" content="Calcium Sport football results centre" />
   <link rel="preconnect" href="https://script.google.com" />
-  <link rel="stylesheet" href="style.css?v=7042" />
+  <link rel="stylesheet" href="style.css?v=7043" />
+
 
 <style>
 .team-profile-controls{
@@ -32,6 +33,7 @@
 }
 </style>
 
+
 </head>
 <body>
   <header class="site-header">
@@ -46,14 +48,17 @@
       </div>
     </a>
 
+
     <div class="top-nav-area">
       <nav id="competitionCategoryNav" class="competition-category-nav" aria-label="Competition categories"></nav>
+
 
       <div class="header-controls compact-controls">
         <label id="seasonSwitcherWrap" class="is-hidden">
           <span>Season</span>
           <select id="seasonSelect" aria-label="Season selector"></select>
         </label>
+
 
         <label>
           <span>Jump to</span>
@@ -75,6 +80,7 @@
 <div id="masterSearchResults" class="master-search-results hidden"></div>
 </div></section>
 
+
   <main class="page-shell">
     <section id="homeSection" class="mobile-home">
       <div class="mobile-title-row">
@@ -82,12 +88,15 @@
         <span id="homeMatchCount" class="match-count-pill">0</span>
       </div>
 
+
       <div id="dateTabs" class="date-tabs home-date-tabs"></div>
+
 
       <div class="home-switch-tabs" role="tablist" aria-label="Home game tabs">
         <button type="button" class="active" data-home-tab="allGames">Matches of the day</button>
         <button type="button" data-home-tab="myGames">My Games</button>
       </div>
+
 
       <section id="allGamesPanel">
         <div id="allGamesHeader" class="all-games-header">
@@ -96,6 +105,7 @@
         </div>
         <div id="homeGamesList"><div class="empty">Loading games...</div></div>
       </section>
+
 
       <section id="myGamesPanel" class="my-games-panel hidden">
         <div class="my-games-header">
@@ -109,6 +119,7 @@
         <div id="myGamesList"><div class="empty">Loading my games...</div></div>
       </section>
     </section>
+
 
     <section class="hero-card">
       <div class="hero-main">
@@ -129,6 +140,7 @@
       </nav>
     </section>
 
+
     <section class="filters-card">
       <input id="searchInput" type="search" placeholder="Search team, player, round..." aria-label="Search" />
       <select id="groupFilter" aria-label="Group filter"><option value="">All groups/tables</option></select>
@@ -136,25 +148,30 @@
       <button id="clearFilters" type="button">Clear</button>
     </section>
 
+
     <section id="nextUpSection" class="scoreboard-card">
       <div class="competition-strip"><strong>Next up</strong></div>
       <div id="scoreboardList"><div class="empty">Loading matches...</div></div>
     </section>
+
 
     <section id="resultsSection" class="scoreboard-card">
       <div class="competition-strip"><strong>Results</strong><span id="resultsCount" class="strip-count"></span></div>
       <div id="resultsList"><div class="empty">Loading results...</div></div>
     </section>
 
+
     <section id="fixturesSection" class="scoreboard-card">
       <div class="competition-strip"><strong>Fixtures</strong><span id="fixturesCount" class="strip-count"></span></div>
       <div id="fixturesList"><div class="empty">Loading fixtures...</div></div>
     </section>
 
+
     <section id="standingsSection" class="panel">
       <div class="panel-header"><h2>Standings</h2><span>Live table</span></div>
       <div id="standingsContainer"><div class="empty">Loading standings...</div></div>
     </section>
+
 
     <section id="statsSection" class="panel">
       <div class="panel-header"><h2>Stats</h2><span>Top performers</span></div>
@@ -168,6 +185,7 @@
     </section>
   </main>
 
+
   <div id="matchModal" class="match-modal hidden" role="dialog" aria-modal="true" aria-label="Match details">
     <div class="match-modal-backdrop" onclick="closeMatchModal()"></div>
     <div class="match-detail-card">
@@ -175,6 +193,7 @@
       <div id="matchDetailContent"></div>
     </div>
   </div>
+
 
   <div id="playerModal" class="match-modal hidden" role="dialog" aria-modal="true" aria-label="Player profile">
     <div class="match-modal-backdrop" onclick="closePlayerProfile()"></div>
@@ -184,12 +203,14 @@
     </div>
   </div>
 
+
   <div id="teamModal" class="match-modal hidden" role="dialog" aria-modal="true">
 <div class="match-modal-backdrop" onclick="closeTeamProfile()"></div>
 <div class="match-detail-card team-detail-card"><button class="match-close" type="button" onclick="closeTeamProfile()">×</button><div id="teamDetailContent"></div></div>
 </div>
 <button id="backToTop" class="back-to-top" type="button" aria-label="Back to top">↑</button>
-  <script src="script.js?v=7042"></script>
+  <script src="script.js?v=7043"></script>
+
 
 <script>
 /* Calcium Sport hard override 7032: player seasons + master team/player search */
@@ -216,12 +237,14 @@
     );
   }
 
+
   window.openPlayerProfile = function(playerName, event){
     event?.stopPropagation?.();
     const name = String(playerName || '').trim();
     const modal = $('playerModal');
     const content = $('playerDetailContent');
     if(!modal || !content) return;
+
 
     const render = (wantedSeason) => {
       const assignments = playerTeamsLookup.get(normalisePlayerName(name)) || [];
@@ -231,13 +254,16 @@
         .map(match => ({match, stats:getPlayerMatchStats(match, name)}))
         .sort((a,b) => matchDateSortValue(b.match) - matchDateSortValue(a.match));
 
+
       const current = String(currentSeasonYear());
       const seasons = [...new Set(matchesAll.map(x => String(seasonYearFromDate(x.match.Date))).filter(Boolean))];
       if(!seasons.includes(current)) seasons.push(current);
       seasons.sort((a,b) => Number(b) - Number(a));
 
+
       const selected = seasons.includes(String(wantedSeason)) ? String(wantedSeason) : current;
       const matches = matchesAll.filter(x => String(seasonYearFromDate(x.match.Date)) === selected);
+
 
       const totals = matches.reduce((s,x) => {
         s.goals += x.stats.goals;
@@ -246,6 +272,7 @@
         s.red += x.stats.red;
         return s;
       }, {goals:0, assists:0, yellow:0, red:0});
+
 
       const national = assignments.find(x => normaliseText(x.teamType) === 'national team');
       const clubs = assignments.filter(x => normaliseText(x.teamType) === 'club');
@@ -258,6 +285,7 @@
       const options = seasons.map(y =>
         `<option value="${escapeAttr(y)}" ${y===selected?'selected':''}>${escapeHTML(y)}</option>`
       ).join('');
+
 
       content.innerHTML =
         `<section class="player-profile-hero">
@@ -283,13 +311,16 @@
         <section class="player-teams-section"><h3>Teams</h3>${teams}</section>
         <section class="player-matches-section"><h3>Played games · ${escapeHTML(selected)}</h3>${rows}</section>`;
 
+
       $('hardPlayerSeasonSelect')?.addEventListener('change', e => render(e.target.value));
     };
+
 
     render(currentSeasonYear());
     modal.classList.remove('hidden');
     document.body.classList.add('modal-open');
   };
+
 
   function buildSearchData(){
     const players = [], teams = [], seenPlayers = new Set(), seenTeams = new Set();
@@ -304,6 +335,7 @@
       if(n && !seenTeams.has(k)){ seenTeams.add(k); teams.push(n); }
     };
 
+
     (appData?.players || []).forEach(r => addPlayer(r?.['Player Name'] ?? r?.Player ?? r?.Name ?? r?.[0]));
     (appData?.playerTeams || []).forEach(r => {
       addPlayer(r?.['Player Name'] ?? r?.Player ?? r?.[0]);
@@ -313,6 +345,7 @@
     return {players, teams};
   }
 
+
   window.openTeamProfile = function(teamName){
     const name = String(teamName || '').trim();
     const key = normaliseTeamName(name);
@@ -320,10 +353,12 @@
     const content = $('teamDetailContent');
     if(!modal || !content) return;
 
+
     const matches = allKnownMatches()
       .filter(trulyPlayed)
       .filter(m => normaliseTeamName(m.HomeTeam) === key || normaliseTeamName(m.AwayTeam) === key)
       .sort((a,b) => matchDateSortValue(a) - matchDateSortValue(b));
+
 
     const seen = new Set(), squad = [];
     (appData?.playerTeams || []).forEach(r => {
@@ -336,6 +371,7 @@
       }
     });
 
+
     const squadHtml = squad.length
       ? squad.sort((a,b)=>a.localeCompare(b)).map(p =>
           `<button class="team-squad-player" type="button" onclick="closeTeamProfile();openPlayerProfile('${escapeAttr(p)}')">
@@ -343,6 +379,7 @@
           </button>`
         ).join('')
       : '<div class="empty">No squad players found.</div>';
+
 
     const gamesHtml = matches.length
       ? matches.map(m =>
@@ -356,6 +393,7 @@
         ).join('')
       : '<div class="empty">No played games found.</div>';
 
+
     content.innerHTML =
       `<section class="team-profile-hero">
         ${renderTeamLogo(findTeamLogo(name),name)}
@@ -364,9 +402,11 @@
       <section class="team-profile-section"><h3>Squad</h3><div class="team-squad-grid">${squadHtml}</div></section>
       <section class="team-profile-section"><h3>All played games</h3>${gamesHtml}</section>`;
 
+
     modal.classList.remove('hidden');
     document.body.classList.add('modal-open');
   };
+
 
   window.closeTeamProfile = function(){
     $('teamModal')?.classList.add('hidden');
@@ -374,6 +414,7 @@
       document.body.classList.remove('modal-open');
     }
   };
+
 
   function hardSearch(value){
     const box = $('masterSearchResults');
@@ -383,9 +424,11 @@
     clear?.classList.toggle('hidden', !q);
     if(!q){ box.classList.add('hidden'); box.innerHTML=''; return; }
 
+
     const data = buildSearchData();
     const players = data.players.filter(n => normaliseText(n).includes(q)).slice(0,8);
     const teams = data.teams.filter(n => normaliseText(n).includes(q)).slice(0,8);
+
 
     box.innerHTML =
       (players.length ? `<div class="master-search-label">Players</div>${players.map(n =>
@@ -396,7 +439,9 @@
       ).join('')}` : '') +
       (!players.length && !teams.length ? '<div class="empty">No players or teams found.</div>' : '');
 
+
     box.classList.remove('hidden');
+
 
     box.querySelectorAll('[data-hard-player]').forEach(btn => btn.addEventListener('click', () => {
       $('masterSearchInput').value=''; box.classList.add('hidden'); window.openPlayerProfile(btn.dataset.hardPlayer);
@@ -405,6 +450,7 @@
       $('masterSearchInput').value=''; box.classList.add('hidden'); window.openTeamProfile(btn.dataset.hardTeam);
     }));
   }
+
 
   document.addEventListener('DOMContentLoaded', () => {
     const input = $('masterSearchInput');
@@ -419,6 +465,8 @@
 </script>
 
 
+
+
 <script>
 /* Calcium Sport hard override 7033: team profile view + season dropdowns */
 (function(){
@@ -427,15 +475,18 @@
     return d.getMonth() >= 7 ? d.getFullYear() + 1 : d.getFullYear();
   }
 
+
   function teamSeasonYearFromDate(value){
     const d = parseDateOnly(value);
     return d ? (d.getMonth() >= 7 ? d.getFullYear() + 1 : d.getFullYear()) : '';
   }
 
+
   function teamSeasonBounds(seasonYear){
     const y = Number(seasonYear);
     return { start: `${y-1}-08-01`, end: `${y}-07-31` };
   }
+
 
   function assignmentActiveInSeason(row, seasonYear){
     const bounds = teamSeasonBounds(seasonYear);
@@ -448,12 +499,14 @@
     return true;
   }
 
+
   window.openTeamProfile = function(teamName){
     const name = String(teamName || '').trim();
     const key = normaliseTeamName(name);
     const modal = $('teamModal');
     const content = $('teamDetailContent');
     if(!modal || !content) return;
+
 
     const allMatches = dedupeMatchArray(
       getGlobalMatches()
@@ -465,18 +518,22 @@
       return played && (normaliseTeamName(m.HomeTeam) === key || normaliseTeamName(m.AwayTeam) === key);
     });
 
+
     const currentSeason = String(teamCurrentSeasonYear());
     const seasons = [...new Set(allMatches.map(m => String(teamSeasonYearFromDate(m.Date))).filter(Boolean))];
     if(!seasons.includes(currentSeason)) seasons.push(currentSeason);
     seasons.sort((a,b) => Number(b) - Number(a));
 
+
     let selectedSeason = currentSeason;
     let selectedView = 'games';
+
 
     const render = () => {
       const seasonMatches = allMatches
         .filter(m => String(teamSeasonYearFromDate(m.Date)) === selectedSeason)
         .sort((a,b) => matchDateSortValue(a) - matchDateSortValue(b));
+
 
       const seen = new Set();
       const squad = [];
@@ -490,9 +547,11 @@
         squad.push(player);
       });
 
+
       const seasonOptions = seasons.map(y =>
         `<option value="${escapeAttr(y)}" ${y===selectedSeason?'selected':''}>${escapeHTML(y)}</option>`
       ).join('');
+
 
       const gamesHtml = seasonMatches.length
         ? seasonMatches.map(m =>
@@ -506,6 +565,7 @@
           ).join('')
         : '<div class="empty">No played games found for this season.</div>';
 
+
       const squadHtml = squad.length
         ? squad.sort((a,b)=>a.localeCompare(b)).map(p =>
             `<button class="team-squad-player" type="button" onclick="closeTeamProfile();openPlayerProfile('${escapeAttr(p)}')">
@@ -513,6 +573,7 @@
             </button>`
           ).join('')
         : '<div class="empty">No squad players found for this season.</div>';
+
 
       content.innerHTML =
         `<section class="team-profile-hero">
@@ -537,10 +598,12 @@
           <h3>Squad · ${escapeHTML(selectedSeason)}</h3><div class="team-squad-grid">${squadHtml}</div>
         </section>`;
 
+
       $('teamProfileViewSelect')?.addEventListener('change', e => {
         selectedView = e.target.value || 'games';
         render();
       });
+
 
       $('teamProfileSeasonSelect')?.addEventListener('change', e => {
         selectedSeason = e.target.value || currentSeason;
@@ -548,12 +611,15 @@
       });
     };
 
+
     render();
     modal.classList.remove('hidden');
     document.body.classList.add('modal-open');
   };
 })();
 </script>
+
+
 
 
 <script>
@@ -571,16 +637,19 @@
     return [...out.values()];
   }
 
+
   window.openPlayerProfile=function(playerName,event){
     event?.stopPropagation?.();
     const name=String(playerName||'').trim(), modal=$('playerModal'), content=$('playerDetailContent');
     if(!modal||!content) return;
+
 
     const render=seasonWanted=>{
       const stored=playerTeamsLookup.get(normalisePlayerName(name))||[];
       const merged=new Map();
       [...stored,...inferPlayerTeams(name)].forEach(x=>{const k=normaliseTeamName(x.team); if(k&&!merged.has(k)) merged.set(k,x);});
       const assignments=[...merged.values()];
+
 
       const all=dedupeMatchArray(getGlobalMatches().concat(getCompetitionMatches()).concat(appData?.myGames||[]))
         .filter(m=>{
@@ -593,6 +662,7 @@
         .map(match=>({match,stats:getPlayerMatchStats(match,name)}))
         .sort((a,b)=>matchDateSortValue(b.match)-matchDateSortValue(a.match));
 
+
       const seasonOf=v=>{const d=parseDateOnly(v); return d?String(d.getMonth()>=7?d.getFullYear()+1:d.getFullYear()):'';};
       const now=new Date(), current=String(now.getMonth()>=7?now.getFullYear()+1:now.getFullYear());
       const seasons=[...new Set(all.map(x=>seasonOf(x.match.Date)).filter(Boolean))];
@@ -601,20 +671,24 @@
       const selected=seasons.includes(String(seasonWanted))?String(seasonWanted):current;
       const matches=all.filter(x=>seasonOf(x.match.Date)===selected);
 
+
       const totals=matches.reduce((s,x)=>{s.goals+=x.stats.goals;s.assists+=x.stats.assists;s.yellow+=x.stats.yellow;s.red+=x.stats.red;return s;},{goals:0,assists:0,yellow:0,red:0});
       const options=seasons.map(y=>`<option value="${escapeAttr(y)}" ${y===selected?'selected':''}>${escapeHTML(y)}</option>`).join('');
       const teams=assignments.length?assignments.map(renderPlayerTeamAssignment).join(''):'<div class="empty">No team information could be inferred yet.</div>';
       const rows=matches.length?matches.map(renderPlayerMatchRow).join(''):'<div class="empty">No played games are available for this player in this season.</div>';
 
+
       content.innerHTML=`<section class="player-profile-hero"><div class="player-profile-photo">${renderPlayerImage(name)}</div><div class="player-profile-copy"><div class="eyebrow">Player profile</div><h2>${escapeHTML(name)}</h2></div><label class="profile-season-select"><span>Season</span><select id="playerSeason7034">${options}</select></label></section><section class="player-summary-grid"><div><strong>${matches.length}</strong><span>Games</span></div><div><strong>${totals.goals}</strong><span>Goals</span></div><div><strong>${totals.assists}</strong><span>Assists</span></div><div><strong>${totals.yellow}</strong><span>Yellow</span></div><div><strong>${totals.red}</strong><span>Red</span></div></section><section class="player-teams-section"><h3>Teams</h3>${teams}</section><section class="player-matches-section"><h3>Played games · ${escapeHTML(selected)}</h3>${rows}</section>`;
       $('playerSeason7034')?.addEventListener('change',e=>render(e.target.value));
     };
+
 
     const now=new Date(); render(now.getMonth()>=7?now.getFullYear()+1:now.getFullYear());
     modal.classList.remove('hidden'); document.body.classList.add('modal-open');
   };
 })();
 </script>
+
 
 </body>
 </html>
