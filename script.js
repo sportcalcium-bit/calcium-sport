@@ -244,6 +244,14 @@ function renderHomeGames(){
   }).join('');
   setHTML('homeGamesList', html);
 }
+function renderCompactMatchScore(match){
+  const home=String(match?.HomeScore??'').trim();
+  const away=String(match?.AwayScore??'').trim();
+  const completed=String(match?.Status||'').toUpperCase()==='FT'||(/^\d+$/.test(home)&&/^\d+$/.test(away));
+  const score=completed?renderScoreText(match):'- : -';
+  const penalty=completed?getPenaltyWinnerText(match):'';
+  return penalty?`<span>${score}</span><small class="compact-penalty-result">${escapeHTML(penalty)}</small>`:score;
+}
 function renderHomeMatchRow(match){ const click=match.MatchID?`onclick="openMatchDetail('${escapeAttr(match.MatchID)}')"`:''; return `<article class="home-match-row" ${click}><div class="score-team-home-name">${escapeHTML(match.HomeTeam)}</div><div class="score-team-home-logo">${renderTeamLogo(match.HomeLogo,match.HomeTeam)}</div><div class="home-match-score compact-match-score">${renderCompactMatchScore(match)}</div><div class="score-team-away-logo">${renderTeamLogo(match.AwayLogo,match.AwayTeam)}</div><div class="score-team-away-name">${escapeHTML(match.AwayTeam)}</div></article>`; }
 function renderMyGames(){
   const all=Array.isArray(appData?.myGames)?appData.myGames:[]; const selected=parseDateOnly(selectedDateKey)||new Date(); const weekStart=getMonday(selected); const weekEnd=addDays(weekStart,6);
