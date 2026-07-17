@@ -243,10 +243,14 @@ function renderHomeMatchRow(match){ const score=match.Status==='FT'?renderScoreT
 function renderHomeTab(){ const allPanel=$('allGamesPanel'), myPanel=$('myGamesPanel'), jump=$('jumpSelect'); document.querySelectorAll('[data-home-tab]').forEach(b=>b.classList.toggle('active',b.dataset.homeTab===currentHomeTab)); allPanel?.classList.toggle('hidden',currentHomeTab!=='allGames'); myPanel?.classList.toggle('hidden',currentHomeTab!=='myGames'); if(jump&&isHomePage()) jump.value=currentHomeTab==='myGames'?'myGames':'nextUp'; }
 
 function renderMyGames(){
-  const all=Array.isArray(appData?.myGames)?appData.myGames:[];
+  const myGamesBase=Array.isArray(appData?.myGames)?appData.myGames:[];
+  const unresolvedDatedFixtures=dedupeMatchArray(
+    getGlobalMatches().concat(getCompetitionMatches())
+  ).filter(match=>getDateKey(match.Date)&&isUnresolvedFixtureSlot(match));
+  const all=dedupeMatchArray(myGamesBase.concat(unresolvedDatedFixtures));
+
   const selected=parseDateOnly(selectedDateKey)||new Date();
-  const weekStart=getMonday(selected);
-  const weekEnd=addDays(weekStart,6);
+  const weekStart=getMonday(selected), weekEnd=addDays(weekStart,6);
   const weekMatches=all.filter(match=>{
     const d=parseDateOnly(match.Date);
     if(!d) return false;
@@ -279,12 +283,8 @@ function renderMyGames(){
 function buildMyGamesWeeklyPlan(matches,weekStart){
   const names=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
   const days=Array.from({length:7},(_,index)=>({
-    index,
-    date:addDays(weekStart,index),
-    key:dateToKey(addDays(weekStart,index)),
-    name:names[index],
-    completed:[],
-    scheduled:[]
+    index,date:addDays(weekStart,index),key:dateToKey(addDays(weekStart,index)),
+    name:names[index],completed:[],scheduled:[]
   }));
 
   const capacities=getBalancedMyGamesCounts(matches.length,[0,1,2,3,4,5,6]);
@@ -292,8 +292,7 @@ function buildMyGamesWeeklyPlan(matches,weekStart){
   const original=new Map();
 
   days.forEach((day,index)=>{
-    const count=capacities[index]||0;
-    for(let i=0;i<count&&cursor<matches.length;i++,cursor++){
+    for(let i=0;i<(capacities[index]||0)&&cursor<matches.length;i++,cursor++){
       original.set(getMyGameIdentity(matches[cursor]),index);
     }
   });
@@ -305,13 +304,9 @@ function buildMyGamesWeeklyPlan(matches,weekStart){
 
   matches.forEach(match=>{
     const originalIndex=original.get(getMyGameIdentity(match))??0;
-    if(isMyGamePlayed(match)){
-      days[originalIndex].completed.push(match);
-    }else if(isCurrentWeek){
-      remaining.push(match);
-    }else{
-      days[originalIndex].scheduled.push(match);
-    }
+    if(isMyGamePlayed(match)) days[originalIndex].completed.push(match);
+    else if(isCurrentWeek) remaining.push(match);
+    else days[originalIndex].scheduled.push(match);
   });
 
   if(isCurrentWeek){
@@ -320,9 +315,7 @@ function buildMyGamesWeeklyPlan(matches,weekStart){
     const counts=getBalancedMyGamesCounts(remaining.length,active);
     let r=0;
     active.forEach(index=>{
-      for(let i=0;i<(counts[index]||0)&&r<remaining.length;i++,r++){
-        days[index].scheduled.push(remaining[r]);
-      }
+      for(let i=0;i<(counts[index]||0)&&r<remaining.length;i++,r++) days[index].scheduled.push(remaining[r]);
     });
   }
 
@@ -336,11 +329,8 @@ function buildMyGamesWeeklyPlan(matches,weekStart){
 function getBalancedMyGamesCounts(total,dayIndices){
   const counts={};
   if(!dayIndices.length) return counts;
-  const base=Math.floor(total/dayIndices.length);
-  const remainder=total%dayIndices.length;
+  const base=Math.floor(total/dayIndices.length), remainder=total%dayIndices.length;
   dayIndices.forEach(index=>counts[index]=base);
-
-  // Saturday (index 5) is the last day to receive an extra game whenever possible.
   const extraOrder=dayIndices.filter(index=>index!==5).concat(dayIndices.includes(5)?[5]:[]);
   for(let i=0;i<remainder;i++) counts[extraOrder[i]]=(counts[extraOrder[i]]||0)+1;
   return counts;
@@ -368,65 +358,70 @@ function renderMyGamesPlannerRow(match,played){
   const competition=String(match.Competition||match.CompetitionLabel||'Competition');
   const region=getMyGamesGroupLabel(match);
   const score=played?renderScoreText(match):'VS';
-  return `<article class="my-games-planner-row ${played?'is-played':''}" ${click}>
+  const homeLabel=getMyGamesDisplayTeam(match.HomeTeam);
+  const awayLabel=getMyGamesDisplayTeam(match.AwayTeam);
+  const homeUnresolved=isUnresolvedTeamLabel(match.HomeTeam);
+  const awayUnresolved=isUnresolvedTeamLabel(match.AwayTeam);
+
+  return `<article class="my-games-planner-row ${played?'is-played':''} ${(homeUnresolved||awayUnresolved)?'is-unresolved':''}" ${click}>
     <div class="my-games-planner-meta"><span>${escapeHTML(region)}</span><strong>${escapeHTML(competition)}</strong></div>
     <div class="my-games-planner-match">
-      <div class="my-games-team-name home">${escapeHTML(match.HomeTeam)}</div>
-      <div class="my-games-logo">${renderTeamLogo(match.HomeLogo,match.HomeTeam)}</div>
+      <div class="my-games-team-name home">${escapeHTML(homeLabel)}</div>
+      <div class="my-games-logo">${homeUnresolved?'<span class="team-logo team-logo-empty my-games-tbd-logo">?</span>':renderTeamLogo(match.HomeLogo,match.HomeTeam)}</div>
       <div class="my-games-score">${score}</div>
-      <div class="my-games-logo">${renderTeamLogo(match.AwayLogo,match.AwayTeam)}</div>
-      <div class="my-games-team-name away">${escapeHTML(match.AwayTeam)}</div>
+      <div class="my-games-logo">${awayUnresolved?'<span class="team-logo team-logo-empty my-games-tbd-logo">?</span>':renderTeamLogo(match.AwayLogo,match.AwayTeam)}</div>
+      <div class="my-games-team-name away">${escapeHTML(awayLabel)}</div>
     </div>
-    <div class="my-games-planner-status">${played?'Played':'To play'}</div>
+    <div class="my-games-planner-status">${played?'Played':(homeUnresolved||awayUnresolved)?'Pending teams':'To play'}</div>
   </article>`;
 }
 
+function isUnresolvedFixtureSlot(match){
+  return isUnresolvedTeamLabel(match?.HomeTeam)||isUnresolvedTeamLabel(match?.AwayTeam);
+}
+function isUnresolvedTeamLabel(value){
+  const text=String(value||'').trim();
+  if(!text) return true;
+  const lower=normaliseText(text);
+  return lower==='tbd'||lower==='tbc'||lower==='to be decided'||lower==='to be confirmed'
+    ||lower.includes('winner')||lower.includes('loser')||text.includes('/');
+}
+function getMyGamesDisplayTeam(value){
+  const text=String(value||'').trim();
+  if(!text) return 'TBD';
+  if(text.includes('/')&&!/winner|loser/i.test(text)) return `Winner of ${text}`;
+  return text;
+}
 function isMyGamePlayed(match){
   if(String(match?.Status||'').toUpperCase()==='FT') return true;
-  const home=String(match?.HomeScore??'').trim();
-  const away=String(match?.AwayScore??'').trim();
+  const home=String(match?.HomeScore??'').trim(), away=String(match?.AwayScore??'').trim();
   return /^\d+$/.test(home)&&/^\d+$/.test(away);
 }
-
 function getMyGameIdentity(match){
   return [getDateKey(match.Date),String(match.Time||'').trim(),normaliseTeamName(match.HomeTeam),normaliseTeamName(match.AwayTeam),normaliseText(match.Competition||match.CompetitionLabel||'')].join('|');
 }
-
 function compareMyGamesPlannerPriority(a,b){
   const pa=getMyGamesPlannerPriority(a),pb=getMyGamesPlannerPriority(b);
   return pa-pb||matchDateSortValue(a)-matchDateSortValue(b)||String(a.HomeTeam||'').localeCompare(String(b.HomeTeam||''));
 }
-
 function getMyGamesPlannerPriority(match){
   const competition=normaliseText(match.Competition||match.CompetitionLabel||match['Competition Name']||'');
   const category=getCompetitionCategoryKey(match);
 
-  // 1) European club cups first, in this exact order.
   if(competition.includes('champions league')) return 0;
   if(competition.includes('europa league')) return 1;
   if(competition.includes('conference league')) return 2;
   if(category==='europe') return 3;
-
-  // 2) Other international / national-team cups.
   if(category==='national-teams'||category==='world') return 4;
 
-  // 3) ALL domestic cups before ANY domestic league.
-  // Cup country order: France -> Germany -> Spain -> Italy -> England.
   const cupOrder={france:10,germany:20,spain:30,italy:40,england:50};
-  if(cupOrder[category]!==undefined && isDomesticCupCompetition(competition,category)){
-    return cupOrder[category];
-  }
+  if(cupOrder[category]!==undefined&&isDomesticCupCompetition(competition,category)) return cupOrder[category];
 
-  // 4) Only after all cups, sort domestic leagues in the same country order.
-  // League country order: France -> Germany -> Spain -> Italy -> England.
   const leagueOrder={france:110,germany:120,spain:130,italy:140,england:150};
-  if(leagueOrder[category]!==undefined){
-    return leagueOrder[category];
-  }
+  if(leagueOrder[category]!==undefined) return leagueOrder[category];
 
   return 999;
 }
-
 function isDomesticCupCompetition(name,category){
   const map={
     france:['coupe de france','trophee des champions','trophée des champions'],
@@ -950,4 +945,4 @@ function safeScore(v){ return v===''||v===undefined||v===null?'-':v; }
 function formatGoalDifference(v){ const n=Number(v); if(!Number.isFinite(n))return'0'; return n>0?`+${n}`:String(n); }
 function escapeHTML(v){ return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
 function escapeAttr(v){ return escapeHTML(v); }
-window.CALCIUM_SCRIPT_VERSION='7051-my-games-cups-before-leagues';
+window.CALCIUM_SCRIPT_VERSION='7052-dated-unresolved-fixtures';
