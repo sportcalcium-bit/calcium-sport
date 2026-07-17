@@ -401,16 +401,30 @@ function getMyGamesPlannerPriority(match){
   const competition=normaliseText(match.Competition||match.CompetitionLabel||match['Competition Name']||'');
   const category=getCompetitionCategoryKey(match);
 
+  // 1) European club cups first, in this exact order.
   if(competition.includes('champions league')) return 0;
   if(competition.includes('europa league')) return 1;
   if(competition.includes('conference league')) return 2;
   if(category==='europe') return 3;
+
+  // 2) Other international / national-team cups.
   if(category==='national-teams'||category==='world') return 4;
 
-  const countryOrder={france:10,germany:20,spain:30,italy:40,england:50};
-  const base=countryOrder[category];
-  if(base!==undefined) return isDomesticCupCompetition(competition,category)?base:base+5;
-  return 99;
+  // 3) ALL domestic cups before ANY domestic league.
+  // Cup country order: France -> Germany -> Spain -> Italy -> England.
+  const cupOrder={france:10,germany:20,spain:30,italy:40,england:50};
+  if(cupOrder[category]!==undefined && isDomesticCupCompetition(competition,category)){
+    return cupOrder[category];
+  }
+
+  // 4) Only after all cups, sort domestic leagues in the same country order.
+  // League country order: France -> Germany -> Spain -> Italy -> England.
+  const leagueOrder={france:110,germany:120,spain:130,italy:140,england:150};
+  if(leagueOrder[category]!==undefined){
+    return leagueOrder[category];
+  }
+
+  return 999;
 }
 
 function isDomesticCupCompetition(name,category){
@@ -936,4 +950,4 @@ function safeScore(v){ return v===''||v===undefined||v===null?'-':v; }
 function formatGoalDifference(v){ const n=Number(v); if(!Number.isFinite(n))return'0'; return n>0?`+${n}`:String(n); }
 function escapeHTML(v){ return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
 function escapeAttr(v){ return escapeHTML(v); }
-window.CALCIUM_SCRIPT_VERSION='7050-my-games-planner';
+window.CALCIUM_SCRIPT_VERSION='7051-my-games-cups-before-leagues';
