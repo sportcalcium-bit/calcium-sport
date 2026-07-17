@@ -38,6 +38,11 @@ async function loadCompetition(competitionParam){
   populateCompetitionDropdowns();
   populateFilters();
   renderAll();
+  if(isHomePage()){
+    enrichHomeMyGamesFromCompetitionDetails().then(updated=>{
+      if(updated){ renderMyGames(); renderHomeTab(); }
+    }).catch(error=>console.warn('Could not add pending competition fixtures to My Games.',error));
+  }
 }
 
 function bindEvents(){
@@ -278,6 +283,50 @@ function renderMyGames(){
   </section>`;
 
   setHTML('myGamesList',summary+`<div class="my-games-week-planner">${plan.map(renderMyGamesDay).join('')}</div>`);
+}
+
+function enrichHomeMyGamesFromCompetitionDetails(){
+  const base=Array.isArray(appData?.myGames)?appData.myGames:[];
+  if(!base.length) return Promise.resolve(false);
+
+  const selected=parseDateOnly(selectedDateKey||getTodayKey())||new Date();
+  const weekStart=getMonday(selected), weekEnd=addDays(weekStart,6);
+  const weekly=base.filter(match=>{
+    const date=parseDateOnly(match.Date);
+    return date&&date>=weekStart&&date<=weekEnd;
+  });
+  const slugs=[...new Set(weekly.map(resolveMatchCompetitionSlug).filter(Boolean))].slice(0,8);
+  if(!slugs.length) return Promise.resolve(false);
+
+  return Promise.all(slugs.map(async slug=>{
+    let detail=competitionDetailCache.get(slug);
+    if(detail) return detail;
+    try{
+      const response=await fetch(`${API_URL}?competition=${encodeURIComponent(slug)}&v=${Date.now()}`,{cache:'no-store'});
+      if(!response.ok) return null;
+      detail=await response.json();
+      if(!detail||detail.error) return null;
+      competitionDetailCache.set(slug,detail);
+      return detail;
+    }catch(error){
+      console.warn(`Could not load pending fixtures for ${slug}.`,error);
+      return null;
+    }
+  })).then(details=>{
+    const pending=details.filter(Boolean).flatMap(detail=>
+      (Array.isArray(detail.matches)?detail.matches:[])
+        .concat(Array.isArray(detail.playoffs)?detail.playoffs:[])
+    ).filter(match=>{
+      const date=parseDateOnly(match.Date);
+      return date&&date>=weekStart&&date<=weekEnd
+        &&String(match.Status||'').toUpperCase()!=='FT'
+        &&isUnresolvedFixtureSlot(match);
+    });
+    if(!pending.length) return false;
+    const before=base.length;
+    appData.myGames=dedupeMatchArray(base.concat(pending));
+    return appData.myGames.length>before;
+  });
 }
 
 function buildMyGamesWeeklyPlan(matches,weekStart){
