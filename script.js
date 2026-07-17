@@ -241,18 +241,189 @@ function renderHomeGames(){
 }
 function renderHomeMatchRow(match){ const score=match.Status==='FT'?renderScoreText(match):'VS'; const click=match.MatchID?`onclick="openMatchDetail('${escapeAttr(match.MatchID)}')"`:''; return `<article class="home-match-row" ${click}><div class="score-team-home-name">${escapeHTML(match.HomeTeam)}</div><div class="score-team-home-logo">${renderTeamLogo(match.HomeLogo,match.HomeTeam)}</div><div class="home-match-score">${score}</div><div class="score-team-away-logo">${renderTeamLogo(match.AwayLogo,match.AwayTeam)}</div><div class="score-team-away-name">${escapeHTML(match.AwayTeam)}</div></article>`; }
 function renderHomeTab(){ const allPanel=$('allGamesPanel'), myPanel=$('myGamesPanel'), jump=$('jumpSelect'); document.querySelectorAll('[data-home-tab]').forEach(b=>b.classList.toggle('active',b.dataset.homeTab===currentHomeTab)); allPanel?.classList.toggle('hidden',currentHomeTab!=='allGames'); myPanel?.classList.toggle('hidden',currentHomeTab!=='myGames'); if(jump&&isHomePage()) jump.value=currentHomeTab==='myGames'?'myGames':'nextUp'; }
+
 function renderMyGames(){
-  const all=Array.isArray(appData?.myGames)?appData.myGames:[]; const selected=parseDateOnly(selectedDateKey)||new Date(); const weekStart=getMonday(selected); const weekEnd=addDays(weekStart,6);
-  const weekMatches=all.filter(match=>{ const d=parseDateOnly(match.Date); if(!d) return false; const cd=new Date(d.getFullYear(),d.getMonth(),d.getDate()); return cd>=weekStart && cd<=weekEnd; }).sort(compareMyGamesMatches);
-  setText('myGamesTitle', getSeasonWeekLabel(selected)); setText('myGamesSubtitle', getWeekRangeLabel(selected)); setText('myGamesCount', weekMatches.length);
-  if(!weekMatches.length){ setHTML('myGamesList','<div class="empty home-empty">No My Games found for this week.</div>'); return; }
-  const grouped=groupBy(weekMatches, m=>getMyGamesGroupLabel(m)); const order=['England','Italy','Spain','Germany','France','Europe','World','National Teams'];
-  const html=Object.keys(grouped).sort((a,b)=>(order.indexOf(a)===-1?999:order.indexOf(a))-(order.indexOf(b)===-1?999:order.indexOf(b))||a.localeCompare(b)).map(groupName=>{
-    const leagues=groupBy(grouped[groupName], m=>m.Competition||'Competition');
-    return Object.keys(leagues).sort((a,b)=>compareCompetitionNamePriorityFromName(groupName,a,b)).map(league=>`<section class="my-games-league-card"><div class="my-games-league-head"><span class="my-games-region">${escapeHTML(groupName)}</span><strong class="my-games-league-name">${escapeHTML(league)}</strong></div>${leagues[league].sort(compareMyGamesMatches).map(renderMyGamesRow).join('')}</section>`).join('');
-  }).join('');
-  setHTML('myGamesList', html);
+  const all=Array.isArray(appData?.myGames)?appData.myGames:[];
+  const selected=parseDateOnly(selectedDateKey)||new Date();
+  const weekStart=getMonday(selected);
+  const weekEnd=addDays(weekStart,6);
+  const weekMatches=all.filter(match=>{
+    const d=parseDateOnly(match.Date);
+    if(!d) return false;
+    const cd=new Date(d.getFullYear(),d.getMonth(),d.getDate());
+    return cd>=weekStart&&cd<=weekEnd;
+  }).sort(compareMyGamesPlannerPriority);
+
+  setText('myGamesTitle',getSeasonWeekLabel(selected));
+  setText('myGamesSubtitle',getWeekRangeLabel(selected));
+  setText('myGamesCount',weekMatches.length);
+
+  if(!weekMatches.length){
+    setHTML('myGamesList','<div class="empty home-empty">No My Games found for this week.</div>');
+    return;
+  }
+
+  const plan=buildMyGamesWeeklyPlan(weekMatches,weekStart);
+  const playedCount=weekMatches.filter(isMyGamePlayed).length;
+  const remainingCount=weekMatches.length-playedCount;
+
+  const summary=`<section class="my-games-planner-summary">
+    <div><strong>${weekMatches.length}</strong><span>Total games</span></div>
+    <div><strong>${playedCount}</strong><span>Played</span></div>
+    <div><strong>${remainingCount}</strong><span>Remaining</span></div>
+  </section>`;
+
+  setHTML('myGamesList',summary+`<div class="my-games-week-planner">${plan.map(renderMyGamesDay).join('')}</div>`);
 }
+
+function buildMyGamesWeeklyPlan(matches,weekStart){
+  const names=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  const days=Array.from({length:7},(_,index)=>({
+    index,
+    date:addDays(weekStart,index),
+    key:dateToKey(addDays(weekStart,index)),
+    name:names[index],
+    completed:[],
+    scheduled:[]
+  }));
+
+  const capacities=getBalancedMyGamesCounts(matches.length,[0,1,2,3,4,5,6]);
+  let cursor=0;
+  const original=new Map();
+
+  days.forEach((day,index)=>{
+    const count=capacities[index]||0;
+    for(let i=0;i<count&&cursor<matches.length;i++,cursor++){
+      original.set(getMyGameIdentity(matches[cursor]),index);
+    }
+  });
+
+  const today=parseDateOnly(getTodayKey());
+  const isCurrentWeek=today&&today>=weekStart&&today<=addDays(weekStart,6);
+  const currentDayIndex=isCurrentWeek?Math.floor((today-weekStart)/86400000):-1;
+  const remaining=[];
+
+  matches.forEach(match=>{
+    const originalIndex=original.get(getMyGameIdentity(match))??0;
+    if(isMyGamePlayed(match)){
+      days[originalIndex].completed.push(match);
+    }else if(isCurrentWeek){
+      remaining.push(match);
+    }else{
+      days[originalIndex].scheduled.push(match);
+    }
+  });
+
+  if(isCurrentWeek){
+    const active=[];
+    for(let i=currentDayIndex;i<7;i++) active.push(i);
+    const counts=getBalancedMyGamesCounts(remaining.length,active);
+    let r=0;
+    active.forEach(index=>{
+      for(let i=0;i<(counts[index]||0)&&r<remaining.length;i++,r++){
+        days[index].scheduled.push(remaining[r]);
+      }
+    });
+  }
+
+  days.forEach(day=>{
+    day.completed.sort(compareMyGamesPlannerPriority);
+    day.scheduled.sort(compareMyGamesPlannerPriority);
+  });
+  return days;
+}
+
+function getBalancedMyGamesCounts(total,dayIndices){
+  const counts={};
+  if(!dayIndices.length) return counts;
+  const base=Math.floor(total/dayIndices.length);
+  const remainder=total%dayIndices.length;
+  dayIndices.forEach(index=>counts[index]=base);
+
+  // Saturday (index 5) is the last day to receive an extra game whenever possible.
+  const extraOrder=dayIndices.filter(index=>index!==5).concat(dayIndices.includes(5)?[5]:[]);
+  for(let i=0;i<remainder;i++) counts[extraOrder[i]]=(counts[extraOrder[i]]||0)+1;
+  return counts;
+}
+
+function renderMyGamesDay(day){
+  const isToday=day.key===getTodayKey();
+  const rows=day.completed.map(m=>renderMyGamesPlannerRow(m,true)).join('')
+    +day.scheduled.map(m=>renderMyGamesPlannerRow(m,false)).join('');
+  return `<section class="my-games-day-card ${isToday?'is-today':''}">
+    <div class="my-games-day-head">
+      <div><span class="my-games-day-name">${escapeHTML(day.name)}</span><strong>${escapeHTML(formatMyGamesDate(day.date))}</strong></div>
+      <div class="my-games-day-counts">
+        ${isToday?'<span class="my-games-today-pill">Today</span>':''}
+        <span>${day.scheduled.length} to play</span>
+        ${day.completed.length?`<span>${day.completed.length} played</span>`:''}
+      </div>
+    </div>
+    <div class="my-games-day-list">${rows||'<div class="empty my-games-day-empty">No games assigned.</div>'}</div>
+  </section>`;
+}
+
+function renderMyGamesPlannerRow(match,played){
+  const click=match.MatchID?`onclick="openMatchDetail('${escapeAttr(match.MatchID)}')"`:'';
+  const competition=String(match.Competition||match.CompetitionLabel||'Competition');
+  const region=getMyGamesGroupLabel(match);
+  const score=played?renderScoreText(match):'VS';
+  return `<article class="my-games-planner-row ${played?'is-played':''}" ${click}>
+    <div class="my-games-planner-meta"><span>${escapeHTML(region)}</span><strong>${escapeHTML(competition)}</strong></div>
+    <div class="my-games-planner-match">
+      <div class="my-games-team-name home">${escapeHTML(match.HomeTeam)}</div>
+      <div class="my-games-logo">${renderTeamLogo(match.HomeLogo,match.HomeTeam)}</div>
+      <div class="my-games-score">${score}</div>
+      <div class="my-games-logo">${renderTeamLogo(match.AwayLogo,match.AwayTeam)}</div>
+      <div class="my-games-team-name away">${escapeHTML(match.AwayTeam)}</div>
+    </div>
+    <div class="my-games-planner-status">${played?'Played':'To play'}</div>
+  </article>`;
+}
+
+function isMyGamePlayed(match){
+  if(String(match?.Status||'').toUpperCase()==='FT') return true;
+  const home=String(match?.HomeScore??'').trim();
+  const away=String(match?.AwayScore??'').trim();
+  return /^\d+$/.test(home)&&/^\d+$/.test(away);
+}
+
+function getMyGameIdentity(match){
+  return [getDateKey(match.Date),String(match.Time||'').trim(),normaliseTeamName(match.HomeTeam),normaliseTeamName(match.AwayTeam),normaliseText(match.Competition||match.CompetitionLabel||'')].join('|');
+}
+
+function compareMyGamesPlannerPriority(a,b){
+  const pa=getMyGamesPlannerPriority(a),pb=getMyGamesPlannerPriority(b);
+  return pa-pb||matchDateSortValue(a)-matchDateSortValue(b)||String(a.HomeTeam||'').localeCompare(String(b.HomeTeam||''));
+}
+
+function getMyGamesPlannerPriority(match){
+  const competition=normaliseText(match.Competition||match.CompetitionLabel||match['Competition Name']||'');
+  const category=getCompetitionCategoryKey(match);
+
+  if(competition.includes('champions league')) return 0;
+  if(competition.includes('europa league')) return 1;
+  if(competition.includes('conference league')) return 2;
+  if(category==='europe') return 3;
+  if(category==='national-teams'||category==='world') return 4;
+
+  const countryOrder={france:10,germany:20,spain:30,italy:40,england:50};
+  const base=countryOrder[category];
+  if(base!==undefined) return isDomesticCupCompetition(competition,category)?base:base+5;
+  return 99;
+}
+
+function isDomesticCupCompetition(name,category){
+  const map={
+    france:['coupe de france','trophee des champions','trophée des champions'],
+    germany:['dfb-pokal','dfb pokal','dfl-supercup','dfl supercup'],
+    spain:['copa del rey','supercopa'],
+    italy:['coppa italia','supercoppa','italian super cup'],
+    england:['fa cup','carabao cup','community shield']
+  };
+  return (map[category]||[]).some(word=>name.includes(word));
+}
+
 function renderMyGamesRow(match){ const p=formatScoreboardDateParts(match.Date,match.Time); const score=match.Status==='FT'?renderScoreText(match):'VS'; const click=match.MatchID?`onclick="openMatchDetail('${escapeAttr(match.MatchID)}')"`:''; return `<article class="my-games-match" ${click}><div class="my-games-date"><span>${escapeHTML(p.date)}</span><span>${escapeHTML(p.time)}</span></div><div class="my-games-team-name home">${escapeHTML(match.HomeTeam)}</div><div class="my-games-logo">${renderTeamLogo(match.HomeLogo,match.HomeTeam)}</div><div class="my-games-score">${score}</div><div class="my-games-logo">${renderTeamLogo(match.AwayLogo,match.AwayTeam)}</div><div class="my-games-team-name away">${escapeHTML(match.AwayTeam)}</div><div class="my-games-status">${escapeHTML(match.Status||'Scheduled')}</div></article>`; }
 function renderScoreboard(){ const matches=getFilteredMatches(); if(!matches.length){ setHTML('scoreboardList','<div class="empty">No matches found.</div>'); return; } const round=getNextUpRound(matches); if(!round){ setHTML('scoreboardList','<div class="empty">No matches found.</div>'); return; } const rows=matches.filter(m=>normaliseText(m.Round||'')===normaliseText(round)).sort((a,b)=>matchDateSortValue(a)-matchDateSortValue(b)); const scheduled=rows.some(m=>m.Status!=='FT'); setHTML('scoreboardList',`${scheduled?'':'<div class="season-complete-note">Season completed. Showing the last round played.</div>'}<section class="round-block"><div class="round-heading">${escapeHTML(formatRoundLabel(round))}</div>${rows.map(renderScoreboardRow).join('')}</section>`); }
 function renderScoreboardRow(match){ const p=formatScoreboardDateParts(match.Date,match.Time); const score=match.Status==='FT'?renderScoreText(match):'VS'; const click=match.MatchID?`onclick="openMatchDetail('${escapeAttr(match.MatchID)}')"`:''; return `<article class="scoreboard-row ${match.MatchID?'is-clickable':''}" ${click}><div class="scoreboard-date"><span class="scoreboard-date-main">${escapeHTML(p.date)}</span><span class="scoreboard-time-main">${escapeHTML(p.time)}</span></div><div class="score-team-home-name">${escapeHTML(match.HomeTeam)}</div><div class="score-team-home-logo">${renderTeamLogo(match.HomeLogo,match.HomeTeam)}</div><div class="scoreboard-score">${score}</div><div class="score-team-away-logo">${renderTeamLogo(match.AwayLogo,match.AwayTeam)}</div><div class="score-team-away-name">${escapeHTML(match.AwayTeam)}</div></article>`; }
@@ -765,4 +936,4 @@ function safeScore(v){ return v===''||v===undefined||v===null?'-':v; }
 function formatGoalDifference(v){ const n=Number(v); if(!Number.isFinite(n))return'0'; return n>0?`+${n}`:String(n); }
 function escapeHTML(v){ return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
 function escapeAttr(v){ return escapeHTML(v); }
-window.CALCIUM_SCRIPT_VERSION='7021-standings-logo-fix';
+window.CALCIUM_SCRIPT_VERSION='7050-my-games-planner';

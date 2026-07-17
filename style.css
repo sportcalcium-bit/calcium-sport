@@ -406,3 +406,39 @@
 .penalty-score{font-size:.68em;line-height:1;vertical-align:.12em;font-weight:850;display:inline-block}
 
 .penalty-result-only{margin-top:10px!important;color:var(--text)!important;font-size:18px!important;line-height:1.25;text-transform:none!important;letter-spacing:0!important;max-width:260px}
+
+
+/* Calcium Sport 7050 - My Games weekly planner */
+.my-games-planner-summary{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--line);background:#031f26}
+.my-games-planner-summary div{display:grid;justify-items:center;gap:4px;padding:16px 10px;border-right:1px solid var(--line)}
+.my-games-planner-summary div:last-child{border-right:0}
+.my-games-planner-summary strong{font-size:24px}
+.my-games-planner-summary span{color:var(--muted);font-size:11px;font-weight:950;text-transform:uppercase;letter-spacing:.08em}
+.my-games-day-card{border-top:1px solid var(--line)}
+.my-games-day-card.is-today{box-shadow:inset 4px 0 0 var(--accent)}
+.my-games-day-head{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 22px;background:#001116}
+.my-games-day-head>div:first-child{display:flex;align-items:baseline;gap:10px}
+.my-games-day-name{font-size:20px;font-weight:950;text-transform:uppercase}
+.my-games-day-head strong{color:var(--muted);font-size:13px}
+.my-games-day-counts{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.my-games-day-counts>span{padding:6px 9px;border-radius:999px;background:rgba(255,255,255,.06);color:var(--muted);font-size:11px;font-weight:950;text-transform:uppercase;letter-spacing:.05em}
+.my-games-day-counts .my-games-today-pill{background:rgba(255,19,97,.16);color:#ff76a6;border:1px solid rgba(255,19,97,.28)}
+.my-games-planner-row{display:grid;grid-template-columns:170px minmax(0,1fr) 72px;gap:14px;align-items:center;min-height:78px;padding:11px 22px;border-top:1px solid var(--line);cursor:pointer}
+.my-games-planner-row:hover{background:rgba(255,255,255,.035)}
+.my-games-planner-row.is-played{opacity:.62}
+.my-games-planner-meta{display:grid;gap:3px}
+.my-games-planner-meta span{color:var(--muted);font-size:10px;font-weight:950;letter-spacing:.1em;text-transform:uppercase}
+.my-games-planner-meta strong{font-size:14px}
+.my-games-planner-match{display:grid;grid-template-columns:minmax(120px,1fr) 38px 58px 38px minmax(120px,1fr);align-items:center;gap:8px}
+.my-games-planner-status{justify-self:end;color:var(--muted);font-size:11px;font-weight:950;text-transform:uppercase;letter-spacing:.07em}
+.my-games-planner-row.is-played .my-games-planner-status{color:var(--qualified)}
+.my-games-day-empty{padding:14px 22px}
+@media(max-width:700px){
+  .my-games-planner-summary strong{font-size:20px}
+  .my-games-day-head{align-items:flex-start;padding:14px}
+  .my-games-day-name{font-size:17px}
+  .my-games-planner-row{grid-template-columns:1fr;gap:8px;padding:12px}
+  .my-games-planner-meta{display:flex;align-items:center;gap:8px}
+  .my-games-planner-match{grid-template-columns:minmax(0,1fr) 30px 46px 30px minmax(0,1fr);gap:5px}
+  .my-games-planner-status{justify-self:start}
+}
