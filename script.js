@@ -38,7 +38,7 @@ async function loadCompetition(competitionParam){
   await repairMalformedStandingsFromSheet(appData);
   const selected = appData.selectedCompetition || appData.site || {};
   currentCompetition = makeCompetitionSlug(selected);
-  if(!selectedDateKey) selectedDateKey = getTodayKey();
+  if(!selectedDateKey) selectedDateKey = dateToKey(getMonday(new Date()));
   expandedStats = { topScorers:false, topAssists:false, cleanSheets:false, yellowCards:false, redCards:false };
   populateCompetitionDropdowns();
   populateFilters();
@@ -159,14 +159,14 @@ function renderDateTabs(){
   const container = $('dateTabs');
   if(!container) return;
 
-  const today = new Date();
-  const yesterday = addDays(today,-1);
-  const tomorrow = addDays(today,1);
+  const thisWeek = getMonday(new Date());
+  const lastWeek = addDays(thisWeek,-7);
+  const nextWeek = addDays(thisWeek,7);
 
   const dates = [
-    {key:dateToKey(yesterday),dayLabel:'Yesterday',shortDate:formatShortDateFromDate(yesterday)},
-    {key:dateToKey(today),dayLabel:'Today',shortDate:formatShortDateFromDate(today)},
-    {key:dateToKey(tomorrow),dayLabel:'Tomorrow',shortDate:formatShortDateFromDate(tomorrow)}
+    {key:dateToKey(lastWeek),dayLabel:'Last week',shortDate:getWeekRangeLabel(lastWeek)},
+    {key:dateToKey(thisWeek),dayLabel:'This week',shortDate:getWeekRangeLabel(thisWeek)},
+    {key:dateToKey(nextWeek),dayLabel:'Next week',shortDate:getWeekRangeLabel(nextWeek)}
   ];
 
   const buttons = dates.map(item=>`
@@ -235,15 +235,48 @@ function pickHomeDate(value){
 window.pickHomeDate = pickHomeDate;
 
 function renderHomeGames(){
-  const matches=getGlobalMatches().filter(m=>getDateKey(m.Date)===selectedDateKey).sort(compareHomeMatches);
+  const selected=parseDateOnly(selectedDateKey)||new Date();
+  const weekStart=getMonday(selected), weekEnd=addDays(weekStart,6);
+  const matches=getGlobalMatches().filter(match=>{
+    const date=parseDateOnly(match.Date);
+    return date&&date>=weekStart&&date<=weekEnd;
+  }).sort(compareHomeMatches);
   setText('homeMatchCount', matches.length); setText('homeAllGamesTitle', `All games (${matches.length})`);
-  if(!matches.length){ setHTML('homeGamesList','<div class="empty home-empty">No games scheduled on this date.</div>'); return; }
+  const plan=buildHomeWeeklyPlan(matches,weekStart);
+  setHTML('homeGamesList',`<div class="home-week-planner">${plan.map(renderHomeWeekDay).join('')}</div>`);
+}
+function buildHomeWeeklyPlan(matches,weekStart){
+  const names=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  const days=Array.from({length:7},(_,index)=>{
+    const date=addDays(weekStart,index);
+    return {date,key:dateToKey(date),name:names[index],matches:[]};
+  });
+  const dayLookup=new Map(days.map(day=>[day.key,day]));
+  matches.forEach(match=>dayLookup.get(getDateKey(match.Date))?.matches.push(match));
+  days.forEach(day=>day.matches.sort(compareHomeMatches));
+  return days;
+}
+function renderHomeWeekDay(day){
+  const isToday=day.key===getTodayKey();
+  const count=day.matches.length;
+  const rows=count?renderHomeDayMatches(day.matches):'<div class="empty my-games-day-empty">No games scheduled.</div>';
+  return `<section class="my-games-day-card ${isToday?'is-today':''}">
+    <div class="my-games-day-head">
+      <div><span class="my-games-day-name">${escapeHTML(day.name)}</span><strong>${escapeHTML(formatMyGamesDate(day.date))}</strong></div>
+      <div class="my-games-day-counts">
+        ${isToday?'<span class="my-games-today-pill">Today</span>':''}
+        <span>${count} ${count===1?'game':'games'}</span>
+      </div>
+    </div>
+    <div class="home-week-day-list">${rows}</div>
+  </section>`;
+}
+function renderHomeDayMatches(matches){
   const timeGroups=groupBy(matches, m=>normaliseKickoffTime(m.Time));
-  const html=Object.keys(timeGroups).sort((a,b)=>timeSortValue(a)-timeSortValue(b)).map(time=>{
+  return Object.keys(timeGroups).sort((a,b)=>timeSortValue(a)-timeSortValue(b)).map(time=>{
     const competitionGroups=groupBy(timeGroups[time].sort(compareHomeMatches), m=>m.CompetitionLabel || m.Competition || 'Competition');
     return `<section class="home-time-block"><div class="home-time-heading">${escapeHTML(time||'Scheduled')}</div>${Object.keys(competitionGroups).sort((a,b)=>compareCompetitionNamePriority(a,b,competitionGroups)).map(name=>`<section class="home-competition-block"><div class="home-competition-mini-title"><span>${escapeHTML(getRegionForCompetition(competitionGroups[name][0]))}</span><strong>${escapeHTML(name)}</strong></div>${competitionGroups[name].map(renderHomeMatchRow).join('')}</section>`).join('')}</section>`;
   }).join('');
-  setHTML('homeGamesList', html);
 }
 function renderHomeMatchRow(match){ const score=match.Status==='FT'?renderScoreText(match):'VS'; const click=match.MatchID?`onclick="openMatchDetail('${escapeAttr(match.MatchID)}')"`:''; return `<article class="home-match-row" ${click}><div class="score-team-home-name">${escapeHTML(match.HomeTeam)}</div><div class="score-team-home-logo">${renderTeamLogo(match.HomeLogo,match.HomeTeam)}</div><div class="home-match-score">${score}</div><div class="score-team-away-logo">${renderTeamLogo(match.AwayLogo,match.AwayTeam)}</div><div class="score-team-away-name">${escapeHTML(match.AwayTeam)}</div></article>`; }
 function renderHomeTab(){ const allPanel=$('allGamesPanel'), myPanel=$('myGamesPanel'), jump=$('jumpSelect'); document.querySelectorAll('[data-home-tab]').forEach(b=>b.classList.toggle('active',b.dataset.homeTab===currentHomeTab)); allPanel?.classList.toggle('hidden',currentHomeTab!=='allGames'); myPanel?.classList.toggle('hidden',currentHomeTab!=='myGames'); if(jump&&isHomePage()) jump.value=currentHomeTab==='myGames'?'myGames':'nextUp'; }
