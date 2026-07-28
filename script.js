@@ -450,7 +450,10 @@ function getBalancedMyGamesCounts(total,dayIndices){
   if(!dayIndices.length) return counts;
   const base=Math.floor(total/dayIndices.length), remainder=total%dayIndices.length;
   dayIndices.forEach(index=>counts[index]=base);
-  const extraOrder=dayIndices.filter(index=>index!==5).concat(dayIndices.includes(5)?[5]:[]);
+  // Extra games follow: Friday, Sunday, Monday, Thursday,
+  // Tuesday, Wednesday, Saturday.
+  const extraPriority=[4,6,0,3,1,2,5];
+  const extraOrder=extraPriority.filter(index=>dayIndices.includes(index));
   for(let i=0;i<remainder;i++) counts[extraOrder[i]]=(counts[extraOrder[i]]||0)+1;
   return counts;
 }
