@@ -419,22 +419,51 @@ function buildMyGamesWeeklyPlan(matches,weekStart){
   const today=parseDateOnly(getTodayKey());
   const isCurrentWeek=today&&today>=weekStart&&today<=addDays(weekStart,6);
   const currentDayIndex=isCurrentWeek?Math.floor((today-weekStart)/86400000):-1;
-  const remaining=[];
-
-  matches.forEach(match=>{
-    const originalIndex=original.get(getMyGameIdentity(match))??0;
-    if(isMyGamePlayed(match)) days[originalIndex].completed.push(match);
-    else if(isCurrentWeek) remaining.push(match);
-    else days[originalIndex].scheduled.push(match);
-  });
+  const completed=matches.filter(isMyGamePlayed);
+  const remaining=matches.filter(match=>!isMyGamePlayed(match));
 
   if(isCurrentWeek){
+    /*
+     * Keep completed games inside the elapsed part of the week. Each past day
+     * keeps its normal balanced allowance and any extra games already played
+     * are shown on today, never on a future day.
+     */
+    let completedCursor=0;
+    for(let index=0;index<=currentDayIndex&&completedCursor<completed.length;index++){
+      const available=completed.length-completedCursor;
+      const count=index===currentDayIndex
+        ?available
+        :Math.min(capacities[index]||0,available);
+
+      for(let i=0;i<count;i++,completedCursor++){
+        days[index].completed.push(completed[completedCursor]);
+      }
+    }
+
+    /*
+     * As soon as a result is added for today, rebalance every unplayed game
+     * over the days still ahead. If nothing has been played today yet, today
+     * remains available as part of the balanced plan.
+     */
     const active=[];
-    for(let i=currentDayIndex;i<7;i++) active.push(i);
+    const firstActiveDay=days[currentDayIndex].completed.length
+      ?currentDayIndex+1
+      :currentDayIndex;
+    for(let i=firstActiveDay;i<7;i++) active.push(i);
+
+    // Sunday has no later day in the selected week, so keep any backlog there.
+    if(!active.length&&remaining.length) active.push(currentDayIndex);
+
     const counts=getBalancedMyGamesCounts(remaining.length,active);
     let r=0;
     active.forEach(index=>{
       for(let i=0;i<(counts[index]||0)&&r<remaining.length;i++,r++) days[index].scheduled.push(remaining[r]);
+    });
+  }else{
+    matches.forEach(match=>{
+      const originalIndex=original.get(getMyGameIdentity(match))??0;
+      if(isMyGamePlayed(match)) days[originalIndex].completed.push(match);
+      else days[originalIndex].scheduled.push(match);
     });
   }
 
