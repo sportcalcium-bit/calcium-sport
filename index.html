@@ -7,7 +7,7 @@
   <title>Calcium Sport</title>
   <meta name="description" content="Calcium Sport football results centre" />
   <link rel="preconnect" href="https://script.google.com" />
-  <link rel="stylesheet" href="style.css?v=7056" />
+  <link rel="stylesheet" href="style.css?v=7057" />
 
 
 <style>
@@ -209,7 +209,7 @@
 <div class="match-detail-card team-detail-card"><button class="match-close" type="button" onclick="closeTeamProfile()">×</button><div id="teamDetailContent"></div></div>
 </div>
 <button id="backToTop" class="back-to-top" type="button" aria-label="Back to top">↑</button>
-  <script src="script.js?v=7056"></script>
+  <script src="script.js?v=7057"></script>
 
 
 <script>
@@ -236,91 +236,6 @@
         .concat(Array.isArray(appData?.myGames) ? appData.myGames : [])
     );
   }
-
-
-  window.openPlayerProfile = function(playerName, event){
-    event?.stopPropagation?.();
-    const name = String(playerName || '').trim();
-    const modal = $('playerModal');
-    const content = $('playerDetailContent');
-    if(!modal || !content) return;
-
-
-    const render = (wantedSeason) => {
-      const assignments = playerTeamsLookup.get(normalisePlayerName(name)) || [];
-      const matchesAll = allKnownMatches()
-        .filter(trulyPlayed)
-        .filter(match => assignments.some(item => assignmentIncludesMatch(item, match)))
-        .map(match => ({match, stats:getPlayerMatchStats(match, name)}))
-        .sort((a,b) => matchDateSortValue(b.match) - matchDateSortValue(a.match));
-
-
-      const current = String(currentSeasonYear());
-      const seasons = [...new Set(matchesAll.map(x => String(seasonYearFromDate(x.match.Date))).filter(Boolean))];
-      if(!seasons.includes(current)) seasons.push(current);
-      seasons.sort((a,b) => Number(b) - Number(a));
-
-
-      const selected = seasons.includes(String(wantedSeason)) ? String(wantedSeason) : current;
-      const matches = matchesAll.filter(x => String(seasonYearFromDate(x.match.Date)) === selected);
-
-
-      const totals = matches.reduce((s,x) => {
-        s.goals += x.stats.goals;
-        s.assists += x.stats.assists;
-        s.yellow += x.stats.yellow;
-        s.red += x.stats.red;
-        return s;
-      }, {goals:0, assists:0, yellow:0, red:0});
-
-
-      const national = assignments.find(x => normaliseText(x.teamType) === 'national team');
-      const clubs = assignments.filter(x => normaliseText(x.teamType) === 'club');
-      const teams = assignments.length
-        ? assignments.map(renderPlayerTeamAssignment).join('')
-        : '<div class="empty">Team information has not been added yet.</div>';
-      const rows = matches.length
-        ? matches.map(renderPlayerMatchRow).join('')
-        : '<div class="empty">No played games are available for this player in this season.</div>';
-      const options = seasons.map(y =>
-        `<option value="${escapeAttr(y)}" ${y===selected?'selected':''}>${escapeHTML(y)}</option>`
-      ).join('');
-
-
-      content.innerHTML =
-        `<section class="player-profile-hero">
-          <div class="player-profile-photo">${renderPlayerImage(name)}</div>
-          <div class="player-profile-copy">
-            <div class="eyebrow">Player profile</div>
-            <h2>${escapeHTML(name)}</h2>
-            ${national ? `<p>🌍 ${escapeHTML(national.team)}</p>` : ''}
-            ${clubs.length ? `<p>${clubs.map(x=>escapeHTML(x.team)).join(' · ')}</p>` : ''}
-          </div>
-          <label class="profile-season-select">
-            <span>Season</span>
-            <select id="hardPlayerSeasonSelect">${options}</select>
-          </label>
-        </section>
-        <section class="player-summary-grid">
-          <div><strong>${matches.length}</strong><span>Games</span></div>
-          <div><strong>${totals.goals}</strong><span>Goals</span></div>
-          <div><strong>${totals.assists}</strong><span>Assists</span></div>
-          <div><strong>${totals.yellow}</strong><span>Yellow</span></div>
-          <div><strong>${totals.red}</strong><span>Red</span></div>
-        </section>
-        <section class="player-teams-section"><h3>Teams</h3>${teams}</section>
-        <section class="player-matches-section"><h3>Played games · ${escapeHTML(selected)}</h3>${rows}</section>`;
-
-
-      $('hardPlayerSeasonSelect')?.addEventListener('change', e => render(e.target.value));
-    };
-
-
-    render(currentSeasonYear());
-    modal.classList.remove('hidden');
-    document.body.classList.add('modal-open');
-  };
-
 
   function buildSearchData(){
     const players = [], teams = [], seenPlayers = new Set(), seenTeams = new Set();
@@ -620,74 +535,6 @@
 </script>
 
 
-
-
-<script>
-/* Calcium Sport hard override 7034: infer player teams from match events */
-(function(){
-  function inferPlayerTeams(playerName){
-    const key=normalisePlayerName(playerName), out=new Map();
-    const add=team=>{team=String(team||'').trim(); if(team) out.set(normaliseTeamName(team),{playerName,team,teamType:'',startDate:'',endDate:'',includeGames:'Yes'});};
-    dedupeMatchArray(getGlobalMatches().concat(getCompetitionMatches()).concat(appData?.myGames||[])).forEach(match=>{
-      getMatchEvents(match.MatchID||match.ID).forEach(ev=>{
-        const assist=String(ev.Detail||'').match(/(?:^|,\s*)Assist:\s*(.+)$/i)?.[1]?.trim();
-        if(normalisePlayerName(ev.Player)===key || (assist&&normalisePlayerName(assist)===key)) add(ev.Team);
-      });
-    });
-    return [...out.values()];
-  }
-
-
-  window.openPlayerProfile=function(playerName,event){
-    event?.stopPropagation?.();
-    const name=String(playerName||'').trim(), modal=$('playerModal'), content=$('playerDetailContent');
-    if(!modal||!content) return;
-
-
-    const render=seasonWanted=>{
-      const stored=playerTeamsLookup.get(normalisePlayerName(name))||[];
-      const merged=new Map();
-      [...stored,...inferPlayerTeams(name)].forEach(x=>{const k=normaliseTeamName(x.team); if(k&&!merged.has(k)) merged.set(k,x);});
-      const assignments=[...merged.values()];
-
-
-      const all=dedupeMatchArray(getGlobalMatches().concat(getCompetitionMatches()).concat(appData?.myGames||[]))
-        .filter(m=>{
-          const played=String(m?.Status||'').toUpperCase()==='FT'||(/^\d+$/.test(String(m?.HomeScore??'').trim())&&/^\d+$/.test(String(m?.AwayScore??'').trim()));
-          if(!played) return false;
-          if(assignments.some(a=>assignmentIncludesMatch(a,m))) return true;
-          const s=getPlayerMatchStats(m,name);
-          return s.goals||s.assists||s.yellow||s.red||normalisePlayerName(getMatchMOTM(m))===normalisePlayerName(name);
-        })
-        .map(match=>({match,stats:getPlayerMatchStats(match,name)}))
-        .sort((a,b)=>matchDateSortValue(b.match)-matchDateSortValue(a.match));
-
-
-      const seasonOf=v=>{const d=parseDateOnly(v); return d?String(d.getMonth()>=7?d.getFullYear()+1:d.getFullYear()):'';};
-      const now=new Date(), current=String(now.getMonth()>=7?now.getFullYear()+1:now.getFullYear());
-      const seasons=[...new Set(all.map(x=>seasonOf(x.match.Date)).filter(Boolean))];
-      if(!seasons.includes(current)) seasons.push(current);
-      seasons.sort((a,b)=>Number(b)-Number(a));
-      const selected=seasons.includes(String(seasonWanted))?String(seasonWanted):current;
-      const matches=all.filter(x=>seasonOf(x.match.Date)===selected);
-
-
-      const totals=matches.reduce((s,x)=>{s.goals+=x.stats.goals;s.assists+=x.stats.assists;s.yellow+=x.stats.yellow;s.red+=x.stats.red;return s;},{goals:0,assists:0,yellow:0,red:0});
-      const options=seasons.map(y=>`<option value="${escapeAttr(y)}" ${y===selected?'selected':''}>${escapeHTML(y)}</option>`).join('');
-      const teams=assignments.length?assignments.map(renderPlayerTeamAssignment).join(''):'<div class="empty">No team information could be inferred yet.</div>';
-      const rows=matches.length?matches.map(renderPlayerMatchRow).join(''):'<div class="empty">No played games are available for this player in this season.</div>';
-
-
-      content.innerHTML=`<section class="player-profile-hero"><div class="player-profile-photo">${renderPlayerImage(name)}</div><div class="player-profile-copy"><div class="eyebrow">Player profile</div><h2>${escapeHTML(name)}</h2></div><label class="profile-season-select"><span>Season</span><select id="playerSeason7034">${options}</select></label></section><section class="player-summary-grid"><div><strong>${matches.length}</strong><span>Games</span></div><div><strong>${totals.goals}</strong><span>Goals</span></div><div><strong>${totals.assists}</strong><span>Assists</span></div><div><strong>${totals.yellow}</strong><span>Yellow</span></div><div><strong>${totals.red}</strong><span>Red</span></div></section><section class="player-teams-section"><h3>Teams</h3>${teams}</section><section class="player-matches-section"><h3>Played games · ${escapeHTML(selected)}</h3>${rows}</section>`;
-      $('playerSeason7034')?.addEventListener('change',e=>render(e.target.value));
-    };
-
-
-    const now=new Date(); render(now.getMonth()>=7?now.getFullYear()+1:now.getFullYear());
-    modal.classList.remove('hidden'); document.body.classList.add('modal-open');
-  };
-})();
-</script>
 
 
 </body>
