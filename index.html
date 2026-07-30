@@ -13,7 +13,7 @@
 <style>
 .team-profile-controls{
   display:grid;
-  grid-template-columns:repeat(2,minmax(0,220px));
+  grid-template-columns:minmax(0,220px);
   gap:14px;
   padding:18px 22px;
   border-bottom:1px solid var(--line);
@@ -28,8 +28,14 @@
   text-transform:uppercase;
 }
 .team-profile-controls select{width:100%;min-width:0}
+.team-profile-identity{display:flex;align-items:center;gap:20px;min-width:0}
+.team-profile-manager{margin-left:auto;display:grid;gap:6px;text-align:right}
+.team-profile-manager span{color:var(--muted);font-size:11px;font-weight:950;letter-spacing:.1em;text-transform:uppercase}
+.team-profile-manager strong{font-size:18px;line-height:1.25}
 @media(max-width:700px){
-  .team-profile-controls{grid-template-columns:1fr 1fr;padding:14px}
+  .team-profile-controls{grid-template-columns:1fr;padding:14px}
+  .team-profile-manager{max-width:45%}
+  .team-profile-manager strong{font-size:15px}
 }
 </style>
 
@@ -383,37 +389,50 @@
 
 
 <script>
-/* Calcium Sport hard override 7033: team profile view + season dropdowns */
+/* Calcium Sport team profile 7058: manager, season-only controls, newest games first */
 (function(){
+  const TEAM_MANAGERS_SPREADSHEET_ID = '1Ggp732lJtVucm1mxREgjuq0xiKpAUK0BTUIPEDCkO_g';
+  let teamManagerLookupPromise = null;
+
   function teamCurrentSeasonYear(){
     const d = new Date();
     return d.getMonth() >= 7 ? d.getFullYear() + 1 : d.getFullYear();
   }
-
 
   function teamSeasonYearFromDate(value){
     const d = parseDateOnly(value);
     return d ? (d.getMonth() >= 7 ? d.getFullYear() + 1 : d.getFullYear()) : '';
   }
 
+  function loadTeamManagerLookup(){
+    if(teamManagerLookupPromise) return teamManagerLookupPromise;
 
-  function teamSeasonBounds(seasonYear){
-    const y = Number(seasonYear);
-    return { start: `${y-1}-08-01`, end: `${y}-07-31` };
+    teamManagerLookupPromise = loadGoogleVisualizationTable(TEAM_MANAGERS_SPREADSHEET_ID, 'Managers')
+      .then(table => {
+        const columns = (table?.cols || []).map(col =>
+          normaliseText(col?.label || col?.id || '')
+        );
+        const managerColumn = columns.indexOf('name') >= 0 ? columns.indexOf('name') : 1;
+        const teamColumn = columns.indexOf('team') >= 0 ? columns.indexOf('team') : 2;
+        const lookup = new Map();
+
+        (table?.rows || []).forEach(row => {
+          const cells = row?.c || [];
+          const manager = String(cells[managerColumn]?.f ?? cells[managerColumn]?.v ?? '').trim();
+          const team = String(cells[teamColumn]?.f ?? cells[teamColumn]?.v ?? '').trim();
+          const teamKey = normaliseTeamName(team);
+          if(manager && teamKey && !lookup.has(teamKey)) lookup.set(teamKey, manager);
+        });
+
+        return lookup;
+      })
+      .catch(error => {
+        console.warn('Could not load team managers.', error);
+        return new Map();
+      });
+
+    return teamManagerLookupPromise;
   }
-
-
-  function assignmentActiveInSeason(row, seasonYear){
-    const bounds = teamSeasonBounds(seasonYear);
-    const start = String(row?.['Start Date'] ?? row?.StartDate ?? row?.[3] ?? '').trim();
-    const end = String(row?.['End Date'] ?? row?.EndDate ?? row?.[4] ?? '').trim();
-    const startKey = start ? getDateKey(start) : '';
-    const endKey = end ? getDateKey(end) : '';
-    if(startKey && startKey > bounds.end) return false;
-    if(endKey && endKey < bounds.start) return false;
-    return true;
-  }
-
 
   window.openTeamProfile = function(teamName){
     const name = String(teamName || '').trim();
@@ -422,114 +441,88 @@
     const content = $('teamDetailContent');
     if(!modal || !content) return;
 
-
     const allMatches = dedupeMatchArray(
       getGlobalMatches()
         .concat(getCompetitionMatches())
         .concat(Array.isArray(appData?.myGames) ? appData.myGames : [])
-    ).filter(m => {
-      const played = String(m?.Status || '').toUpperCase() === 'FT' ||
-        (/^\d+$/.test(String(m?.HomeScore ?? '').trim()) && /^\d+$/.test(String(m?.AwayScore ?? '').trim()));
-      return played && (normaliseTeamName(m.HomeTeam) === key || normaliseTeamName(m.AwayTeam) === key);
+    ).filter(match => {
+      const played = String(match?.Status || '').toUpperCase() === 'FT' ||
+        (/^\d+$/.test(String(match?.HomeScore ?? '').trim()) &&
+         /^\d+$/.test(String(match?.AwayScore ?? '').trim()));
+      return played &&
+        (normaliseTeamName(match.HomeTeam) === key || normaliseTeamName(match.AwayTeam) === key);
     });
 
-
     const currentSeason = String(teamCurrentSeasonYear());
-    const seasons = [...new Set(allMatches.map(m => String(teamSeasonYearFromDate(m.Date))).filter(Boolean))];
+    const seasons = [...new Set(
+      allMatches.map(match => String(teamSeasonYearFromDate(match.Date))).filter(Boolean)
+    )];
     if(!seasons.includes(currentSeason)) seasons.push(currentSeason);
     seasons.sort((a,b) => Number(b) - Number(a));
 
-
     let selectedSeason = currentSeason;
-    let selectedView = 'games';
-
+    let managerName = '';
+    let managerLoaded = false;
 
     const render = () => {
       const seasonMatches = allMatches
-        .filter(m => String(teamSeasonYearFromDate(m.Date)) === selectedSeason)
-        .sort((a,b) => matchDateSortValue(a) - matchDateSortValue(b));
+        .filter(match => String(teamSeasonYearFromDate(match.Date)) === selectedSeason)
+        .sort((a,b) => matchDateSortValue(b) - matchDateSortValue(a));
 
-
-      const seen = new Set();
-      const squad = [];
-      (appData?.playerTeams || []).forEach(row => {
-        const team = String(row?.Team ?? row?.[1] ?? '').trim();
-        const player = String(row?.['Player Name'] ?? row?.Player ?? row?.[0] ?? '').trim();
-        if(!player || normaliseTeamName(team) !== key || !assignmentActiveInSeason(row, selectedSeason)) return;
-        const pk = normalisePlayerName(player);
-        if(seen.has(pk)) return;
-        seen.add(pk);
-        squad.push(player);
-      });
-
-
-      const seasonOptions = seasons.map(y =>
-        `<option value="${escapeAttr(y)}" ${y===selectedSeason?'selected':''}>${escapeHTML(y)}</option>`
+      const seasonOptions = seasons.map(year =>
+        `<option value="${escapeAttr(year)}" ${year===selectedSeason?'selected':''}>${escapeHTML(year)}</option>`
       ).join('');
 
-
       const gamesHtml = seasonMatches.length
-        ? seasonMatches.map(m =>
-            `<button class="team-profile-match" type="button" ${m.MatchID?`onclick="closeTeamProfile();openMatchDetail('${escapeAttr(m.MatchID)}')"`:''}>
-              <span>${escapeHTML(formatScoreboardDateParts(m.Date,m.Time).date)}</span>
+        ? seasonMatches.map(match =>
+            `<button class="team-profile-match" type="button" ${match.MatchID?`onclick="closeTeamProfile();openMatchDetail('${escapeAttr(match.MatchID)}')"`:''}>
+              <span>${escapeHTML(formatScoreboardDateParts(match.Date,match.Time).date)}</span>
               <span>
-                <strong>${escapeHTML(m.HomeTeam)} ${escapeHTML(renderScoreText(m))} ${escapeHTML(m.AwayTeam)}</strong>
-                <small>${escapeHTML(m.Competition || m['Competition Name'] || 'Competition')}</small>
+                <strong>${escapeHTML(match.HomeTeam)} ${escapeHTML(renderScoreText(match))} ${escapeHTML(match.AwayTeam)}</strong>
+                <small>${escapeHTML(match.Competition || match['Competition Name'] || 'Competition')}</small>
               </span>
             </button>`
           ).join('')
         : '<div class="empty">No played games found for this season.</div>';
 
-
-      const squadHtml = squad.length
-        ? squad.sort((a,b)=>a.localeCompare(b)).map(p =>
-            `<button class="team-squad-player" type="button" onclick="closeTeamProfile();openPlayerProfile('${escapeAttr(p)}')">
-              ${renderPlayerImage(p)}<strong>${escapeHTML(p)}</strong>
-            </button>`
-          ).join('')
-        : '<div class="empty">No squad players found for this season.</div>';
-
+      const managerLabel = managerLoaded ? (managerName || 'Not listed') : 'Loading…';
 
       content.innerHTML =
         `<section class="team-profile-hero">
-          ${renderTeamLogo(findTeamLogo(name),name)}
-          <div><div class="eyebrow">Team profile</div><h2>${escapeHTML(name)}</h2></div>
+          <div class="team-profile-identity">
+            ${renderTeamLogo(findTeamLogo(name),name)}
+            <div><div class="eyebrow">Team profile</div><h2>${escapeHTML(name)}</h2></div>
+          </div>
+          <div class="team-profile-manager">
+            <span>Manager</span>
+            <strong>${escapeHTML(managerLabel)}</strong>
+          </div>
         </section>
         <section class="team-profile-controls">
-          <label><span>View</span>
-            <select id="teamProfileViewSelect">
-              <option value="games" ${selectedView==='games'?'selected':''}>Games</option>
-              <option value="squad" ${selectedView==='squad'?'selected':''}>Squad</option>
-            </select>
-          </label>
           <label><span>Season</span>
             <select id="teamProfileSeasonSelect">${seasonOptions}</select>
           </label>
         </section>
-        <section class="team-profile-section ${selectedView==='games'?'':'hidden'}">
-          <h3>Played games · ${escapeHTML(selectedSeason)}</h3>${gamesHtml}
-        </section>
-        <section class="team-profile-section ${selectedView==='squad'?'':'hidden'}">
-          <h3>Squad · ${escapeHTML(selectedSeason)}</h3><div class="team-squad-grid">${squadHtml}</div>
+        <section class="team-profile-section">
+          <h3>Played games · ${escapeHTML(selectedSeason)}</h3>
+          ${gamesHtml}
         </section>`;
 
-
-      $('teamProfileViewSelect')?.addEventListener('change', e => {
-        selectedView = e.target.value || 'games';
-        render();
-      });
-
-
-      $('teamProfileSeasonSelect')?.addEventListener('change', e => {
-        selectedSeason = e.target.value || currentSeason;
+      $('teamProfileSeasonSelect')?.addEventListener('change', event => {
+        selectedSeason = event.target.value || currentSeason;
         render();
       });
     };
 
-
     render();
     modal.classList.remove('hidden');
     document.body.classList.add('modal-open');
+
+    loadTeamManagerLookup().then(lookup => {
+      managerName = lookup.get(key) || '';
+      managerLoaded = true;
+      render();
+    });
   };
 })();
 </script>
