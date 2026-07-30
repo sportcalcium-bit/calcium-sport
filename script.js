@@ -16,6 +16,7 @@ let homeCompetitionRefreshCursor = 0;
 const HOME_REFRESH_INTERVAL_MS = 12000;
 const HOME_REFRESH_BATCH_SIZE = 6;
 const RESULT_CHRONOLOGY_STORAGE_KEY = 'calcium.resultChronology.v1';
+const MY_GAMES_PLANNER_STORAGE_KEY = 'calcium.myGamesPlanner.v1';
 let expandedStats = { topScorers:false, topAssists:false, cleanSheets:false, yellowCards:false, redCards:false };
 const $ = id => document.getElementById(id);
 
@@ -443,27 +444,65 @@ function buildMyGamesWeeklyPlan(matches,weekStart){
   const remaining=matches.filter(match=>!isMyGamePlayed(match));
 
   if(isCurrentWeek){
-    /*
-     * Keep completed games inside the elapsed part of the week. Each past day
-     * keeps its normal balanced allowance and any extra games already played
-     * are shown on today, never on a future day.
-     */
-    let completedCursor=0;
-    for(let index=0;index<=currentDayIndex&&completedCursor<completed.length;index++){
-      const available=completed.length-completedCursor;
-      const count=index===currentDayIndex
-        ?available
-        :Math.min(capacities[index]||0,available);
+    const plannerState=readMyGamesPlannerState();
+    const weekKey=dateToKey(weekStart);
+    const todayKey=getTodayKey();
+    const savedWeek=plannerState[weekKey]&&typeof plannerState[weekKey]==='object'
+      ?plannerState[weekKey]
+      :null;
+    const playedDays={...(savedWeek?.playedDays||{})};
+    const completedKeys=new Set(completed.map(getMyGamesPlannerMatchKey));
 
-      for(let i=0;i<count;i++,completedCursor++){
-        days[index].completed.push(completed[completedCursor]);
+    Object.keys(playedDays).forEach(key=>{
+      const index=Number(playedDays[key]);
+      if(!completedKeys.has(key)||!Number.isInteger(index)||index<0||index>currentDayIndex){
+        delete playedDays[key];
       }
+    });
+
+    const unassigned=completed.filter(match=>playedDays[getMyGamesPlannerMatchKey(match)]===undefined);
+
+    if(!savedWeek){
+      /*
+       * On the first visit, every result already present belongs to the
+       * elapsed part of the week. This keeps today available for unplayed
+       * games instead of falsely treating overflow results as played today.
+       */
+      const elapsed=[];
+      for(let index=0;index<currentDayIndex;index++) elapsed.push(index);
+      if(!elapsed.length&&unassigned.length) elapsed.push(currentDayIndex);
+      const counts=getBalancedMyGamesCounts(unassigned.length,elapsed);
+      let completedCursor=0;
+      elapsed.forEach(index=>{
+        for(let i=0;i<(counts[index]||0)&&completedCursor<unassigned.length;i++,completedCursor++){
+          playedDays[getMyGamesPlannerMatchKey(unassigned[completedCursor])]=index;
+        }
+      });
+    }else{
+      /*
+       * Results first seen later on the same day were played today. Results
+       * first seen after the date changed belong to the most recent elapsed
+       * day, because the planner was not open when they were entered.
+       */
+      const targetIndex=savedWeek.lastSeenDate===todayKey
+        ?currentDayIndex
+        :Math.max(0,currentDayIndex-1);
+      unassigned.forEach(match=>{
+        playedDays[getMyGamesPlannerMatchKey(match)]=targetIndex;
+      });
     }
 
+    completed.forEach(match=>{
+      const index=playedDays[getMyGamesPlannerMatchKey(match)];
+      days[Number.isInteger(index)?index:Math.max(0,currentDayIndex-1)].completed.push(match);
+    });
+
+    plannerState[weekKey]={lastSeenDate:todayKey,playedDays};
+    writeMyGamesPlannerState(plannerState);
+
     /*
-     * As soon as a result is added for today, rebalance every unplayed game
-     * over the days still ahead. If nothing has been played today yet, today
-     * remains available as part of the balanced plan.
+     * Today remains available until a new result is detected today. After a
+     * game is played today, rebalance every unplayed game over later days.
      */
     const active=[];
     const firstActiveDay=days[currentDayIndex].completed.length
@@ -492,6 +531,29 @@ function buildMyGamesWeeklyPlan(matches,weekStart){
     day.scheduled.sort(compareMyGamesPlannerPriority);
   });
   return days;
+}
+
+function getMyGamesPlannerMatchKey(match){
+  const stableId=String(match?.MatchID||match?.ID||'').trim();
+  return stableId?`id:${stableId}`:`match:${getMyGameIdentity(match)}`;
+}
+
+function readMyGamesPlannerState(){
+  try{
+    const saved=JSON.parse(window.localStorage.getItem(MY_GAMES_PLANNER_STORAGE_KEY)||'{}');
+    return saved&&typeof saved==='object'&&!Array.isArray(saved)?saved:{};
+  }catch(error){
+    console.warn('Could not read My Games planner history.',error);
+    return {};
+  }
+}
+
+function writeMyGamesPlannerState(state){
+  try{
+    window.localStorage.setItem(MY_GAMES_PLANNER_STORAGE_KEY,JSON.stringify(state));
+  }catch(error){
+    console.warn('Could not save My Games planner history.',error);
+  }
 }
 
 function getBalancedMyGamesCounts(total,dayIndices){
