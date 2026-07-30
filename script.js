@@ -12,7 +12,9 @@ let currentRound = '';
 let selectedDateKey = '';
 let currentHomeTab = 'allGames';
 let homeRefreshInFlight = false;
-const HOME_REFRESH_INTERVAL_MS = 45000;
+let homeCompetitionRefreshCursor = 0;
+const HOME_REFRESH_INTERVAL_MS = 12000;
+const HOME_REFRESH_BATCH_SIZE = 6;
 const RESULT_CHRONOLOGY_STORAGE_KEY = 'calcium.resultChronology.v1';
 let expandedStats = { topScorers:false, topAssists:false, cleanSheets:false, yellowCards:false, redCards:false };
 const $ = id => document.getElementById(id);
@@ -62,6 +64,10 @@ function bindEvents(){
     if(event.target.closest('[data-home-tab]')){ currentHomeTab = event.target.closest('[data-home-tab]').dataset.homeTab || 'allGames'; renderHomeTab(); }
     const nav = $('competitionCategoryNav'); if(nav && !nav.contains(event.target)) nav.querySelectorAll('.category-menu').forEach(menu=>menu.classList.remove('open'));
   });
+  document.addEventListener('visibilitychange', () => {
+    if(!document.hidden) refreshHomeLiveData();
+  });
+  window.addEventListener('focus', refreshHomeLiveData);
 }
 
 function setLoadingState(){
@@ -221,6 +227,8 @@ function selectDateTab(key){
   renderHomeGames();
   renderMyGames();
   renderHomeTab();
+  homeCompetitionRefreshCursor = 0;
+  refreshHomeLiveData();
 }
 window.selectDateTab = selectDateTab;
 
@@ -234,6 +242,8 @@ function pickHomeDate(value){
   renderHomeGames();
   renderMyGames();
   renderHomeTab();
+  homeCompetitionRefreshCursor = 0;
+  refreshHomeLiveData();
 }
 window.pickHomeDate = pickHomeDate;
 
@@ -368,8 +378,15 @@ function enrichHomeMyGamesFromCompetitionDetails(){
     const date=parseDateOnly(match.Date);
     return date&&date>=weekStart&&date<=weekEnd;
   });
-  const slugs=[...new Set(weekly.map(resolveMatchCompetitionSlug).filter(Boolean))].slice(0,8);
-  if(!slugs.length) return Promise.resolve(false);
+  const allSlugs=[...new Set(weekly.map(resolveMatchCompetitionSlug).filter(Boolean))];
+  if(!allSlugs.length) return Promise.resolve(false);
+
+  const batchSize=Math.min(HOME_REFRESH_BATCH_SIZE,allSlugs.length);
+  const slugs=Array.from(
+    {length:batchSize},
+    (_,offset)=>allSlugs[(homeCompetitionRefreshCursor+offset)%allSlugs.length]
+  );
+  homeCompetitionRefreshCursor=(homeCompetitionRefreshCursor+batchSize)%allSlugs.length;
 
   return Promise.all(slugs.map(async slug=>{
     try{
