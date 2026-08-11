@@ -13,10 +13,11 @@ let selectedDateKey = '';
 let currentHomeTab = 'allGames';
 let homeRefreshInFlight = false;
 let homeCompetitionRefreshCursor = 0;
+let myGamesDailyTimer = null;
 const HOME_REFRESH_INTERVAL_MS = 12000;
 const HOME_REFRESH_BATCH_SIZE = 6;
 const RESULT_CHRONOLOGY_STORAGE_KEY = 'calcium.resultChronology.v1';
-const MY_GAMES_PLANNER_STORAGE_KEY = 'calcium.myGamesPlanner.v1';
+const MY_GAMES_PLANNER_STORAGE_KEY = 'calcium.myGamesPlanner.v2';
 let expandedStats = { topScorers:false, topAssists:false, cleanSheets:false, yellowCards:false, redCards:false };
 const $ = id => document.getElementById(id);
 
@@ -27,7 +28,10 @@ async function init(){
   bindEvents();
   try{
     await loadCompetition(currentCompetition);
-    if(isHomePage()) window.setInterval(refreshHomeLiveData,HOME_REFRESH_INTERVAL_MS);
+    if(isHomePage()){
+      window.setInterval(refreshHomeLiveData,HOME_REFRESH_INTERVAL_MS);
+      scheduleMyGamesDailyRedistribution();
+    }
   }
   catch(error){ console.error(error); showError('Could not load competition data. Please check the Apps Script backend.'); }
 }
@@ -66,9 +70,15 @@ function bindEvents(){
     const nav = $('competitionCategoryNav'); if(nav && !nav.contains(event.target)) nav.querySelectorAll('.category-menu').forEach(menu=>menu.classList.remove('open'));
   });
   document.addEventListener('visibilitychange', () => {
-    if(!document.hidden) refreshHomeLiveData();
+    if(!document.hidden){
+      refreshMyGamesDailyPlanIfNeeded();
+      refreshHomeLiveData();
+    }
   });
-  window.addEventListener('focus', refreshHomeLiveData);
+  window.addEventListener('focus', () => {
+    refreshMyGamesDailyPlanIfNeeded();
+    refreshHomeLiveData();
+  });
 }
 
 function setLoadingState(){
@@ -309,7 +319,7 @@ function renderMyGames(){
     if(!d) return false;
     const cd=new Date(d.getFullYear(),d.getMonth(),d.getDate());
     return cd>=weekStart&&cd<=weekEnd;
-  }).sort(compareMyGamesPlannerPriority);
+  }).sort(compareMyGamesChronology);
 
   setText('myGamesTitle',getSeasonWeekLabel(selected));
   setText('myGamesSubtitle',getWeekRangeLabel(selected));
@@ -346,6 +356,41 @@ function refreshHomeLiveData(){
     })
     .catch(error=>console.warn('Could not refresh current Home/My Games results.',error))
     .finally(()=>{ homeRefreshInFlight=false; });
+}
+
+function scheduleMyGamesDailyRedistribution(){
+  if(myGamesDailyTimer) window.clearTimeout(myGamesDailyTimer);
+  if(!isHomePage()) return;
+  const now=new Date();
+  const nextRun=new Date(now);
+  nextRun.setDate(now.getDate()+1);
+  nextRun.setHours(0,1,0,0);
+  myGamesDailyTimer=window.setTimeout(()=>{
+    advanceMyGamesSelectedWeek();
+    renderAll();
+    scheduleMyGamesDailyRedistribution();
+  },Math.max(1000,nextRun.getTime()-now.getTime()));
+}
+
+function advanceMyGamesSelectedWeek(){
+  const selected=parseDateOnly(selectedDateKey);
+  if(!selected) return;
+  const yesterday=addDays(new Date(),-1);
+  if(dateToKey(getMonday(selected))===dateToKey(getMonday(yesterday))){
+    selectedDateKey=dateToKey(getMonday(new Date()));
+  }
+}
+
+function refreshMyGamesDailyPlanIfNeeded(){
+  if(!isHomePage()||!appData) return;
+  const selected=parseDateOnly(selectedDateKey);
+  if(!selected) return;
+  const weekKey=dateToKey(getMonday(selected));
+  if(weekKey!==dateToKey(getMonday(new Date()))) return;
+  const state=readMyGamesPlannerState();
+  if(state[weekKey]?.planDate===getTodayKey()) return;
+  advanceMyGamesSelectedWeek();
+  renderAll();
 }
 
 function sameMatchIgnoringTime_(left,right){
@@ -426,22 +471,23 @@ function buildMyGamesWeeklyPlan(matches,weekStart){
     index,date:addDays(weekStart,index),key:dateToKey(addDays(weekStart,index)),
     name:names[index],completed:[],scheduled:[]
   }));
+  const orderedMatches=[...matches].sort(compareMyGamesChronology);
 
-  const capacities=getBalancedMyGamesCounts(matches.length,[0,1,2,3,4,5,6]);
+  const capacities=getBalancedMyGamesCounts(orderedMatches.length,[0,1,2,3,4,5,6]);
   let cursor=0;
   const original=new Map();
 
   days.forEach((day,index)=>{
-    for(let i=0;i<(capacities[index]||0)&&cursor<matches.length;i++,cursor++){
-      original.set(getMyGameIdentity(matches[cursor]),index);
+    for(let i=0;i<(capacities[index]||0)&&cursor<orderedMatches.length;i++,cursor++){
+      original.set(getMyGameIdentity(orderedMatches[cursor]),index);
     }
   });
 
   const today=parseDateOnly(getTodayKey());
   const isCurrentWeek=today&&today>=weekStart&&today<=addDays(weekStart,6);
   const currentDayIndex=isCurrentWeek?Math.floor((today-weekStart)/86400000):-1;
-  const completed=matches.filter(isMyGamePlayed);
-  const remaining=matches.filter(match=>!isMyGamePlayed(match));
+  const completed=orderedMatches.filter(isMyGamePlayed);
+  const remaining=orderedMatches.filter(match=>!isMyGamePlayed(match));
 
   if(isCurrentWeek){
     const plannerState=readMyGamesPlannerState();
@@ -451,6 +497,7 @@ function buildMyGamesWeeklyPlan(matches,weekStart){
       ?plannerState[weekKey]
       :null;
     const playedDays={...(savedWeek?.playedDays||{})};
+    let scheduledDays={...(savedWeek?.scheduledDays||{})};
     const completedKeys=new Set(completed.map(getMyGamesPlannerMatchKey));
 
     Object.keys(playedDays).forEach(key=>{
@@ -463,11 +510,6 @@ function buildMyGamesWeeklyPlan(matches,weekStart){
     const unassigned=completed.filter(match=>playedDays[getMyGamesPlannerMatchKey(match)]===undefined);
 
     if(!savedWeek){
-      /*
-       * On the first visit, every result already present belongs to the
-       * elapsed part of the week. This keeps today available for unplayed
-       * games instead of falsely treating overflow results as played today.
-       */
       const elapsed=[];
       for(let index=0;index<currentDayIndex;index++) elapsed.push(index);
       if(!elapsed.length&&unassigned.length) elapsed.push(currentDayIndex);
@@ -479,16 +521,15 @@ function buildMyGamesWeeklyPlan(matches,weekStart){
         }
       });
     }else{
-      /*
-       * Results first seen later on the same day were played today. Results
-       * first seen after the date changed belong to the most recent elapsed
-       * day, because the planner was not open when they were entered.
-       */
-      const targetIndex=savedWeek.lastSeenDate===todayKey
-        ?currentDayIndex
-        :Math.max(0,currentDayIndex-1);
       unassigned.forEach(match=>{
-        playedDays[getMyGamesPlannerMatchKey(match)]=targetIndex;
+        const key=getMyGamesPlannerMatchKey(match);
+        const previousScheduledIndex=Number(savedWeek.scheduledDays?.[key]);
+        const wasScheduledBeforeToday=Number.isInteger(previousScheduledIndex)
+          &&previousScheduledIndex>=0
+          &&previousScheduledIndex<=currentDayIndex;
+        playedDays[key]=wasScheduledBeforeToday
+          ?previousScheduledIndex
+          :(savedWeek.lastSeenDate===todayKey?currentDayIndex:Math.max(0,currentDayIndex-1));
       });
     }
 
@@ -497,29 +538,60 @@ function buildMyGamesWeeklyPlan(matches,weekStart){
       days[Number.isInteger(index)?index:Math.max(0,currentDayIndex-1)].completed.push(match);
     });
 
-    plannerState[weekKey]={lastSeenDate:todayKey,playedDays};
-    writeMyGamesPlannerState(plannerState);
-
-    /*
-     * Today remains available until a new result is detected today. After a
-     * game is played today, rebalance every unplayed game over later days.
-     */
-    const active=[];
-    const firstActiveDay=days[currentDayIndex].completed.length
-      ?currentDayIndex+1
-      :currentDayIndex;
-    for(let i=firstActiveDay;i<7;i++) active.push(i);
-
-    // Sunday has no later day in the selected week, so keep any backlog there.
-    if(!active.length&&remaining.length) active.push(currentDayIndex);
-
-    const counts=getBalancedMyGamesCounts(remaining.length,active);
-    let r=0;
-    active.forEach(index=>{
-      for(let i=0;i<(counts[index]||0)&&r<remaining.length;i++,r++) days[index].scheduled.push(remaining[r]);
+    const remainingKeys=new Set(remaining.map(getMyGamesPlannerMatchKey));
+    Object.keys(scheduledDays).forEach(key=>{
+      const index=Number(scheduledDays[key]);
+      if(!remainingKeys.has(key)||!Number.isInteger(index)||index<currentDayIndex||index>6){
+        delete scheduledDays[key];
+      }
     });
+
+    const active=[];
+    for(let index=currentDayIndex;index<7;index++) active.push(index);
+
+    const needsDailyRedistribution=!savedWeek||savedWeek.planDate!==todayKey;
+    if(needsDailyRedistribution){
+      scheduledDays={};
+      const counts=getBalancedMyGamesCounts(remaining.length,active);
+      let remainingCursor=0;
+      active.forEach(index=>{
+        for(let i=0;i<(counts[index]||0)&&remainingCursor<remaining.length;i++,remainingCursor++){
+          scheduledDays[getMyGamesPlannerMatchKey(remaining[remainingCursor])]=index;
+        }
+      });
+    }else{
+      const loads={};
+      active.forEach(index=>loads[index]=0);
+      Object.values(scheduledDays).forEach(value=>{
+        const index=Number(value);
+        if(loads[index]!==undefined) loads[index]++;
+      });
+      const targetCounts=getBalancedMyGamesCounts(remaining.length,active);
+      remaining
+        .filter(match=>scheduledDays[getMyGamesPlannerMatchKey(match)]===undefined)
+        .forEach(match=>{
+          const target=active.find(index=>loads[index]<(targetCounts[index]||0))
+            ??active.slice().sort((a,b)=>loads[a]-loads[b]||a-b)[0]
+            ??currentDayIndex;
+          scheduledDays[getMyGamesPlannerMatchKey(match)]=target;
+          loads[target]=(loads[target]||0)+1;
+        });
+    }
+
+    remaining.forEach(match=>{
+      const index=Number(scheduledDays[getMyGamesPlannerMatchKey(match)]);
+      days[Number.isInteger(index)&&index>=currentDayIndex&&index<=6?index:currentDayIndex].scheduled.push(match);
+    });
+
+    plannerState[weekKey]={
+      planDate:todayKey,
+      lastSeenDate:todayKey,
+      playedDays,
+      scheduledDays
+    };
+    writeMyGamesPlannerState(plannerState);
   }else{
-    matches.forEach(match=>{
+    orderedMatches.forEach(match=>{
       const originalIndex=original.get(getMyGameIdentity(match))??0;
       if(isMyGamePlayed(match)) days[originalIndex].completed.push(match);
       else days[originalIndex].scheduled.push(match);
@@ -527,8 +599,8 @@ function buildMyGamesWeeklyPlan(matches,weekStart){
   }
 
   days.forEach(day=>{
-    day.completed.sort(compareMyGamesPlannerPriority);
-    day.scheduled.sort(compareMyGamesPlannerPriority);
+    day.completed.sort(compareMyGamesChronology);
+    day.scheduled.sort(compareMyGamesChronology);
   });
   return days;
 }
@@ -543,7 +615,6 @@ function readMyGamesPlannerState(){
     const saved=JSON.parse(window.localStorage.getItem(MY_GAMES_PLANNER_STORAGE_KEY)||'{}');
     return saved&&typeof saved==='object'&&!Array.isArray(saved)?saved:{};
   }catch(error){
-    console.warn('Could not read My Games planner history.',error);
     return {};
   }
 }
@@ -551,9 +622,7 @@ function readMyGamesPlannerState(){
 function writeMyGamesPlannerState(state){
   try{
     window.localStorage.setItem(MY_GAMES_PLANNER_STORAGE_KEY,JSON.stringify(state));
-  }catch(error){
-    console.warn('Could not save My Games planner history.',error);
-  }
+  }catch(error){}
 }
 
 function getBalancedMyGamesCounts(total,dayIndices){
@@ -633,37 +702,11 @@ function isMyGamePlayed(match){
 function getMyGameIdentity(match){
   return [getDateKey(match.Date),String(match.Time||'').trim(),normaliseTeamName(match.HomeTeam),normaliseTeamName(match.AwayTeam),normaliseText(match.Competition||match.CompetitionLabel||'')].join('|');
 }
-function compareMyGamesPlannerPriority(a,b){
-  const pa=getMyGamesPlannerPriority(a),pb=getMyGamesPlannerPriority(b);
-  return pa-pb||matchDateSortValue(a)-matchDateSortValue(b)||String(a.HomeTeam||'').localeCompare(String(b.HomeTeam||''));
-}
-function getMyGamesPlannerPriority(match){
-  const competition=normaliseText(match.Competition||match.CompetitionLabel||match['Competition Name']||'');
-  const category=getCompetitionCategoryKey(match);
-
-  if(competition.includes('champions league')) return 0;
-  if(competition.includes('europa league')) return 1;
-  if(competition.includes('conference league')) return 2;
-  if(category==='europe') return 3;
-  if(category==='national-teams'||category==='world') return 4;
-
-  const cupOrder={france:10,germany:20,spain:30,italy:40,england:50};
-  if(cupOrder[category]!==undefined&&isDomesticCupCompetition(competition,category)) return cupOrder[category];
-
-  const leagueOrder={france:110,germany:120,spain:130,italy:140,england:150};
-  if(leagueOrder[category]!==undefined) return leagueOrder[category];
-
-  return 999;
-}
-function isDomesticCupCompetition(name,category){
-  const map={
-    france:['coupe de france','trophee des champions','trophée des champions'],
-    germany:['dfb-pokal','dfb pokal','dfl-supercup','dfl supercup'],
-    spain:['copa del rey','supercopa'],
-    italy:['coppa italia','supercoppa','italian super cup'],
-    england:['fa cup','carabao cup','community shield']
-  };
-  return (map[category]||[]).some(word=>name.includes(word));
+function compareMyGamesChronology(a,b){
+  return matchDateSortValue(a)-matchDateSortValue(b)
+    ||String(a.Time||'').localeCompare(String(b.Time||''))
+    ||String(a.HomeTeam||'').localeCompare(String(b.HomeTeam||''))
+    ||String(a.AwayTeam||'').localeCompare(String(b.AwayTeam||''));
 }
 
 function renderMyGamesRow(match){ const p=formatScoreboardDateParts(match.Date,match.Time); const score=match.Status==='FT'?renderScoreText(match):'VS'; const click=match.MatchID?`onclick="openMatchDetail('${escapeAttr(match.MatchID)}')"`:''; return `<article class="my-games-match" ${click}><div class="my-games-date"><span>${escapeHTML(p.date)}</span><span>${escapeHTML(p.time)}</span></div><div class="my-games-team-name home">${escapeHTML(match.HomeTeam)}</div><div class="my-games-logo">${renderTeamLogo(match.HomeLogo,match.HomeTeam)}</div><div class="my-games-score">${score}</div><div class="my-games-logo">${renderTeamLogo(match.AwayLogo,match.AwayTeam)}</div><div class="my-games-team-name away">${escapeHTML(match.AwayTeam)}</div><div class="my-games-status">${escapeHTML(match.Status||'Scheduled')}</div></article>`; }
