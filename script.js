@@ -305,6 +305,50 @@ function renderHomeDayMatches(matches){
 function renderHomeMatchRow(match){ const score=match.Status==='FT'?renderScoreText(match):'VS'; const click=match.MatchID?`onclick="openMatchDetail('${escapeAttr(match.MatchID)}')"`:''; return `<article class="home-match-row" ${click}><div class="score-team-home-name">${escapeHTML(match.HomeTeam)}</div><div class="score-team-home-logo">${renderTeamLogo(match.HomeLogo,match.HomeTeam)}</div><div class="home-match-score">${score}</div><div class="score-team-away-logo">${renderTeamLogo(match.AwayLogo,match.AwayTeam)}</div><div class="score-team-away-name">${escapeHTML(match.AwayTeam)}</div></article>`; }
 function renderHomeTab(){ const allPanel=$('allGamesPanel'), myPanel=$('myGamesPanel'), jump=$('jumpSelect'); document.querySelectorAll('[data-home-tab]').forEach(b=>b.classList.toggle('active',b.dataset.homeTab===currentHomeTab)); allPanel?.classList.toggle('hidden',currentHomeTab!=='allGames'); myPanel?.classList.toggle('hidden',currentHomeTab!=='myGames'); if(jump&&isHomePage()) jump.value=currentHomeTab==='myGames'?'myGames':'nextUp'; }
 
+function getMyGamesGameweekKey(match){
+  const round=normaliseText(match?.Round||'');
+  const gameweek=round.match(/(?:game\s*week|gw)\s*(\d+)/);
+  if(!gameweek) return '';
+
+  const competition=normaliseText(
+    match?.CompetitionSlug||
+    match?.Competition||
+    match?.CompetitionLabel||
+    match?.['Competition Name']||
+    ''
+  );
+  if(!competition) return '';
+
+  const season=normaliseText(match?.Year||match?.Season||'');
+  return [competition,season,gameweek[1]].join('|');
+}
+
+function getMyGamesAssignedWeekStart(match,matches){
+  const date=parseDateOnly(match?.Date);
+  if(!date) return null;
+
+  const calendarWeekStart=getMonday(date);
+  if(date.getDay()!==1) return calendarWeekStart;
+
+  const gameweekKey=getMyGamesGameweekKey(match);
+  if(!gameweekKey) return calendarWeekStart;
+
+  const previousWeekStart=addDays(calendarWeekStart,-7);
+  const previousWeekEnd=addDays(calendarWeekStart,-1);
+  const belongsToPreviousWeek=(matches||[]).some(other=>{
+    if(other===match||getMyGamesGameweekKey(other)!==gameweekKey) return false;
+    const otherDate=parseDateOnly(other?.Date);
+    return otherDate&&otherDate>=previousWeekStart&&otherDate<=previousWeekEnd;
+  });
+
+  return belongsToPreviousWeek?previousWeekStart:calendarWeekStart;
+}
+
+function isMatchInMyGamesWeek(match,matches,weekStart){
+  const assignedWeekStart=getMyGamesAssignedWeekStart(match,matches);
+  return assignedWeekStart&&dateToKey(assignedWeekStart)===dateToKey(weekStart);
+}
+
 function renderMyGames(){
   const myGamesBase=Array.isArray(appData?.myGames)?appData.myGames:[];
   const unresolvedDatedFixtures=dedupeMatchArray(
@@ -313,13 +357,10 @@ function renderMyGames(){
   const all=dedupeMatchArray(myGamesBase.concat(unresolvedDatedFixtures));
 
   const selected=parseDateOnly(selectedDateKey)||new Date();
-  const weekStart=getMonday(selected), weekEnd=addDays(weekStart,6);
-  const weekMatches=all.filter(match=>{
-    const d=parseDateOnly(match.Date);
-    if(!d) return false;
-    const cd=new Date(d.getFullYear(),d.getMonth(),d.getDate());
-    return cd>=weekStart&&cd<=weekEnd;
-  }).sort(compareMyGamesChronology);
+  const weekStart=getMonday(selected);
+  const weekMatches=all
+    .filter(match=>isMatchInMyGamesWeek(match,all,weekStart))
+    .sort(compareMyGamesChronology);
 
   setText('myGamesTitle',getSeasonWeekLabel(selected));
   setText('myGamesSubtitle',getWeekRangeLabel(selected));
