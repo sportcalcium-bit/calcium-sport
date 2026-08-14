@@ -349,11 +349,55 @@ function isMatchInMyGamesWeek(match,matches,weekStart){
   return assignedWeekStart&&dateToKey(assignedWeekStart)===dateToKey(weekStart);
 }
 
+function getMyGamesCanonicalFixtureKey_(match){
+  const date=getDateKey(match?.Date);
+  const home=normaliseTeamName(match?.HomeTeam);
+  const away=normaliseTeamName(match?.AwayTeam);
+  return date&&home&&away?[date,home,away].join('|'):'';
+}
+
+function enrichMyGamesWithCanonicalFixtures_(matches,fixtures){
+  const canonicalById=new Map();
+  const canonicalByFixture=new Map();
+
+  (fixtures||[]).forEach(fixture=>{
+    const id=String(fixture?.MatchID||fixture?.ID||'').trim();
+    const key=getMyGamesCanonicalFixtureKey_(fixture);
+    if(id) canonicalById.set(id,fixture);
+    if(key) canonicalByFixture.set(key,fixture);
+  });
+
+  const canonicalFields=[
+    'MatchID','ID','Date','Time','Round','CompetitionSlug','Competition',
+    'CompetitionLabel','Competition Name','Year','Season','HomeTeam','AwayTeam',
+    'HomeLogo','AwayLogo'
+  ];
+
+  return (matches||[]).map(match=>{
+    const id=String(match?.MatchID||match?.ID||'').trim();
+    const key=getMyGamesCanonicalFixtureKey_(match);
+    const fixture=(id&&canonicalById.get(id))||(key&&canonicalByFixture.get(key));
+    if(!fixture) return match;
+
+    const enriched={...match};
+    canonicalFields.forEach(field=>{
+      const value=fixture[field];
+      if(value===undefined||value===null) return;
+      if(typeof value==='string'&&!value.trim()) return;
+      enriched[field]=value;
+    });
+    return enriched;
+  });
+}
+
 function renderMyGames(){
-  const myGamesBase=Array.isArray(appData?.myGames)?appData.myGames:[];
-  const unresolvedDatedFixtures=dedupeMatchArray(
+  const rawMyGames=Array.isArray(appData?.myGames)?appData.myGames:[];
+  const canonicalFixtures=dedupeMatchArray(
     getGlobalMatches().concat(getCompetitionMatches())
-  ).filter(match=>getDateKey(match.Date)&&isUnresolvedFixtureSlot(match));
+  );
+  const myGamesBase=enrichMyGamesWithCanonicalFixtures_(rawMyGames,canonicalFixtures);
+  const unresolvedDatedFixtures=canonicalFixtures
+    .filter(match=>getDateKey(match.Date)&&isUnresolvedFixtureSlot(match));
   const all=dedupeMatchArray(myGamesBase.concat(unresolvedDatedFixtures));
 
   const selected=parseDateOnly(selectedDateKey)||new Date();
@@ -460,11 +504,11 @@ function enrichHomeMyGamesFromCompetitionDetails(){
   const baseMyGames=Array.isArray(appData?.myGames)?appData.myGames:[];
   const baseAllMatches=Array.isArray(appData?.allMatches)?appData.allMatches:[];
   const selected=parseDateOnly(selectedDateKey||getTodayKey())||new Date();
-  const weekStart=getMonday(selected), weekEnd=addDays(weekStart,6);
-  const weekly=baseMyGames.concat(baseAllMatches).filter(match=>{
-    const date=parseDateOnly(match.Date);
-    return date&&date>=weekStart&&date<=weekEnd;
-  });
+  const weekStart=getMonday(selected);
+  const refreshSource=baseMyGames.concat(baseAllMatches);
+  const weekly=refreshSource.filter(match=>
+    isMatchInMyGamesWeek(match,refreshSource,weekStart)
+  );
   const allSlugs=[...new Set(weekly.map(resolveMatchCompetitionSlug).filter(Boolean))];
   if(!allSlugs.length) return Promise.resolve(false);
 
@@ -489,13 +533,14 @@ function enrichHomeMyGamesFromCompetitionDetails(){
     }
   })).then(details=>{
     const validDetails=details.filter(Boolean);
-    const freshWeekMatches=validDetails.flatMap(detail=>
+    const allFreshMatches=validDetails.flatMap(detail=>
       (Array.isArray(detail.matches)?detail.matches:[])
         .concat(Array.isArray(detail.playoffs)?detail.playoffs:[])
-    ).filter(match=>{
-      const date=parseDateOnly(match.Date);
-      return date&&date>=weekStart&&date<=weekEnd;
-    });
+    );
+    const refreshGroupingSource=refreshSource.concat(allFreshMatches);
+    const freshWeekMatches=allFreshMatches.filter(match=>
+      isMatchInMyGamesWeek(match,refreshGroupingSource,weekStart)
+    );
     if(!freshWeekMatches.length) return false;
 
     validDetails.forEach(detail=>{
