@@ -46,6 +46,7 @@ async function loadCompetition(competitionParam){
   playerImageLookup = buildPlayerImageLookup(appData.players);
   playerTeamsLookup = buildPlayerTeamsLookup(appData.playerTeams);
   await repairMalformedStandingsFromSheet(appData);
+  await hydrateExternalCleanSheetLeaders(appData);
   const selected = appData.selectedCompetition || appData.site || {};
   currentCompetition = makeCompetitionSlug(selected);
   if(!selectedDateKey) selectedDateKey = dateToKey(getMonday(new Date()));
@@ -123,6 +124,65 @@ async function repairMalformedStandingsFromSheet(data){
   } catch(error){
     console.warn('Could not recover standings directly from the Standings sheet.',error);
   }
+}
+async function hydrateExternalCleanSheetLeaders(data){
+  const sheetId=String(data?.selectedCompetition?.['Sheet ID']||'').trim();
+  if(!sheetId) return;
+  try{
+    const table=await loadGoogleVisualizationTable(sheetId,'Clean Sheets');
+    const leaders=parseCleanSheetLeadersTable(table);
+    const stats=Array.isArray(data.stats)?data.stats.map(row=>({...row,CleanSheets:0})):[];
+    const playerRows=new Map(stats.map(row=>[normalisePlayerName(row?.Player),row]).filter(([key])=>key));
+    leaders.forEach(leader=>{
+      const key=normalisePlayerName(leader.Player);
+      if(!key) return;
+      let row=playerRows.get(key);
+      if(!row){
+        row={Player:leader.Player,Team:leader.Team,Logo:'',Goals:0,Assists:0,CleanSheets:0,YellowCards:0,RedCards:0};
+        stats.push(row);
+        playerRows.set(key,row);
+      }
+      row.Player=leader.Player||row.Player;
+      row.Team=leader.Team||row.Team;
+      row.Logo=findTeamLogoForStats(data,row.Team)||row.Logo||'';
+      row.CleanSheets=safeNumber(leader.CleanSheets);
+    });
+    data.stats=stats;
+  } catch(error){
+    console.info('Using legacy match-level clean sheets for this competition.',error);
+  }
+}
+function parseCleanSheetLeadersTable(table){
+  const labels=(table?.cols||[]).map(col=>normaliseCleanSheetHeader(col?.label));
+  if(!labels.includes('player')||!labels.includes('cleanSheets')) return [];
+  return (table?.rows||[]).map(row=>{
+    const values={};
+    labels.forEach((label,index)=>{ if(label) values[label]=row?.c?.[index]?.v??''; });
+    return {
+      Rank:safeNumber(values.rank),
+      Player:String(values.player||'').trim(),
+      Team:String(values.team||'').trim(),
+      CleanSheets:safeNumber(values.cleanSheets)
+    };
+  }).filter(row=>row.Player&&row.CleanSheets>0);
+}
+function normaliseCleanSheetHeader(value){
+  const key=String(value||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+  return ({rank:'rank',player:'player',name:'player',team:'team',club:'team',cleansheet:'cleanSheets',cleansheets:'cleanSheets'})[key]||'';
+}
+function findTeamLogoForStats(data,teamName){
+  const key=normaliseTeamName(teamName);
+  if(!key) return '';
+  const stat=(data?.stats||[]).find(row=>normaliseTeamName(row?.Team)===key&&row?.Logo);
+  if(stat) return stat.Logo;
+  const standing=(data?.standings||[]).find(row=>normaliseTeamName(row?.Team)===key&&row?.Logo);
+  if(standing) return standing.Logo;
+  const match=(data?.matches||[]).find(row=>
+    (normaliseTeamName(row?.HomeTeam)===key&&row?.HomeLogo)||
+    (normaliseTeamName(row?.AwayTeam)===key&&row?.AwayLogo)
+  );
+  if(!match) return '';
+  return normaliseTeamName(match.HomeTeam)===key?match.HomeLogo:match.AwayLogo;
 }
 function hasShiftedLeagueStandings(rows){
   if(!Array.isArray(rows)||rows.length<2||rows.some(row=>String(row?.League||'').trim())) return false;
@@ -1535,4 +1595,4 @@ function safeScore(v){ return v===''||v===undefined||v===null?'-':v; }
 function formatGoalDifference(v){ const n=Number(v); if(!Number.isFinite(n))return'0'; return n>0?`+${n}`:String(n); }
 function escapeHTML(v){ return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
 function escapeAttr(v){ return escapeHTML(v); }
-window.CALCIUM_SCRIPT_VERSION='7054-fast-home-refresh';
+window.CALCIUM_SCRIPT_VERSION='7055-clean-sheets-source';
