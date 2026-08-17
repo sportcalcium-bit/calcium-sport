@@ -552,7 +552,17 @@ function mergeFreshMatchRecords_(current,fresh,options={}){
   (Array.isArray(fresh)?fresh:[]).forEach(next=>{
     const index=merged.findIndex(saved=>sameMatchIgnoringTime_(saved,next));
     if(index>=0){
-      merged[index]={...merged[index],...next};
+      const saved=merged[index];
+      const combined={...saved,...next};
+      if(options.preserveSchedule){
+        ['Date','Time'].forEach(field=>{
+          const savedValue=saved?.[field];
+          if(savedValue!==undefined&&savedValue!==null&&String(savedValue).trim()!==''){
+            combined[field]=savedValue;
+          }
+        });
+      }
+      merged[index]=combined;
     }else if(options.addAll||(options.addUnresolved&&isUnresolvedFixtureSlot(next))){
       merged.push(next);
     }
@@ -606,8 +616,14 @@ function enrichHomeMyGamesFromCompetitionDetails(){
     validDetails.forEach(detail=>{
       appData.allEvents=mergeUniqueEvents(appData.allEvents,detail.allEvents||detail.events||[]);
     });
-    appData.allMatches=mergeFreshMatchRecords_(baseAllMatches,freshWeekMatches,{addAll:true});
-    appData.myGames=mergeFreshMatchRecords_(baseMyGames,freshWeekMatches,{addUnresolved:true});
+    appData.allMatches=mergeFreshMatchRecords_(baseAllMatches,freshWeekMatches,{
+      addAll:true,
+      preserveSchedule:true
+    });
+    appData.myGames=mergeFreshMatchRecords_(baseMyGames,freshWeekMatches,{
+      addUnresolved:true,
+      preserveSchedule:true
+    });
     return true;
   });
 }
@@ -634,6 +650,7 @@ function buildMyGamesWeeklyPlan(matches,weekStart){
   const currentDayIndex=isCurrentWeek?Math.floor((today-weekStart)/86400000):-1;
   const completed=orderedMatches.filter(isMyGamePlayed);
   const remaining=orderedMatches.filter(match=>!isMyGamePlayed(match));
+  const scheduleFingerprint=getMyGamesScheduleFingerprint(orderedMatches);
 
   if(isCurrentWeek){
     const plannerState=readMyGamesPlannerState();
@@ -695,7 +712,9 @@ function buildMyGamesWeeklyPlan(matches,weekStart){
     const active=[];
     for(let index=currentDayIndex;index<7;index++) active.push(index);
 
-    const needsDailyRedistribution=!savedWeek||savedWeek.planDate!==todayKey;
+    const needsDailyRedistribution=!savedWeek
+      ||savedWeek.planDate!==todayKey
+      ||savedWeek.scheduleFingerprint!==scheduleFingerprint;
     if(needsDailyRedistribution){
       scheduledDays={};
       const counts=getBalancedMyGamesCounts(remaining.length,active);
@@ -732,6 +751,7 @@ function buildMyGamesWeeklyPlan(matches,weekStart){
     plannerState[weekKey]={
       planDate:todayKey,
       lastSeenDate:todayKey,
+      scheduleFingerprint,
       playedDays,
       scheduledDays
     };
@@ -749,6 +769,18 @@ function buildMyGamesWeeklyPlan(matches,weekStart){
     day.scheduled.sort(compareMyGamesChronology);
   });
   return days;
+}
+
+function getMyGamesScheduleFingerprint(matches){
+  return [...(Array.isArray(matches)?matches:[])]
+    .map(match=>[
+      getMyGamesPlannerMatchKey(match),
+      getDateKey(match?.Date),
+      normaliseKickoffTime(match?.Time),
+      normaliseText(match?.Round||'')
+    ].join('|'))
+    .sort()
+    .join('||');
 }
 
 function getMyGamesPlannerMatchKey(match){
@@ -1595,4 +1627,4 @@ function safeScore(v){ return v===''||v===undefined||v===null?'-':v; }
 function formatGoalDifference(v){ const n=Number(v); if(!Number.isFinite(n))return'0'; return n>0?`+${n}`:String(n); }
 function escapeHTML(v){ return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
 function escapeAttr(v){ return escapeHTML(v); }
-window.CALCIUM_SCRIPT_VERSION='7055-clean-sheets-source';
+window.CALCIUM_SCRIPT_VERSION='7065-my-games-schedule-authority';
