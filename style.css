@@ -480,12 +480,15 @@
 .standing-row-playout{--standing-accent:rgba(244,200,63,.52);--standing-bg:rgba(145,111,8,.18)}
 .standing-row-relegation,
 .standing-row-eliminated{--standing-accent:rgba(232,57,57,.52);--standing-bg:rgba(149,32,32,.22)}
-.standing-position-cell{
+.standings-table .standing-position-cell{
+  display:table-cell;
+}
+.standing-position-content{
+  min-height:56px;
   display:flex;
   align-items:center;
   justify-content:center;
   gap:8px;
-  min-height:56px;
 }
 .standing-status-icon{
   width:36px;
@@ -534,11 +537,18 @@
   font-size:18px;
   box-shadow:0 3px 10px rgba(0,0,0,.22);
 }
-.team-cell{
-  gap:9px;
+.standings-table .team-cell{
+  display:table-cell;
   min-width:0;
+  text-align:left;
   white-space:nowrap;
   overflow:hidden;
+}
+.standing-team-content{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  min-width:0;
 }
 .team-cell .team-logo{
   width:38px;
@@ -592,7 +602,7 @@
   .standings-table td:nth-child(3){width:66px}
   .standings-table th:nth-child(n+4),
   .standings-table td:nth-child(n+4){width:56px}
-  .standing-position-cell{gap:6px;min-height:50px}
+  .standing-position-content{gap:6px;min-height:50px}
   .standing-status-icon{width:30px;height:30px;min-width:30px}
   .rank-badge{min-width:34px;width:34px;height:34px;font-size:16px}
   .team-cell .team-logo{width:34px;height:34px;min-width:34px;min-height:34px}
