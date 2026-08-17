@@ -434,3 +434,167 @@
   .my-games-planner-row{grid-template-columns:1fr;gap:8px;padding:12px}.my-games-planner-meta{display:flex;align-items:center;gap:8px}
   .my-games-planner-match{grid-template-columns:minmax(0,1fr) 30px 46px 30px minmax(0,1fr);gap:5px}.my-games-planner-status{justify-self:start}
 }
+
+/* ===== Standings table refresh: qualification logos + compact status rows ===== */
+.standings-table{
+  width:100%;
+  min-width:790px;
+  table-layout:fixed;
+  border-collapse:separate;
+  border-spacing:0 5px;
+}
+.standings-table th,
+.standings-table td{
+  padding:10px 8px;
+  border-bottom:0;
+  text-align:center;
+  vertical-align:middle;
+}
+.standings-table th:nth-child(1),
+.standings-table td:nth-child(1){width:104px}
+.standings-table th:nth-child(2),
+.standings-table td:nth-child(2){width:260px}
+.standings-table th:nth-child(3),
+.standings-table td:nth-child(3){width:76px}
+.standings-table th:nth-child(n+4),
+.standings-table td:nth-child(n+4){width:64px}
+.standings-table th:nth-child(2){text-align:left}
+.standing-row{--standing-accent:rgba(255,255,255,.09);--standing-bg:rgba(255,255,255,.018)}
+.standing-row>td{
+  background:var(--standing-bg);
+  border-top:1px solid var(--standing-accent);
+  border-bottom:1px solid var(--standing-accent);
+}
+.standing-row>td:first-child{
+  border-left:1px solid var(--standing-accent);
+  border-radius:10px 0 0 10px;
+}
+.standing-row>td:last-child{
+  border-right:1px solid var(--standing-accent);
+  border-radius:0 10px 10px 0;
+}
+.standing-row-qualified,
+.standing-row-ucl{--standing-accent:rgba(54,122,255,.48);--standing-bg:rgba(30,92,204,.19)}
+.standing-row-uel{--standing-accent:rgba(255,153,35,.55);--standing-bg:rgba(170,90,5,.20)}
+.standing-row-uecl{--standing-accent:rgba(71,193,105,.52);--standing-bg:rgba(28,125,60,.20)}
+.standing-row-playout{--standing-accent:rgba(244,200,63,.52);--standing-bg:rgba(145,111,8,.18)}
+.standing-row-relegation,
+.standing-row-eliminated{--standing-accent:rgba(232,57,57,.52);--standing-bg:rgba(149,32,32,.22)}
+.standing-position-cell{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  min-height:56px;
+}
+.standing-status-icon{
+  width:36px;
+  height:36px;
+  min-width:36px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:8px;
+  overflow:hidden;
+}
+.standing-status-icon img{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  display:block;
+  filter:drop-shadow(0 2px 3px rgba(0,0,0,.35));
+}
+.standing-status-icon.is-empty{visibility:hidden}
+.standing-status-fallback{
+  width:100%;
+  height:100%;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  color:#fff;
+  font-size:10px;
+  line-height:1;
+  font-weight:950;
+  letter-spacing:-.04em;
+}
+.standing-status-icon.has-image .standing-status-fallback{display:none}
+.standing-status-ucl .standing-status-fallback,
+.standing-status-qualified .standing-status-fallback{background:#286bf0}
+.standing-status-uel .standing-status-fallback{background:#eb8b16}
+.standing-status-uecl .standing-status-fallback{background:#36a85a}
+.standing-status-playout .standing-status-fallback{background:#d3a516;color:#111}
+.standing-status-relegation .standing-status-fallback,
+.standing-status-eliminated .standing-status-fallback{background:#c52d2d}
+.rank-badge{
+  min-width:38px;
+  width:38px;
+  height:38px;
+  padding:0;
+  border-radius:9px;
+  font-size:18px;
+  box-shadow:0 3px 10px rgba(0,0,0,.22);
+}
+.team-cell{
+  gap:9px;
+  min-width:0;
+  white-space:nowrap;
+  overflow:hidden;
+}
+.team-cell .team-logo{
+  width:38px;
+  height:38px;
+  min-width:38px;
+  min-height:38px;
+  padding:5px;
+}
+.standing-team-name{
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.standings-points strong{
+  min-width:52px;
+  height:42px;
+  padding:0 10px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:7px;
+  background:#f7fbff;
+  color:#08232b;
+  font-size:20px;
+  font-weight:1000;
+  box-shadow:0 3px 12px rgba(0,0,0,.28);
+}
+.qualification-note{
+  gap:12px 18px;
+  margin-top:14px;
+}
+.qualification-key{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+}
+.qualification-key .standing-status-icon{
+  width:24px;
+  height:24px;
+  min-width:24px;
+  border-radius:5px;
+}
+.qualification-key .standing-status-fallback{font-size:8px}
+
+@media(max-width:700px){
+  .standings-table{min-width:720px}
+  .standings-table th:nth-child(1),
+  .standings-table td:nth-child(1){width:88px}
+  .standings-table th:nth-child(2),
+  .standings-table td:nth-child(2){width:220px}
+  .standings-table th:nth-child(3),
+  .standings-table td:nth-child(3){width:66px}
+  .standings-table th:nth-child(n+4),
+  .standings-table td:nth-child(n+4){width:56px}
+  .standing-position-cell{gap:6px;min-height:50px}
+  .standing-status-icon{width:30px;height:30px;min-width:30px}
+  .rank-badge{min-width:34px;width:34px;height:34px;font-size:16px}
+  .team-cell .team-logo{width:34px;height:34px;min-width:34px;min-height:34px}
+  .standings-points strong{min-width:44px;height:38px;font-size:18px}
+}
