@@ -975,12 +975,16 @@ function renderStandings(){
       const rowClass='standing-row-'+rankClass.replace(/^rank-/,'');
       return `<tr class="standing-row ${rowClass}">
         <td class="standing-position-cell">
-          ${renderStandingStatusIcon(rankClass)}
-          <span class="rank-badge ${rankClass}">${i+1}</span>
+          <div class="standing-position-content">
+            ${renderStandingStatusIcon(rankClass)}
+            <span class="rank-badge ${rankClass}">${i+1}</span>
+          </div>
         </td>
         <td class="team-cell">
-          ${renderTeamLogo(getStandingTeamLogo(team),team.Team)}
-          <span class="standing-team-name">${escapeHTML(team.Team)}</span>
+          <div class="standing-team-content">
+            ${renderTeamLogo(getStandingTeamLogo(team),team.Team)}
+            <span class="standing-team-name">${escapeHTML(team.Team)}</span>
+          </div>
         </td>
         <td class="standings-points"><strong>${safeNumber(team.Points)}</strong></td>
         <td>${safeNumber(team.Played)}</td>
