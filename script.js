@@ -12,6 +12,7 @@ let currentRound = '';
 let selectedDateKey = '';
 let currentHomeTab = 'allGames';
 let homeRefreshInFlight = false;
+let competitionRefreshInFlight = false;
 let homeCompetitionRefreshCursor = 0;
 let myGamesDailyTimer = null;
 const HOME_REFRESH_INTERVAL_MS = 12000;
@@ -31,6 +32,8 @@ async function init(){
     if(isHomePage()){
       window.setInterval(refreshHomeLiveData,HOME_REFRESH_INTERVAL_MS);
       scheduleMyGamesDailyRedistribution();
+    }else{
+      window.setInterval(refreshCompetitionLiveData,HOME_REFRESH_INTERVAL_MS);
     }
   }
   catch(error){ console.error(error); showError('Could not load competition data. Please check the Apps Script backend.'); }
@@ -501,6 +504,49 @@ function refreshHomeLiveData(){
     })
     .catch(error=>console.warn('Could not refresh current Home/My Games results.',error))
     .finally(()=>{ homeRefreshInFlight=false; });
+}
+
+async function refreshCompetitionLiveData(){
+  if(isHomePage()||competitionRefreshInFlight||!currentCompetition) return;
+  competitionRefreshInFlight=true;
+  try{
+    const response=await fetch(
+      `${API_URL}?competition=${encodeURIComponent(currentCompetition)}&v=${Date.now()}`,
+      {cache:'no-store'}
+    );
+    if(!response.ok) throw new Error(`Backend error: ${response.status}`);
+    const freshData=await response.json();
+    if(freshData.error) throw new Error(freshData.error);
+
+    const previousSignature=getCompetitionLiveSignature(appData);
+    const freshSignature=getCompetitionLiveSignature(freshData);
+    if(previousSignature===freshSignature) return;
+
+    appData=freshData;
+    playerProfileHomeIndexPromise=null;
+    playerImageLookup=buildPlayerImageLookup(appData.players);
+    playerTeamsLookup=buildPlayerTeamsLookup(appData.playerTeams);
+    await repairMalformedStandingsFromSheet(appData);
+    await hydrateExternalCleanSheetLeaders(appData);
+    populateCompetitionDropdowns();
+    populateFilters();
+    renderAll();
+  }catch(error){
+    console.warn('Could not refresh current competition results.',error);
+  }finally{
+    competitionRefreshInFlight=false;
+  }
+}
+
+function getCompetitionLiveSignature(data){
+  return JSON.stringify({
+    matches:Array.isArray(data?.matches)?data.matches:[],
+    playoffs:Array.isArray(data?.playoffs)?data.playoffs:[],
+    standings:Array.isArray(data?.standings)?data.standings:[],
+    stats:Array.isArray(data?.stats)?data.stats:[],
+    assistLeaders:Array.isArray(data?.assistLeaders)?data.assistLeaders:[],
+    cleanSheetLeaders:Array.isArray(data?.cleanSheetLeaders)?data.cleanSheetLeaders:[]
+  });
 }
 
 function scheduleMyGamesDailyRedistribution(){
@@ -1292,12 +1338,28 @@ function reorderLeagueMatchesByResultChronology(matches){
     const recorded=entries.filter(entry=>isMyGamePlayed(entry.match));
     if(!recorded.length) return;
 
-    if(!Array.isArray(chronology[groupKey])) chronology[groupKey]=[];
     const recordedIdentities=new Set(recorded.map(entry=>getResultChronologyMatchKey(entry.match,groupKey)));
-    chronology[groupKey]=chronology[groupKey].filter(identity=>recordedIdentities.has(identity));
+    const legacyAliases=new Map();
+    entries.forEach(entry=>{
+      const id=String(entry.match?.MatchID||entry.match?.ID||'').trim();
+      if(id) legacyAliases.set(`id:${id}`,getResultChronologyMatchKey(entry.match,groupKey));
+    });
+
+    const savedOrder=Array.isArray(chronology[groupKey])?chronology[groupKey]:[];
+    const migratedOrder=[];
+    savedOrder.forEach(savedIdentity=>{
+      const identity=legacyAliases.get(savedIdentity)||savedIdentity;
+      if(recordedIdentities.has(identity)&&!migratedOrder.includes(identity)) migratedOrder.push(identity);
+    });
+    if(JSON.stringify(savedOrder)!==JSON.stringify(migratedOrder)){
+      chronology[groupKey]=migratedOrder;
+      chronologyChanged=true;
+    }else{
+      chronology[groupKey]=migratedOrder;
+    }
 
     recorded
-      .sort((a,b)=>matchDateSortValue(a.match)-matchDateSortValue(b.match) || a.index-b.index)
+      .sort(compareNewlyRecordedMatches)
       .forEach(entry=>{
         const identity=getResultChronologyMatchKey(entry.match,groupKey);
         if(!chronology[groupKey].includes(identity)){
@@ -1330,21 +1392,56 @@ function reorderLeagueMatchesByResultChronology(matches){
   if(chronologyChanged) writeResultChronology(chronology);
   return result;
 }
+function compareNewlyRecordedMatches(a,b){
+  const first=getRecordedResultOrder(a.match);
+  const second=getRecordedResultOrder(b.match);
+  if(first!==null&&second!==null&&first!==second) return first-second;
+  if(first!==null&&second===null) return -1;
+  if(first===null&&second!==null) return 1;
+  return matchDateSortValue(a.match)-matchDateSortValue(b.match) || a.index-b.index;
+}
+function getRecordedResultOrder(match){
+  const orderKeys=['ResultOrder','Result Order','PlayedOrder','Played Order','RecordedOrder','Recorded Order'];
+  for(const key of orderKeys){
+    const value=Number(match?.[key]);
+    if(Number.isFinite(value)&&value>0) return value;
+  }
+  const timeKeys=['ResultRecordedAt','Result Recorded At','PlayedAt','Played At','ScoreUpdatedAt','Score Updated At'];
+  for(const key of timeKeys){
+    const value=Date.parse(String(match?.[key]||''));
+    if(Number.isFinite(value)) return value;
+  }
+  return null;
+}
 function getResultChronologyGroupKey(match){
-  const competitionType=normaliseText(match?.CompetitionType||match?.['Competition Type']||appData?.competitionType||'');
-  if(competitionType!=='league') return '';
-
+  const selected=appData?.selectedCompetition||{};
+  const competitionType=normaliseText(
+    match?.CompetitionType||
+    match?.['Competition Type']||
+    appData?.competitionType||
+    selected?.['Competition Type']||
+    appData?.site?.competitionType||
+    ''
+  );
   const round=normaliseText(match?.Round||'');
-  if(!round||!(/gameweek\s*\d+/.test(round)||/^(?:round\s*)?\d+$/.test(round))) return '';
+  const isGameweek=/gameweek\s*\d+/.test(round);
+  const isNumberedLeagueRound=/^(?:round\s*)?\d+$/.test(round)&&competitionType.includes('league');
+  if(!round||(!isGameweek&&!isNumberedLeagueRound)) return '';
 
-  const competition=normaliseText(match?.Competition||match?.CompetitionLabel||match?.['Competition Name']||'');
-  const year=normaliseText(match?.Year||'');
+  const competition=normaliseText(
+    match?.Competition||
+    match?.CompetitionLabel||
+    match?.['Competition Name']||
+    selected?.['Competition Name']||
+    appData?.site?.competition||
+    currentCompetition||
+    ''
+  );
+  const year=normaliseText(match?.Year||selected?.Year||appData?.site?.year||'');
   if(!competition) return '';
   return [competition,year,round].join('|');
 }
 function getResultChronologyMatchKey(match,groupKey){
-  const stableId=String(match?.MatchID||match?.ID||'').trim();
-  if(stableId) return `id:${stableId}`;
   return [
     groupKey,
     normaliseTeamName(match?.HomeTeam),
