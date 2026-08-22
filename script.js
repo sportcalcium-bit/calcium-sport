@@ -45,6 +45,7 @@ async function loadCompetition(competitionParam){
   if(!response.ok) throw new Error(`Backend error: ${response.status}`);
   appData = await response.json();
   if(appData.error) throw new Error(appData.error);
+  await hydrateFixturesFromSheet(appData);
   playerProfileHomeIndexPromise = null;
   playerImageLookup = buildPlayerImageLookup(appData.players);
   playerTeamsLookup = buildPlayerTeamsLookup(appData.playerTeams);
@@ -517,6 +518,7 @@ async function refreshCompetitionLiveData(){
     if(!response.ok) throw new Error(`Backend error: ${response.status}`);
     const freshData=await response.json();
     if(freshData.error) throw new Error(freshData.error);
+    await hydrateFixturesFromSheet(freshData);
 
     const previousSignature=getCompetitionLiveSignature(appData);
     const freshSignature=getCompetitionLiveSignature(freshData);
@@ -1898,4 +1900,138 @@ function safeScore(v){ return v===''||v===undefined||v===null?'-':v; }
 function formatGoalDifference(v){ const n=Number(v); if(!Number.isFinite(n))return'0'; return n>0?`+${n}`:String(n); }
 function escapeHTML(v){ return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
 function escapeAttr(v){ return escapeHTML(v); }
-window.CALCIUM_SCRIPT_VERSION='7065-my-games-schedule-authority';
+window.CALCIUM_SCRIPT_VERSION='7071-direct-fixtures-header-layout';
+
+
+function normaliseDirectFixtureHeader(value){
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '');
+}
+
+function directFixtureCellValue(cell){
+  if(cell === null || cell === undefined) return '';
+  const value = cell.f !== null && cell.f !== undefined ? cell.f : cell.v;
+  return String(value === null || value === undefined ? '' : value).trim();
+}
+
+function normaliseDirectFixtureTeam(value){
+  return String(value || '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+/**
+ * New ongoing-competition format:
+ * Fixtures contains R, N, Home, S, Away, Date and Time.
+ *
+ * The Apps Script backend may still expose the former fixed-column layout.
+ * When an N header is present, read the authoritative Fixtures tab directly.
+ * Legacy sheets without N (World Cup and Pre-season Friendlies) are untouched.
+ */
+async function hydrateFixturesFromSheet(data){
+  const sheetId=String(data?.selectedCompetition?.['Sheet ID'] || '').trim();
+  if(!sheetId) return;
+
+  try{
+    const table=await loadGoogleVisualizationTable(sheetId, 'Fixtures');
+    const headers=(table?.cols || []).map(column =>
+      normaliseDirectFixtureHeader(column?.label || column?.id || '')
+    );
+
+    const findHeader=(...names)=>{
+      for(const name of names){
+        const index=headers.indexOf(normaliseDirectFixtureHeader(name));
+        if(index >= 0) return index;
+      }
+      return -1;
+    };
+
+    const columns={
+      round:findHeader('R', 'Round'),
+      order:findHeader('N', 'Order', 'Fixture Order'),
+      home:findHeader('Home'),
+      score:findHeader('S', 'Score'),
+      away:findHeader('Away'),
+      date:findHeader('Date'),
+      time:findHeader('Time'),
+      venue:findHeader('Venue'),
+      youtube:findHeader('YouTube URL', 'YouTubeURL')
+    };
+
+    if(
+      columns.order < 0 ||
+      columns.home < 0 ||
+      columns.away < 0 ||
+      columns.date < 0 ||
+      columns.time < 0
+    ){
+      return;
+    }
+
+    const read=(row, index)=>
+      index < 0 ? '' : directFixtureCellValue(row?.c?.[index]);
+
+    const oldMatches=[
+      ...(Array.isArray(data?.matches) ? data.matches : []),
+      ...(Array.isArray(data?.playoffs) ? data.playoffs : [])
+    ];
+    const oldMatchesByTeams=new Map();
+
+    oldMatches.forEach(match=>{
+      const home=normaliseDirectFixtureTeam(match?.Home || match?.HomeTeam);
+      const away=normaliseDirectFixtureTeam(match?.Away || match?.AwayTeam);
+      if(home || away) oldMatchesByTeams.set(`${home}|${away}`, match);
+    });
+
+    const matches=(table?.rows || []).map(row=>{
+      const round=read(row, columns.round);
+      const order=read(row, columns.order);
+      const home=read(row, columns.home);
+      const score=read(row, columns.score);
+      const away=read(row, columns.away);
+      const date=read(row, columns.date);
+      const time=read(row, columns.time);
+
+      if(!home && !away) return null;
+
+      const key=`${normaliseDirectFixtureTeam(home)}|${normaliseDirectFixtureTeam(away)}`;
+      const match={
+        ...(oldMatchesByTeams.get(key) || {}),
+        R:round,
+        Round:round,
+        N:order,
+        FixtureOrder:order,
+        Home:home,
+        HomeTeam:home,
+        S:score,
+        Score:score,
+        Away:away,
+        AwayTeam:away,
+        Date:date,
+        Time:time
+      };
+
+      const venue=read(row, columns.venue);
+      const youtube=read(row, columns.youtube);
+      if(venue) match.Venue=venue;
+      if(youtube){
+        match.YouTubeURL=youtube;
+        match['YouTube URL']=youtube;
+      }
+
+      return match;
+    }).filter(Boolean);
+
+    if(matches.length){
+      data.matches=matches;
+      data.playoffs=[];
+    }
+  }catch(error){
+    console.warn('Could not load fixtures directly from the Fixtures sheet.', error);
+  }
+}
