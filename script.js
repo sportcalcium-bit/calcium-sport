@@ -1416,8 +1416,55 @@ function getCompetitionMatches(){
 
 }
 function getGlobalMatches(){
-  const matches=dedupeMatchArray(Array.isArray(appData?.allMatches)?appData.allMatches:[]);
-  return matches;
+
+  if(!appData){
+    return [];
+  }
+
+  const matches =
+    Array.isArray(appData.matches)
+      ? appData.matches
+      : [];
+
+  return matches.map(match=>({
+
+    ...match,
+
+    HomeTeam:
+      match.HomeTeam ||
+      match.homeTeam ||
+      match.home ||
+      "",
+
+    AwayTeam:
+      match.AwayTeam ||
+      match.awayTeam ||
+      match.away ||
+      "",
+
+    Date:
+      match.Date ||
+      match.date ||
+      "",
+
+    Time:
+      match.Time ||
+      match.time ||
+      "",
+
+    Competition:
+      match.Competition ||
+      match.competition ||
+      "",
+
+    Year:
+      match.Year ||
+      match.year ||
+      ""
+
+  }));
+
+}
 }
 function reorderLeagueMatchesByResultChronology(matches){
   const source=Array.isArray(matches)?matches:[];
