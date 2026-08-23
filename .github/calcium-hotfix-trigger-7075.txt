@@ -1,1 +1,144 @@
-Trigger Calcium Fixture Hotfix 7075
+name: Calcium fixture hotfix
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Apply fixture fix
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          script = Path("script.js")
+
+          fix = r"""
+
+          /* CALCIUM SPORT FIX 7075 */
+
+          async function hydrateFixturesFromSheet(data){
+            const sheetId =
+              data?.selectedCompetition?.["Sheet ID"] ||
+              data?.selectedCompetition?.SheetID ||
+              "";
+
+            if(!sheetId) return;
+
+            try{
+              const table = await loadGoogleVisualizationTable(sheetId, "Fixtures");
+
+              if(!table || !table.rows || !table.rows.length) return;
+
+              const headers = table.cols.map(c =>
+                String(c.label || c.id || "")
+                  .toLowerCase()
+                  .replace(/[^a-z0-9]/g,"")
+              );
+
+              const find = (...names)=>{
+                for(const n of names){
+                  const i = headers.indexOf(
+                    n.toLowerCase().replace(/[^a-z0-9]/g,"")
+                  );
+                  if(i>=0) return i;
+                }
+                return -1;
+              };
+
+              const homeCol=find("Home");
+              const awayCol=find("Away");
+              const scoreCol=find("S","Score");
+              const dateCol=find("Date");
+              const timeCol=find("Time");
+
+              if(homeCol<0 || awayCol<0) return;
+
+              const read=(row,i)=>{
+                if(i<0) return "";
+                const c=row.c[i];
+                return c && (c.f ?? c.v) || "";
+              };
+
+              data.matches = table.rows.map((row,index)=>{
+
+                const home=read(row,homeCol);
+                const away=read(row,awayCol);
+
+                if(!home || !away) return null;
+
+                const score=read(row,scoreCol);
+
+                let homeScore="";
+                let awayScore="";
+
+                const match=String(score)
+                  .match(/(\d+)\s*-\s*(\d+)/);
+
+                if(match){
+                  homeScore=match[1];
+                  awayScore=match[2];
+                }
+
+                return {
+                  ID:`${home}-${away}-${index}`,
+                  MatchID:`${home}-${away}-${index}`,
+                  HomeTeam:home,
+                  AwayTeam:away,
+                  HomeScore:homeScore,
+                  AwayScore:awayScore,
+                  Score:score,
+                  Date:read(row,dateCol),
+                  Time:read(row,timeCol),
+                  Status:
+                    homeScore!=="" && awayScore!=="" 
+                    ? "FT"
+                    : "Scheduled"
+                };
+
+              }).filter(Boolean);
+
+            }catch(e){
+              console.log(e);
+            }
+          }
+
+          """
+
+          text = script.read_text()
+
+          if "CALCIUM SPORT FIX 7075" not in text:
+              script.write_text(text + "\n" + fix)
+
+          index = Path("index.html")
+          html=index.read_text()
+
+          html=re.sub(
+              r"script\.js\?v=\d+",
+              "script.js?v=7075",
+              html
+          )
+
+          index.write_text(html)
+
+          PY
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add .
+          git commit -m "Apply Calcium fixture fix 7075" || exit 0
+          git push
