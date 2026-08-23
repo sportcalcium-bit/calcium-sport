@@ -1546,7 +1546,67 @@ function dedupeMatchArray(matches){
   });
   return Array.from(unique.values());
 }
-function getFilteredMatches(){ let matches=getCompetitionMatches(); if(currentSearch) matches=matches.filter(m=>[m.HomeTeam,m.AwayTeam,m.Round,m.Competition,m.Date,m.Time].join(' ').toLowerCase().includes(currentSearch)); if(currentRound){ const key=normaliseText(currentRound); matches=matches.filter(m=>normaliseText(m.Round)===key); } if(currentGroup){ const key=normaliseText(currentGroup); const teams=(appData.standings||[]).filter(r=>normaliseText(getStandingGroupKey(r))===key).map(r=>normaliseTeamName(r.Team)).filter(Boolean); matches=matches.filter(m=>teams.includes(normaliseTeamName(m.HomeTeam))||teams.includes(normaliseTeamName(m.AwayTeam))||normaliseText(m.Round)===key||normaliseText(m.Round).includes(key)); } return matches; }
+function getFilteredMatches(){
+
+  let matches = getCompetitionMatches();
+
+  if(!Array.isArray(matches)){
+    return [];
+  }
+
+
+  if(currentSearch){
+
+    const search = currentSearch.toLowerCase();
+
+    matches = matches.filter(match =>
+      [
+        match.HomeTeam,
+        match.AwayTeam,
+        match.Round,
+        match.Competition,
+        match.Date,
+        match.Time
+      ]
+      .join(' ')
+      .toLowerCase()
+      .includes(search)
+    );
+
+  }
+
+
+  /*
+    IMPORTANT:
+    Do not permanently lock the competition to one round.
+    Round filtering should only happen when the user manually selects it.
+  */
+
+  if(currentRound && currentRound !== 'All rounds'){
+
+    const selectedRound = normaliseText(currentRound);
+
+    matches = matches.filter(match =>
+      normaliseText(match.Round) === selectedRound
+    );
+
+  }
+
+
+  return matches.sort((a,b)=>{
+
+    const dateA = parseDateOnly(a.Date);
+    const dateB = parseDateOnly(b.Date);
+
+    if(dateA && dateB){
+      return dateA - dateB;
+    }
+
+    return 0;
+
+  });
+
+}
 function getFilteredStandings(){ let standings=appData.standings||[]; if(currentSearch) standings=standings.filter(r=>[r.Team,r.League,r.Group,r.Competition].join(' ').toLowerCase().includes(currentSearch)); if(currentGroup) standings=standings.filter(r=>normaliseText(getStandingGroupKey(r))===normaliseText(currentGroup)); return standings; }
 function getFilteredStats(){ let stats=appData.stats||[]; if(currentSearch) stats=stats.filter(r=>[r.Player,r.Team].join(' ').toLowerCase().includes(currentSearch)); return stats; }
 function getNextUpRound(matches){ const ordered=[...matches].sort((a,b)=>matchDateSortValue(a)-matchDateSortValue(b)||getFixtureOrderValue(a)-getFixtureOrderValue(b)); const now=Date.now()-86400000; const next=ordered.find(m=>m.Status!=='FT'&&matchDateSortValue(m)>=now); if(next) return next.Round||''; const completed=ordered.filter(m=>m.Status==='FT'&&matchDateSortValue(m)>0).sort((a,b)=>matchDateSortValue(b)-matchDateSortValue(a)); return completed.length?completed[0].Round||'':''; }
