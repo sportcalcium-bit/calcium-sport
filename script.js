@@ -1345,8 +1345,75 @@ function renderPlayerMatchRow(item){
   return `<button class="player-match-row" type="button" ${click}><span class="player-match-date">${escapeHTML(formatScoreboardDateParts(match.Date,match.Time).date)}</span><span class="player-match-teams"><strong>${escapeHTML(match.HomeTeam)} ${escapeHTML(score)} ${escapeHTML(match.AwayTeam)}</strong><small>${escapeHTML(match.Competition||match['Competition Name']||match.Round||'')}</small></span><span class="player-match-events">${badges||'—'}</span></button>`;
 }
 function getCompetitionMatches(){
-  const matches=dedupeMatchArray((Array.isArray(appData?.matches)?appData.matches:[]).concat(Array.isArray(appData?.playoffs)?appData.playoffs:[]));
-  return matches;
+
+  if(!appData){
+    return [];
+  }
+
+  const selected =
+    appData.selectedCompetition ||
+    {};
+
+  const competitionName =
+    String(
+      selected["Competition Name"] ||
+      selected.name ||
+      selected.competition ||
+      ""
+    )
+    .trim()
+    .toLowerCase();
+
+
+  const year =
+    String(
+      selected.Year ||
+      selected.year ||
+      ""
+    )
+    .trim();
+
+
+  const allMatches =
+    Array.isArray(appData.matches)
+      ? appData.matches
+      : [];
+
+
+  return allMatches.filter(match=>{
+
+    const matchCompetition =
+      String(
+        match.competition ||
+        match.Competition ||
+        ""
+      )
+      .trim()
+      .toLowerCase();
+
+
+    const matchYear =
+      String(
+        match.year ||
+        match.Year ||
+        ""
+      )
+      .trim();
+
+
+    const sameCompetition =
+      matchCompetition === competitionName;
+
+
+    const sameYear =
+      !year ||
+      matchYear === year;
+
+
+    return sameCompetition && sameYear;
+
+  });
+
 }
 function getGlobalMatches(){
   const matches=dedupeMatchArray(Array.isArray(appData?.allMatches)?appData.allMatches:[]);
