@@ -1,9 +1,49 @@
 const API_URL = 'https://script.google.com/macros/s/AKfycbyFU-9M16UBls1YvTZfXxCDGLFBT2CL1qvTH7S_pmdHCD6kSeQpHQlQW_gg6r5vhfjOZA/exec';
 
 let appData = null;
+function $(id){
+  return document.getElementById(id);
+}
 
 let playerImageLookup = new Map();
 let playerTeamsLookup = new Map();
+
+function $(id){
+  return document.getElementById(id);
+}
+function normalisePlayerName(value){
+
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g,"")
+    .replace(/[^a-z0-9 ]/g,"")
+    .trim()
+    .replace(/\s+/g," ");
+
+}
+function showError(message){
+
+  console.error(message);
+
+  const title =
+    $("competitionTitle");
+
+  if(title){
+    title.textContent =
+      "Error";
+  }
+
+
+  const subtitle =
+    $("competitionSubtitle");
+
+  if(subtitle){
+    subtitle.textContent =
+      message;
+  }
+
+}
 
 let activeCompetition = null;
 let currentView = 'nextUp';
@@ -141,7 +181,63 @@ async function loadApplicationData(){
     getCompetitionMatches();
 
 
+function loadGoogleVisualizationTable(spreadsheetId, sheetName){
 
+  return new Promise((resolve,reject)=>{
+
+    const callbackName =
+      "calciumGViz_" + Date.now();
+
+
+    window[callbackName] = function(response){
+
+      delete window[callbackName];
+
+      try{
+
+        resolve(response.table);
+
+      }catch(error){
+
+        reject(error);
+
+      }
+
+    };
+
+
+    const script =
+      document.createElement("script");
+
+
+    script.src =
+      "https://docs.google.com/spreadsheets/d/"
+      + spreadsheetId
+      + "/gviz/tq?sheet="
+      + encodeURIComponent(sheetName)
+      + "&tqx=responseHandler:"
+      + callbackName;
+
+
+    script.onerror = function(){
+
+      delete window[callbackName];
+
+      reject(
+        new Error(
+          "Google Visualization failed"
+        )
+      );
+
+    };
+
+
+    document.head.appendChild(script);
+
+
+  });
+
+}
   await hydrateFixturesFromSheet(
     appData
   );
