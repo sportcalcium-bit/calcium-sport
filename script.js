@@ -2088,3 +2088,443 @@ async function hydrateFixturesFromSheet(data){
     console.warn('Could not load fixtures directly from the Fixtures sheet.', error);
   }
 }
+/* =========================================================
+   CALCIUM SPORT FIX 7074
+   Paste this entire block at the VERY BOTTOM of script.js.
+   It fixes the new fixture sheet layout:
+   R | N | Home | S | Away | Date | Time | YouTube URL
+========================================================= */
+
+window.CALCIUM_SCRIPT_VERSION = '7074-fixtures-final-fix';
+
+function calciumFixHeaderKey_(value){
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '');
+}
+
+function calciumFixCellValue_(cell){
+  if(cell === null || cell === undefined) return '';
+  const value = cell.f !== null && cell.f !== undefined ? cell.f : cell.v;
+  return String(value === null || value === undefined ? '' : value).trim();
+}
+
+function calciumFixParseScore_(value){
+  const text = String(value || '').trim();
+
+  const output = {
+    homeScore: '',
+    awayScore: '',
+    homePens: '',
+    awayPens: ''
+  };
+
+  if(!text) return output;
+
+  const withPens = text.match(/^\((\d+)\)\s*(\d+)\s*[-–—:]\s*(\d+)\s*\((\d+)\)$/);
+  if(withPens){
+    output.homePens = withPens[1];
+    output.homeScore = withPens[2];
+    output.awayScore = withPens[3];
+    output.awayPens = withPens[4];
+    return output;
+  }
+
+  const normalScore = text.match(/^(\d+)\s*[-–—:]\s*(\d+)$/);
+  if(normalScore){
+    output.homeScore = normalScore[1];
+    output.awayScore = normalScore[2];
+  }
+
+  return output;
+}
+
+function calciumFixExtractSpreadsheetId_(value){
+  const text = String(value || '').trim();
+  const match = text.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  return match ? match[1] : text;
+}
+
+function calciumFixGetSpreadsheetIdFromCompetition_(competition){
+  const possibleValues = [
+    competition && competition['Sheet ID'],
+    competition && competition.SheetID,
+    competition && competition.sheetId,
+    competition && competition.sheetID,
+    competition && competition['Spreadsheet ID'],
+    competition && competition.SpreadsheetID,
+    competition && competition.spreadsheetId
+  ];
+
+  for(const value of possibleValues){
+    const id = calciumFixExtractSpreadsheetId_(value);
+    if(id) return id;
+  }
+
+  return '';
+}
+
+function calciumFixResolveSpreadsheetId_(data){
+  const selectedId = calciumFixGetSpreadsheetIdFromCompetition_(data && data.selectedCompetition);
+  if(selectedId) return selectedId;
+
+  const requestedSlug = new URLSearchParams(window.location.search).get('competition') || '';
+  const competitions = Array.isArray(data && data.competitions) ? data.competitions : [];
+
+  const selected = competitions.find(function(competition){
+    return makeCompetitionSlug(competition) === requestedSlug;
+  });
+
+  return calciumFixGetSpreadsheetIdFromCompetition_(selected);
+}
+
+function calciumFixIsLegacyFixtureCompetition_(data){
+  const selected = (data && data.selectedCompetition) || (data && data.site) || {};
+  const name = String(
+    selected['Competition Name'] ||
+    selected.competition ||
+    selected.Competition ||
+    ''
+  ).trim().toLowerCase();
+
+  return name === 'world cup' ||
+    name === 'pre-season friendlies' ||
+    name === 'friendlies';
+}
+
+function calciumFixNormaliseTeam_(value){
+  return String(value || '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function calciumFixMakeMatchId_(home, away, date, index){
+  const homePart = slugify(home || 'TBD').toUpperCase() || 'TBD';
+  const awayPart = slugify(away || 'TBD').toUpperCase() || 'TBD';
+  const datePart = String(date || '').replace(/[^0-9]/g, '') || String(index + 1);
+  return `${homePart}-${awayPart}-${datePart}`;
+}
+
+async function hydrateFixturesFromSheet(data){
+  if(!data) return;
+
+  if(calciumFixIsLegacyFixtureCompetition_(data)){
+    return;
+  }
+
+  const sheetId = calciumFixResolveSpreadsheetId_(data);
+  if(!sheetId) return;
+
+  try{
+    const table = await loadGoogleVisualizationTable(sheetId, 'Fixtures');
+
+    const rawColumns = table && Array.isArray(table.cols) ? table.cols : [];
+    const rawRows = table && Array.isArray(table.rows) ? table.rows : [];
+
+    if(!rawColumns.length || !rawRows.length) return;
+
+    const headers = rawColumns.map(function(column){
+      return calciumFixHeaderKey_(column && (column.label || column.id));
+    });
+
+    function findColumn(){
+      const names = Array.from(arguments).map(calciumFixHeaderKey_);
+      for(const name of names){
+        const index = headers.indexOf(name);
+        if(index >= 0) return index;
+      }
+      return -1;
+    }
+
+    const columns = {
+      round: findColumn('R', 'Round', 'Gameweek', 'GW'),
+      order: findColumn('N', 'Order', 'Fixture Order', 'No'),
+      home: findColumn('Home', 'Home Team'),
+      score: findColumn('S', 'Score'),
+      away: findColumn('Away', 'Away Team'),
+      date: findColumn('Date'),
+      time: findColumn('Time', 'Kick Off', 'Kickoff'),
+      venue: findColumn('Venue', 'Stadium'),
+      matchId: findColumn('Match ID', 'MatchID', 'ID'),
+      youtube: findColumn('YouTube URL', 'YouTubeURL', 'Youtube URL', 'Highlights URL', 'HighlightsURL')
+    };
+
+    const requiredHeadersFound =
+      columns.home >= 0 &&
+      columns.away >= 0 &&
+      columns.date >= 0 &&
+      columns.time >= 0;
+
+    if(!requiredHeadersFound && rawColumns.length >= 14){
+      columns.round = 0;
+      columns.order = 1;
+      columns.home = 2;
+      columns.score = 3;
+      columns.away = 4;
+      columns.date = 9;
+      columns.time = 10;
+      columns.venue = 11;
+      columns.matchId = 12;
+      columns.youtube = 13;
+    }
+
+    if(
+      (columns.home < 0 || columns.away < 0 || columns.date < 0 || columns.time < 0) &&
+      rawColumns.length >= 8
+    ){
+      columns.round = 0;
+      columns.order = 1;
+      columns.home = 2;
+      columns.score = 3;
+      columns.away = 4;
+      columns.date = 5;
+      columns.time = 6;
+      columns.venue = -1;
+      columns.matchId = -1;
+      columns.youtube = 7;
+    }
+
+    if(columns.home < 0 || columns.away < 0 || columns.date < 0 || columns.time < 0){
+      return;
+    }
+
+    function read(row, columnIndex){
+      if(columnIndex < 0) return '';
+      return calciumFixCellValue_(row && row.c && row.c[columnIndex]);
+    }
+
+    const selected = data.selectedCompetition || data.site || {};
+
+    const competitionName =
+      selected['Competition Name'] ||
+      selected.competition ||
+      data.site && data.site.competition ||
+      '';
+
+    const competitionYear =
+      selected.Year ||
+      selected.year ||
+      data.site && data.site.year ||
+      '';
+
+    const competitionRegion =
+      selected.Region ||
+      selected.region ||
+      data.site && data.site.region ||
+      '';
+
+    const competitionType =
+      selected['Competition Type'] ||
+      data.competitionType ||
+      data.site && data.site.competitionType ||
+      '';
+
+    const previousMatches = []
+      .concat(Array.isArray(data.matches) ? data.matches : [])
+      .concat(Array.isArray(data.playoffs) ? data.playoffs : []);
+
+    const previousByTeams = new Map();
+
+    previousMatches.forEach(function(match){
+      const homeKey = calciumFixNormaliseTeam_(match.HomeTeam || match.Home);
+      const awayKey = calciumFixNormaliseTeam_(match.AwayTeam || match.Away);
+      if(homeKey || awayKey){
+        previousByTeams.set(`${homeKey}|${awayKey}`, match);
+      }
+    });
+
+    const fixedMatches = rawRows.map(function(row, index){
+      const round = read(row, columns.round);
+      const order = read(row, columns.order);
+      const home = read(row, columns.home);
+      const score = read(row, columns.score);
+      const away = read(row, columns.away);
+      const date = read(row, columns.date);
+      const time = read(row, columns.time);
+      const venue = read(row, columns.venue);
+      const rawMatchId = read(row, columns.matchId);
+      const youtube = read(row, columns.youtube);
+
+      if(!date) return null;
+      if(!home && !away) return null;
+
+      const homeTeam = home || 'TBD';
+      const awayTeam = away || 'TBD';
+
+      const previousKey = `${calciumFixNormaliseTeam_(homeTeam)}|${calciumFixNormaliseTeam_(awayTeam)}`;
+      const previous = previousByTeams.get(previousKey) || {};
+
+      const parsedScore = calciumFixParseScore_(score);
+
+      const homeScore =
+        previous.HomeScore !== undefined && previous.HomeScore !== ''
+          ? previous.HomeScore
+          : parsedScore.homeScore;
+
+      const awayScore =
+        previous.AwayScore !== undefined && previous.AwayScore !== ''
+          ? previous.AwayScore
+          : parsedScore.awayScore;
+
+      const homePens =
+        previous.HomePens !== undefined && previous.HomePens !== ''
+          ? previous.HomePens
+          : parsedScore.homePens;
+
+      const awayPens =
+        previous.AwayPens !== undefined && previous.AwayPens !== ''
+          ? previous.AwayPens
+          : parsedScore.awayPens;
+
+      const matchId =
+        rawMatchId ||
+        previous.MatchID ||
+        previous.ID ||
+        calciumFixMakeMatchId_(homeTeam, awayTeam, date, index);
+
+      const status =
+        previous.Status ||
+        (homeScore !== '' && awayScore !== '' ? 'FT' : 'Scheduled');
+
+      const homeLogo = previous.HomeLogo || findTeamLogo(homeTeam);
+      const awayLogo = previous.AwayLogo || findTeamLogo(awayTeam);
+
+      return {
+        ...previous,
+
+        ID: matchId,
+        MatchID: matchId,
+        'Match ID': matchId,
+
+        Competition: previous.Competition || competitionName,
+        CompetitionLabel: previous.CompetitionLabel || `${competitionName} ${competitionYear}`.trim(),
+        Year: previous.Year || competitionYear,
+        Region: previous.Region || competitionRegion,
+        CompetitionType: previous.CompetitionType || competitionType,
+
+        Stage: previous.Stage || 'Main',
+        SourceSheet: previous.SourceSheet || 'Fixtures',
+
+        R: round,
+        Round: round || competitionName,
+        N: order,
+        FixtureOrder: order,
+
+        Home: homeTeam,
+        HomeTeam: homeTeam,
+        Away: awayTeam,
+        AwayTeam: awayTeam,
+
+        S: score,
+        Score: score,
+        HomeScore: homeScore,
+        AwayScore: awayScore,
+        HomePens: homePens,
+        AwayPens: awayPens,
+        Status: status,
+
+        Date: date,
+        Time: time,
+        Venue: venue || previous.Venue || '',
+        Stadium: venue || previous.Stadium || previous.Venue || '',
+
+        YouTubeURL: youtube || previous.YouTubeURL || previous.YoutubeURL || previous.HighlightsURL || '',
+        YoutubeURL: youtube || previous.YoutubeURL || previous.YouTubeURL || previous.HighlightsURL || '',
+        HighlightsURL: youtube || previous.HighlightsURL || previous.YouTubeURL || previous.YoutubeURL || '',
+
+        HomeLogo: homeLogo,
+        AwayLogo: awayLogo
+      };
+    }).filter(Boolean);
+
+    if(fixedMatches.length){
+      data.matches = fixedMatches;
+      data.playoffs = [];
+
+      data.allMatches = dedupeMatchArray(
+        fixedMatches.concat(Array.isArray(data.allMatches) ? data.allMatches : [])
+      );
+    }
+  }catch(error){
+    console.warn('CALCIUM FIX 7074: Could not hydrate fixtures from sheet.', error);
+  }
+}
+
+function getCompetitionMatches(){
+  const directMatches = dedupeMatchArray(
+    (Array.isArray(appData && appData.matches) ? appData.matches : [])
+      .concat(Array.isArray(appData && appData.playoffs) ? appData.playoffs : [])
+  );
+
+  if(directMatches.length){
+    return directMatches;
+  }
+
+  const selected = (appData && appData.selectedCompetition) || (appData && appData.site) || {};
+
+  const selectedName = normaliseCompetitionName(
+    selected['Competition Name'] ||
+    selected.competition ||
+    appData && appData.site && appData.site.competition ||
+    ''
+  );
+
+  const selectedYear = String(
+    selected.Year ||
+    selected.year ||
+    appData && appData.site && appData.site.year ||
+    ''
+  ).trim();
+
+  if(!selectedName) return [];
+
+  const fallbackMatches = []
+    .concat(Array.isArray(appData && appData.allMatches) ? appData.allMatches : [])
+    .concat(Array.isArray(appData && appData.myGames) ? appData.myGames : [])
+    .filter(function(match){
+      const matchCompetition = normaliseCompetitionName(
+        match.Competition ||
+        match.CompetitionLabel ||
+        match['Competition Name'] ||
+        ''
+      );
+
+      const matchYear = String(match.Year || match.Season || '').trim();
+      const label = String(match.CompetitionLabel || '').toLowerCase();
+
+      const sameCompetition =
+        matchCompetition === selectedName ||
+        matchCompetition.includes(selectedName) ||
+        selectedName.includes(matchCompetition);
+
+      const sameYear =
+        !selectedYear ||
+        matchYear === selectedYear ||
+        label.includes(selectedYear.toLowerCase());
+
+      return sameCompetition && sameYear;
+    });
+
+  return dedupeMatchArray(fallbackMatches);
+}
+
+function findTeamLogo(teamName){
+  const team = normaliseTeamName(teamName);
+
+  const matches = []
+    .concat(Array.isArray(appData && appData.matches) ? appData.matches : [])
+    .concat(Array.isArray(appData && appData.playoffs) ? appData.playoffs : [])
+    .concat(Array.isArray(appData && appData.allMatches) ? appData.allMatches : [])
+    .concat(Array.isArray(appData && appData.myGames) ? appData.myGames : []);
+
+  for(const match of matches){
+    if(normaliseTeamName(match.HomeTeam) === team && match.HomeLogo) return match.HomeLogo;
+    if(normaliseTeamName(match.AwayTeam) === team && match.AwayLogo) return match.AwayLogo;
+  }
+
+  return '';
+}
