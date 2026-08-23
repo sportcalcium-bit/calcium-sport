@@ -206,7 +206,7 @@ function loadGoogleVisualizationTable(sheetId,sheetName){
     };
     script.onerror=()=>{ cleanup(); reject(new Error('Could not load the Standings sheet.')); };
     const base=`https://docs.google.com/spreadsheets/d/${encodeURIComponent(sheetId)}/gviz/tq`;
-    script.src=`${base}?tqx=responseHandler:${encodeURIComponent(callback)}&sheet=${encodeURIComponent(sheetName)}&v=${Date.now()}`;
+    script.src=`${base}?tqx=responseHandler:${encodeURIComponent(callback)}&sheet=${encodeURIComponent(sheetName)}&headers=1&v=${Date.now()}`;
     document.head.appendChild(script);
   });
 }
@@ -1900,14 +1900,11 @@ function safeScore(v){ return v===''||v===undefined||v===null?'-':v; }
 function formatGoalDifference(v){ const n=Number(v); if(!Number.isFinite(n))return'0'; return n>0?`+${n}`:String(n); }
 function escapeHTML(v){ return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
 function escapeAttr(v){ return escapeHTML(v); }
-window.CALCIUM_SCRIPT_VERSION='7071-direct-fixtures-header-layout';
+window.CALCIUM_SCRIPT_VERSION='7072-fixtures-header-fix';
 
 
 function normaliseDirectFixtureHeader(value){
-  return String(value || '')
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '');
+  return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '');
 }
 
 function directFixtureCellValue(cell){
@@ -1925,16 +1922,47 @@ function normaliseDirectFixtureTeam(value){
     .trim();
 }
 
+function extractDirectFixtureSheetId(value){
+  const text=String(value || '').trim();
+  const match=text.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  return match ? match[1] : text;
+}
+
+function getDirectFixtureSheetIdFromCompetition(competition){
+  const candidates=[
+    competition?.['Sheet ID'],
+    competition?.SheetID,
+    competition?.sheetId,
+    competition?.sheetID,
+    competition?.['Spreadsheet ID'],
+    competition?.SpreadsheetID,
+    competition?.spreadsheetId
+  ];
+  for(const candidate of candidates){
+    const sheetId=extractDirectFixtureSheetId(candidate);
+    if(sheetId) return sheetId;
+  }
+  return '';
+}
+
+function resolveDirectFixtureSheetId(data){
+  const selectedId=getDirectFixtureSheetIdFromCompetition(data?.selectedCompetition);
+  if(selectedId) return selectedId;
+
+  const requestedSlug=new URLSearchParams(window.location.search).get('competition') || '';
+  const competitions=Array.isArray(data?.competitions) ? data.competitions : [];
+  const selected=competitions.find(competition => makeCompetitionSlug(competition) === requestedSlug);
+  return getDirectFixtureSheetIdFromCompetition(selected);
+}
+
 /**
- * New ongoing-competition format:
- * Fixtures contains R, N, Home, S, Away, Date and Time.
+ * Reads the new ongoing-competition Fixtures structure directly:
+ * R, N (optional), Home, S, Away, Date, Time, Venue, Match ID, YouTube URL.
  *
- * The Apps Script backend may still expose the former fixed-column layout.
- * When an N header is present, read the authoritative Fixtures tab directly.
- * Legacy sheets without N (World Cup and Pre-season Friendlies) are untouched.
+ * World Cup and Pre-season Friendlies retain their legacy backend format.
  */
 async function hydrateFixturesFromSheet(data){
-  const sheetId=String(data?.selectedCompetition?.['Sheet ID'] || '').trim();
+  const sheetId=resolveDirectFixtureSheetId(data);
   if(!sheetId) return;
 
   try{
@@ -1942,7 +1970,6 @@ async function hydrateFixturesFromSheet(data){
     const headers=(table?.cols || []).map(column =>
       normaliseDirectFixtureHeader(column?.label || column?.id || '')
     );
-
     const findHeader=(...names)=>{
       for(const name of names){
         const index=headers.indexOf(normaliseDirectFixtureHeader(name));
@@ -1960,11 +1987,33 @@ async function hydrateFixturesFromSheet(data){
       date:findHeader('Date'),
       time:findHeader('Time'),
       venue:findHeader('Venue'),
+      matchId:findHeader('Match ID', 'MatchID'),
       youtube:findHeader('YouTube URL', 'YouTubeURL')
     };
 
+    const hasRequiredHeaders=
+      columns.home >= 0 &&
+      columns.away >= 0 &&
+      columns.date >= 0 &&
+      columns.time >= 0;
+
+    // Safe fallback for the exact 14-column ongoing format when GViz omits labels.
+    if(!hasRequiredHeaders && (table?.cols || []).length === 14){
+      Object.assign(columns, {
+        round:0,
+        order:1,
+        home:2,
+        score:3,
+        away:4,
+        date:9,
+        time:10,
+        venue:11,
+        matchId:12,
+        youtube:13
+      });
+    }
+
     if(
-      columns.order < 0 ||
       columns.home < 0 ||
       columns.away < 0 ||
       columns.date < 0 ||
@@ -1973,9 +2022,7 @@ async function hydrateFixturesFromSheet(data){
       return;
     }
 
-    const read=(row, index)=>
-      index < 0 ? '' : directFixtureCellValue(row?.c?.[index]);
-
+    const read=(row, index)=> index < 0 ? '' : directFixtureCellValue(row?.c?.[index]);
     const oldMatches=[
       ...(Array.isArray(data?.matches) ? data.matches : []),
       ...(Array.isArray(data?.playoffs) ? data.playoffs : [])
@@ -2017,8 +2064,14 @@ async function hydrateFixturesFromSheet(data){
       };
 
       const venue=read(row, columns.venue);
+      const matchId=read(row, columns.matchId);
       const youtube=read(row, columns.youtube);
+
       if(venue) match.Venue=venue;
+      if(matchId){
+        match.MatchID=matchId;
+        match['Match ID']=matchId;
+      }
       if(youtube){
         match.YouTubeURL=youtube;
         match['YouTube URL']=youtube;
