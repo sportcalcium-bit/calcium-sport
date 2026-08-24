@@ -491,6 +491,8 @@ function renderHomeGames(){
 function renderHomeMatchRow(match){ const score=match.Status==='FT'?renderScoreText(match):'- : -'; const click=match.MatchID?`onclick="openMatchDetail('${escapeAttr(match.MatchID)}')"`:''; return `<article class="home-match-row" ${click}><div class="score-team-home-name">${escapeHTML(match.HomeTeam)}</div><div class="score-team-home-logo">${renderTeamLogo(match.HomeLogo,match.HomeTeam)}</div><div class="home-match-score">${score}</div><div class="score-team-away-logo">${renderTeamLogo(match.AwayLogo,match.AwayTeam)}</div><div class="score-team-away-name">${escapeHTML(match.AwayTeam)}</div></article>`; }
 function renderHomeTab(){ const allPanel=$('allGamesPanel'), myPanel=$('myGamesPanel'), jump=$('jumpSelect'); document.querySelectorAll('[data-home-tab]').forEach(b=>b.classList.toggle('active',b.dataset.homeTab===currentHomeTab)); allPanel?.classList.toggle('hidden',currentHomeTab!=='allGames'); myPanel?.classList.toggle('hidden',currentHomeTab!=='myGames'); if(jump&&isHomePage()) jump.value=currentHomeTab==='myGames'?'myGames':'nextUp'; }
 const PERSONAL_DAY_PRIORITY = ['Friday','Monday','Sunday','Thursday','Tuesday','Wednesday','Saturday'];
+const WEEKDAY_NAMES_BY_JS_INDEX = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+function weekdayNameFromDate(d){ return WEEKDAY_NAMES_BY_JS_INDEX[d.getDay()]; }
 const WEEKDAY_OFFSET_FROM_MONDAY = { Monday:0, Tuesday:1, Wednesday:2, Thursday:3, Friday:4, Saturday:5, Sunday:6 };
 
 /*
@@ -578,33 +580,33 @@ function renderMyGames(){
 
   const personalAssignment = buildPersonalDayAssignments(unplayedMatches, weekStart, isCurrentWeek);
 
-  const dividerFor = (match)=>{
+  const dayNameFor = (match)=>{
     if(match.Status==='FT'){
       const d = parseDateOnly(match.Date);
-      const key = getDateKey(match.Date);
-      return { key, label: d?formatShortDateFromDate(d).replace(/\.$/,''):key, sortValue: d?d.getTime():0 };
+      return d ? weekdayNameFromDate(d) : 'Saturday';
     }
-    const dayName = personalAssignment.get(match) || 'Saturday';
-    const d = addDays(weekStart, WEEKDAY_OFFSET_FROM_MONDAY[dayName]);
-    return { key:`personal-${dayName}`, label:`${dayName} ${formatShortDateFromDate(d).replace(/\.$/,'')}`, sortValue:d.getTime() };
+    return personalAssignment.get(match) || 'Saturday';
   };
 
-  const dividerGroups = new Map();
+  const dayGroups = new Map();
   weekMatches.forEach(match=>{
-    const divider = dividerFor(match);
-    if(!dividerGroups.has(divider.key)) dividerGroups.set(divider.key,{label:divider.label,sortValue:divider.sortValue,matches:[]});
-    dividerGroups.get(divider.key).matches.push(match);
+    const dayName = dayNameFor(match);
+    if(!dayGroups.has(dayName)) dayGroups.set(dayName,[]);
+    dayGroups.get(dayName).push(match);
   });
 
-  const orderedDividers = Array.from(dividerGroups.values()).sort((a,b)=>a.sortValue-b.sortValue);
+  const orderedDayNames = Array.from(dayGroups.keys()).sort((a,b)=>PERSONAL_DAY_PRIORITY.indexOf(a)-PERSONAL_DAY_PRIORITY.indexOf(b));
 
-  const html = orderedDividers.map(divider=>{
-    const leagueGroups = groupBy(divider.matches, m=>m.Competition || 'Competition');
+  const html = orderedDayNames.map(dayName=>{
+    const dayDate = addDays(weekStart, WEEKDAY_OFFSET_FROM_MONDAY[dayName]);
+    const label = `${dayName} ${formatShortDateFromDate(dayDate).replace(/\.$/,'')}`;
+    const dayMatches = dayGroups.get(dayName);
+    const leagueGroups = groupBy(dayMatches, m=>m.Competition || 'Competition');
     const leagueHtml = Object.keys(leagueGroups).sort((a,b)=>compareCompetitionBlockChronological(a,b,leagueGroups)).map(league=>{
       const rows = leagueGroups[league].sort(compareHomeMatches);
       return `<section class="my-games-league-card"><div class="my-games-league-head"><span class="my-games-region">${escapeHTML(getRegionForCompetition(rows[0]))}</span><strong class="my-games-league-name">${escapeHTML(league)}</strong></div>${rows.map(renderMyGamesRow).join('')}</section>`;
     }).join('');
-    return `<section class="home-time-block"><div class="home-time-heading">${escapeHTML(divider.label)}</div>${leagueHtml}</section>`;
+    return `<section class="home-time-block"><div class="home-time-heading">${escapeHTML(label)}</div>${leagueHtml}</section>`;
   }).join('');
 
   setHTML('myGamesList', html);
