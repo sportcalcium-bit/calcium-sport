@@ -17,6 +17,89 @@ function normalisePlayerName(value){
     .replace(/\s+/g," ");
 
 }
+function loadGoogleVisualizationTable(spreadsheetId, sheetName){
+
+  return new Promise((resolve,reject)=>{
+
+    const callbackName =
+      "calciumGViz_" + Date.now();
+
+
+    window[callbackName] = function(response){
+
+      delete window[callbackName];
+
+      try{
+
+        resolve(response.table);
+
+      }catch(error){
+
+        reject(error);
+
+      }
+
+    };
+
+
+    const script =
+      document.createElement("script");
+
+
+    script.src =
+      "https://docs.google.com/spreadsheets/d/"
+      + spreadsheetId
+      + "/gviz/tq?sheet="
+      + encodeURIComponent(sheetName)
+      + "&tqx=responseHandler:"
+      + callbackName;
+
+
+    script.onerror = function(){
+
+      delete window[callbackName];
+
+      reject(
+        new Error(
+          "Google Visualization failed"
+        )
+      );
+
+    };
+
+
+    document.head.appendChild(script);
+
+  });
+
+}
+function setupNavigation(){
+
+  const jump =
+    $("jumpSelect");
+
+  if(!jump) return;
+
+
+  jump.addEventListener(
+    "change",
+    function(){
+
+      const section =
+        $(jump.value + "Section");
+
+      if(section){
+
+        section.scrollIntoView({
+          behavior:"smooth"
+        });
+
+      }
+
+    }
+  );
+
+}
 function showError(message){
 
   console.error(message);
