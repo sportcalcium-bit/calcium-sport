@@ -537,18 +537,24 @@ function buildPersonalDayAssignments(unplayedMatches, weekStart, isCurrentWeek){
   const capacity = {};
   eligibleDays.forEach((name,i)=>{ capacity[name] = base + (i<remainder?1:0); });
 
+  // Quotas above are decided by priority rank (Friday/Monday/Sunday... get
+  // the remainder first), but matches are filled - and days displayed - in
+  // real calendar order, so each day's content stays chronologically
+  // consistent with the days around it.
+  const fillOrder = MONDAY_TO_SUNDAY_DISPLAY_ORDER.filter(name=>eligibleDays.includes(name));
+
   const sorted = [...unplayedMatches].sort((a,b)=>matchDateSortValue(a)-matchDateSortValue(b));
   const assignment = new Map();
   let index = 0;
 
-  eligibleDays.forEach(name=>{
+  fillOrder.forEach(name=>{
     for(let n=0; n<capacity[name] && index<sorted.length; n++,index++){
       assignment.set(sorted[index], name);
     }
   });
 
   while(index < sorted.length){
-    assignment.set(sorted[index], eligibleDays[eligibleDays.length-1] || 'Saturday');
+    assignment.set(sorted[index], fillOrder[fillOrder.length-1] || 'Saturday');
     index++;
   }
 
