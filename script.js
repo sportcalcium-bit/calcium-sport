@@ -498,7 +498,7 @@ const PERSONAL_DAY_PRIORITY = ['Friday','Monday','Sunday','Thursday','Tuesday','
 const MONDAY_TO_SUNDAY_DISPLAY_ORDER = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const WEEKDAY_NAMES_BY_JS_INDEX = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 function weekdayNameFromDate(d){ return WEEKDAY_NAMES_BY_JS_INDEX[d.getDay()]; }
-const WEEKDAY_OFFSET_FROM_WEEK_START = { Tuesday:0, Wednesday:1, Thursday:2, Friday:3, Saturday:4, Sunday:5, Monday:6 };
+const WEEKDAY_OFFSET_FROM_WEEK_START = { Monday:0, Tuesday:1, Wednesday:2, Thursday:3, Friday:4, Saturday:5, Sunday:6 };
 
 /*
   Splits this week's not-yet-played My Games across the personal
@@ -1093,10 +1093,10 @@ function formatFullDateTime(date,time){ const d=parseDateOnly(date); return [d?d
 function dateToKey(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 function getTodayKey(){ return dateToKey(new Date()); }
 function addDays(date,days){ const d=new Date(date); d.setDate(d.getDate()+days); return new Date(d.getFullYear(),d.getMonth(),d.getDate()); }
-function getWeekStart(date){ const d=new Date(date.getFullYear(),date.getMonth(),date.getDate()); const day=d.getDay(); d.setDate(d.getDate()-((day-2+7)%7)); return d; }
+function getWeekStart(date){ const d=new Date(date.getFullYear(),date.getMonth(),date.getDate()); const day=d.getDay(); d.setDate(d.getDate()+(day===0?-6:1-day)); return d; }
 function getWeekRangeLabel(date){ const start=getWeekStart(date), end=addDays(start,6); return `${formatMyGamesDate(start)} - ${formatMyGamesDate(end)}`; }
 function getSeasonWeekLabel(date){ const selected=new Date(date.getFullYear(),date.getMonth(),date.getDate()); let y=selected.getMonth()>=7?selected.getFullYear():selected.getFullYear()-1; let first=getFirstWeekStartOfAugust(y); if(selected<first){ y--; first=getFirstWeekStartOfAugust(y); } return `Week ${Math.max(1,Math.floor((selected-first)/604800000)+1)}`; }
-function getFirstWeekStartOfAugust(y){ const d=new Date(y,7,1); const day=d.getDay(); d.setDate(d.getDate()+((2-day+7)%7)); return d; }
+function getFirstWeekStartOfAugust(y){ const d=new Date(y,7,1); const day=d.getDay(); d.setDate(d.getDate()+(day===1?0:(8-day)%7)); return d; }
 function formatShortDateFromDate(d){ return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.`; }
 function formatMyGamesDate(d){ return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`; }
 function normaliseKickoffTime(v){ return String(v||'').trim()||'Scheduled'; }
