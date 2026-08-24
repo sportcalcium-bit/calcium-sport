@@ -218,6 +218,10 @@ function buildTeamLogoLookup(rows){
   return lookup;
 }
 
+function isPresent(value){
+  return value !== undefined && value !== null && value !== '';
+}
+
 function mapApiMatchToPascal(match){
   const home = match.homeTeam || '';
   const away = match.awayTeam || '';
@@ -232,10 +236,10 @@ function mapApiMatchToPascal(match){
     Time: match.time || '',
     HomeTeam: home,
     AwayTeam: away,
-    HomeScore: match.homeScore || '',
-    AwayScore: match.awayScore || '',
-    HomePens: match.homePens || '',
-    AwayPens: match.awayPens || '',
+    HomeScore: isPresent(match.homeScore) ? match.homeScore : '',
+    AwayScore: isPresent(match.awayScore) ? match.awayScore : '',
+    HomePens: isPresent(match.homePens) ? match.homePens : '',
+    AwayPens: isPresent(match.awayPens) ? match.awayPens : '',
     Venue: match.venue || '',
     YouTubeURL: match.youtube || '',
     Status: match.status || '',
