@@ -495,6 +495,7 @@ function renderHomeGames(){
 }
 function renderHomeTab(){ const allPanel=$('allGamesPanel'), myPanel=$('myGamesPanel'), jump=$('jumpSelect'); document.querySelectorAll('[data-home-tab]').forEach(b=>b.classList.toggle('active',b.dataset.homeTab===currentHomeTab)); allPanel?.classList.toggle('hidden',currentHomeTab!=='allGames'); myPanel?.classList.toggle('hidden',currentHomeTab!=='myGames'); if(jump&&isHomePage()) jump.value=currentHomeTab==='myGames'?'myGames':'nextUp'; }
 const PERSONAL_DAY_PRIORITY = ['Friday','Monday','Sunday','Thursday','Tuesday','Wednesday','Saturday'];
+const MONDAY_TO_SUNDAY_DISPLAY_ORDER = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const WEEKDAY_NAMES_BY_JS_INDEX = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 function weekdayNameFromDate(d){ return WEEKDAY_NAMES_BY_JS_INDEX[d.getDay()]; }
 const WEEKDAY_OFFSET_FROM_WEEK_START = { Tuesday:0, Wednesday:1, Thursday:2, Friday:3, Saturday:4, Sunday:5, Monday:6 };
@@ -599,7 +600,7 @@ function renderMyGames(){
     dayGroups.get(dayName).push(match);
   });
 
-  const orderedDayNames = Array.from(dayGroups.keys()).sort((a,b)=>PERSONAL_DAY_PRIORITY.indexOf(a)-PERSONAL_DAY_PRIORITY.indexOf(b));
+  const orderedDayNames = Array.from(dayGroups.keys()).sort((a,b)=>MONDAY_TO_SUNDAY_DISPLAY_ORDER.indexOf(a)-MONDAY_TO_SUNDAY_DISPLAY_ORDER.indexOf(b));
 
   const html = orderedDayNames.map(dayName=>{
     const dayDate = addDays(weekStart, WEEKDAY_OFFSET_FROM_WEEK_START[dayName]);
