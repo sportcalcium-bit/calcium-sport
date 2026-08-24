@@ -286,39 +286,7 @@ async function loadApplicationData(){
   competitionMatchesCache =
     getCompetitionMatches();
 
-    const script =
-      document.createElement("script");
-
-
-    script.src =
-      "https://docs.google.com/spreadsheets/d/"
-      + spreadsheetId
-      + "/gviz/tq?sheet="
-      + encodeURIComponent(sheetName)
-      + "&tqx=responseHandler:"
-      + callbackName;
-
-script.onerror = function(){
-
-  delete window[callbackName];
-
-  reject(
-    new Error(
-      "Google Visualization failed"
-    )
-  );
-
-};
-
-
-document.head.appendChild(script);
-
-};
-
-
-// continue initialiseSite here
-
-await hydrateFixturesFromSheet(
+    await hydrateFixturesFromSheet(
   appData
 );
 
@@ -867,6 +835,98 @@ function parseScore(score){
 ========================================================= */
 
 
+const KNOWN_FIXTURE_SHEETS = {
+  "premier league 2027": "1lCsmtNtHNCVeimODcU8v4vI6sBSBUe1jlOWOiKhFTi8",
+  "la liga 2027": "1f-8h4X_CzamuMA94OmZBBj2H35Hy0NkT5Yd2O2i7_KY",
+  "serie a 2027": "1u6KzYcHdA9LxFqzWMCoaLH8yq4qIAzBrg4Z64r3LAV8"
+};
+
+function extractSpreadsheetId(value) {
+  const text = String(value || "").trim();
+  const fromUrl = text.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]{20,})/);
+  if (fromUrl) return fromUrl[1];
+  return /^[a-zA-Z0-9_-]{20,}$/.test(text) ? text : "";
+}
+
+function findSpreadsheetIdInObject(value) {
+  if (!value || typeof value !== "object") return "";
+
+  const preferredKeys = [
+    "Sheet ID",
+    "Spreadsheet ID",
+    "SpreadsheetId",
+    "sheetId",
+    "sheetID",
+    "Source Spreadsheet ID",
+    "Source Sheet ID",
+    "Sheet URL",
+    "Spreadsheet URL",
+    "Source URL"
+  ];
+
+  for (const key of preferredKeys) {
+    const id = extractSpreadsheetId(value[key]);
+    if (id) return id;
+  }
+
+  for (const [key, candidate] of Object.entries(value)) {
+    if (!/(sheet|spreadsheet|source)/i.test(key)) continue;
+    const id = extractSpreadsheetId(candidate);
+    if (id) return id;
+  }
+
+  return "";
+}
+
+function resolveFixtureSpreadsheetId(data, competition) {
+  let id = findSpreadsheetIdInObject(competition);
+  if (id) return id;
+
+  const selectedSlug = normaliseText(
+    competition?.Slug ||
+    competition?.slug ||
+    competition?.["Competition Slug"] ||
+    competition?.["URL Slug"] ||
+    ""
+  );
+  const selectedName = normaliseText(
+    competition?.["Competition Name"] ||
+    competition?.Name ||
+    competition?.name ||
+    ""
+  );
+
+  const rows = Array.isArray(data?.competitions) ? data.competitions : [];
+  const matchingCompetition = rows.find(row => {
+    const slug = normaliseText(
+      row?.Slug ||
+      row?.slug ||
+      row?.["Competition Slug"] ||
+      row?.["URL Slug"] ||
+      ""
+    );
+    const name = normaliseText(
+      row?.["Competition Name"] ||
+      row?.Name ||
+      row?.name ||
+      ""
+    );
+    return (
+      (selectedSlug && slug === selectedSlug) ||
+      (selectedName && name === selectedName)
+    );
+  });
+
+  id = findSpreadsheetIdInObject(matchingCompetition);
+  if (id) return id;
+
+  return (
+    KNOWN_FIXTURE_SHEETS[selectedSlug] ||
+    KNOWN_FIXTURE_SHEETS[selectedName] ||
+    ""
+  );
+}
+
 async function hydrateFixturesFromSheet(data){
 
 
@@ -884,13 +944,7 @@ async function hydrateFixturesFromSheet(data){
 
 
 
-  const sheetId =
-
-    competition['Sheet ID'] ||
-
-    competition.sheetId ||
-
-    competition.sheetID;
+  const sheetId = resolveFixtureSpreadsheetId(data, competition);
 
 
 
@@ -1018,14 +1072,6 @@ console.log("FIXTURE ROWS:", table?.rows);
           'R',
           'Round',
           'Gameweek'
-        ),
-
-
-      order:
-
-        findHeader(
-          'N',
-          'Order'
         ),
 
 
@@ -1158,8 +1204,6 @@ console.log("FIXTURE ROWS:", table?.rows);
 
 
         round:0,
-
-        order:1,
 
         home:2,
 
