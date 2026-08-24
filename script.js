@@ -161,8 +161,6 @@ async function initialiseSite(){
 
     await loadApplicationData();
 
-    setupNavigation();
-
     setupFilters();
 
     renderCompetition();
@@ -253,36 +251,8 @@ async function loadApplicationData(){
       ? appData.matches
       : [];
 
-
-
   competitionMatchesCache =
     getCompetitionMatches();
-
-
-function loadGoogleVisualizationTable(spreadsheetId, sheetName){
-
-  return new Promise((resolve,reject)=>{
-
-    const callbackName =
-      "calciumGViz_" + Date.now();
-
-
-    window[callbackName] = function(response){
-
-      delete window[callbackName];
-
-      try{
-
-        resolve(response.table);
-
-      }catch(error){
-
-        reject(error);
-
-      }
-
-    };
-
 
     const script =
       document.createElement("script");
