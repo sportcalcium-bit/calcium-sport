@@ -31,17 +31,24 @@ async function init(){
 
    Home page:
      Apps Script API (?action=home) -> Global Games hub sheet,
-     already filtered into "All games" + "My Games" (favourite teams)
-     by the backend.
+     already filtered into "All games" + "My Games" (favourite
+     teams) by the backend.
 
    Competition page:
-     Apps Script API (?action=competitions) -> resolves the selected
-     competition's own Sheet ID, then that competition's spreadsheet is
-     read directly (Fixtures, Standings, Goals, Assists, Yellow Cards,
-     Red Cards, Clean Sheets) via the Google Visualization endpoint.
+     Apps Script API (?action=competitions) -> resolves the
+     selected competition's own Sheet ID, then
+     (?action=competitionDetail) reads that competition's
+     spreadsheet (Fixtures, Standings, Goals, Assists, Yellow
+     Cards, Red Cards, Clean Sheets) server-side.
 
-   Both paths also read the Website Hub's Players + Logos tabs directly,
-   for player photos and team badges.
+   Both paths also read the Website Hub's Players + Logos tabs
+   via (?action=hubData), for player photos and team badges.
+
+   Everything goes through the Apps Script backend rather than
+   reading sheets directly from the browser, since a
+   server-side read is always immune to any regular filter
+   applied in the sheet - a filter only affects direct browser
+   reads (like gviz), never SpreadsheetApp reads.
 ========================================================= */
 
 async function loadCompetition(competitionParam){
@@ -53,13 +60,11 @@ async function loadCompetition(competitionParam){
     selectedCompetition:null, site:{}
   };
 
-  const [hubPlayersTable, hubLogosTable] = await Promise.all([
-    loadGoogleVisualizationTable(HUB_SPREADSHEET_ID,'Players').catch(()=>null),
-    loadGoogleVisualizationTable(HUB_SPREADSHEET_ID,'Logos').catch(()=>null)
-  ]);
+  const hubResponse = await fetch(`${API_URL}?action=hubData&v=${Date.now()}`, { cache:'no-store' }).catch(()=>null);
+  const hubData = (hubResponse && hubResponse.ok) ? await hubResponse.json().catch(()=>null) : null;
 
-  appData.players = tableToObjects(hubPlayersTable);
-  teamLogoLookup = buildTeamLogoLookup(tableToObjects(hubLogosTable));
+  appData.players = (hubData && hubData.players) || [];
+  teamLogoLookup = buildTeamLogoLookup((hubData && hubData.logos) || []);
 
   if(!competitionParam){
     await loadHomeData();
@@ -117,28 +122,20 @@ async function loadCompetitionData(slug){
     throw new Error('No Sheet ID configured for this competition.');
   }
 
-  const [
-    fixturesTable, standingsTable,
-    goalsTable, assistsTable, yellowTable, redTable, cleanSheetsTable
-  ] = await Promise.all([
-    loadGoogleVisualizationTable(sheetId,'Fixtures').catch(()=>null),
-    loadGoogleVisualizationTable(sheetId,'Standings').catch(()=>null),
-    loadGoogleVisualizationTable(sheetId,'Goals').catch(()=>null),
-    loadGoogleVisualizationTable(sheetId,'Assists').catch(()=>null),
-    loadGoogleVisualizationTable(sheetId,'Yellow Cards').catch(()=>null),
-    loadGoogleVisualizationTable(sheetId,'Red Cards').catch(()=>null),
-    loadGoogleVisualizationTable(sheetId,'Clean Sheets').catch(()=>null)
-  ]);
+  const detailResponse = await fetch(`${API_URL}?action=competitionDetail&sheetId=${encodeURIComponent(sheetId)}&v=${Date.now()}`, { cache:'no-store' });
+  if(!detailResponse.ok) throw new Error(`Backend error: ${detailResponse.status}`);
+  const detail = await detailResponse.json();
+  if(detail.error) throw new Error(detail.error);
 
-  appData.matches = parseFixturesTable(fixturesTable);
+  appData.matches = parseFixturesTable(detail.fixtures || []);
   appData.playoffs = [];
-  appData.standings = parseStandingsTable(standingsTable, appData);
+  appData.standings = parseStandingsTable(detail.standings || [], appData);
   appData.stats = mergeStatsTables({
-    Goals: tableToObjects(goalsTable),
-    Assists: tableToObjects(assistsTable),
-    YellowCards: tableToObjects(yellowTable),
-    RedCards: tableToObjects(redTable),
-    CleanSheets: tableToObjects(cleanSheetsTable)
+    Goals: detail.goals || [],
+    Assists: detail.assists || [],
+    YellowCards: detail.yellowCards || [],
+    RedCards: detail.redCards || [],
+    CleanSheets: detail.cleanSheets || []
   });
 }
 function bindEvents(){
@@ -265,9 +262,8 @@ function splitScoreText(text){
   return match ? {home:match[1], away:match[2]} : {home:'', away:''};
 }
 
-function parseFixturesTable(table){
-  const rows = tableToObjects(table);
-  return rows.map((row,index)=>{
+function parseFixturesTable(rows){
+  return (rows||[]).map((row,index)=>{
     const home = String(row['Home']||'').trim();
     const away = String(row['Away']||'').trim();
     if(!home || !away) return null;
@@ -341,17 +337,21 @@ function loadGoogleVisualizationTable(sheetId,sheetName){
     document.head.appendChild(script);
   });
 }
-function parseStandingsTable(table,data){
-  const labels=(table?.cols||[]).map(col=>normaliseStandingHeader(col?.label));
-  if(!labels.includes('team')) return [];
+function parseStandingsTable(rows,data){
+  if(!Array.isArray(rows) || !rows.length) return [];
+  const sampleLabels = Object.keys(rows[0]).map(normaliseStandingHeader);
+  if(!sampleLabels.includes('team')) return [];
   const selected=data?.selectedCompetition||{};
   const competition=selected['Competition Name']||data?.site?.competition||'';
   const year=selected.Year||data?.site?.year||'';
   const region=selected.Region||data?.site?.region||'';
   const competitionType=selected['Competition Type']||data?.competitionType||data?.site?.competitionType||'';
-  return (table?.rows||[]).map(row=>{
+  return rows.map(row=>{
     const values={};
-    labels.forEach((label,index)=>{ if(label) values[label]=row?.c?.[index]?.v??''; });
+    Object.keys(row).forEach(key=>{
+      const label=normaliseStandingHeader(key);
+      if(label) values[label]=row[key]??'';
+    });
     return {
       Competition:competition, Year:year, Region:region, CompetitionType:competitionType,
       League:values.league||'', Group:values.group||'', Team:values.team||'', Logo:values.logo||'',
