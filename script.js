@@ -457,7 +457,7 @@ function renderMatchRowFlat(match){
   const score = match.Status==='FT' ? renderScoreText(match) : '- : -';
   const click = match.MatchID ? `onclick="openMatchDetail('${escapeAttr(match.MatchID)}')"` : '';
   const league = match.CompetitionLabel || match.Competition || 'Competition';
-  return `<article class="my-games-match" ${click}><div class="my-games-date"><span>${escapeHTML(p.date)}</span><span>${escapeHTML(p.time)}</span><span class="my-games-region">${escapeHTML(league)}</span></div><div class="my-games-team-name home">${escapeHTML(match.HomeTeam)}</div><div class="my-games-logo">${renderTeamLogo(match.HomeLogo,match.HomeTeam)}</div><div class="my-games-score">${score}</div><div class="my-games-logo">${renderTeamLogo(match.AwayLogo,match.AwayTeam)}</div><div class="my-games-team-name away">${escapeHTML(match.AwayTeam)}</div><div class="my-games-status">${escapeHTML(match.Status||'Scheduled')}</div></article>`;
+  return `<article class="my-games-match" ${click}><div class="my-games-date"><span>${escapeHTML(p.date)} ${escapeHTML(p.time)}</span><span>${escapeHTML(league)}</span></div><div class="my-games-team-name home">${escapeHTML(match.HomeTeam)}</div><div class="my-games-logo">${renderTeamLogo(match.HomeLogo,match.HomeTeam)}</div><div class="my-games-score">${score}</div><div class="my-games-logo">${renderTeamLogo(match.AwayLogo,match.AwayTeam)}</div><div class="my-games-team-name away">${escapeHTML(match.AwayTeam)}</div><div class="my-games-status">${escapeHTML(match.Status||'Scheduled')}</div></article>`;
 }
 function renderHomeGames(){
   const selected = parseDateOnly(selectedDateKey) || new Date();
