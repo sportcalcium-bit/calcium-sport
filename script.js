@@ -333,7 +333,7 @@ function loadGoogleVisualizationTable(sheetId,sheetName){
     };
     script.onerror=()=>{ cleanup(); reject(new Error('Could not load the Standings sheet.')); };
     const base=`https://docs.google.com/spreadsheets/d/${encodeURIComponent(sheetId)}/gviz/tq`;
-    script.src=`${base}?tqx=responseHandler:${encodeURIComponent(callback)}&sheet=${encodeURIComponent(sheetName)}&v=${Date.now()}`;
+    script.src=`${base}?tqx=responseHandler:${encodeURIComponent(callback)}&sheet=${encodeURIComponent(sheetName)}&headers=1&v=${Date.now()}`;
     document.head.appendChild(script);
   });
 }
