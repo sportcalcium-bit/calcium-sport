@@ -1122,6 +1122,6 @@ function showError(message){ setText('competitionTitle','Error'); setText('compe
 function safeNumber(v){ const n=Number(v); return Number.isFinite(n)?n:0; }
 function safeScore(v){ return v===''||v===undefined||v===null?'-':v; }
 function formatGoalDifference(v){ const n=Number(v); if(!Number.isFinite(n))return'0'; return n>0?`+${n}`:String(n); }
-function escapeHTML(v){ return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
+function escapeHTML(v){ return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
 function escapeAttr(v){ return escapeHTML(v); }
 window.CALCIUM_SCRIPT_VERSION='7031-player-seasons-master-search-fix';
