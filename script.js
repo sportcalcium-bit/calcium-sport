@@ -1,13 +1,8 @@
 const API_URL = 'https://script.google.com/macros/s/AKfycbyFU-9M16UBls1YvTZfXxCDGLFBT2CL1qvTH7S_pmdHCD6kSeQpHQlQW_gg6r5vhfjOZA/exec';
 
 let appData = null;
-function $(id){
-  return document.getElementById(id);
-}
-
 let playerImageLookup = new Map();
 let playerTeamsLookup = new Map();
-
 function $(id){
   return document.getElementById(id);
 }
