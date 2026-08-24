@@ -314,22 +314,22 @@ async function loadApplicationData(){
 
     document.head.appendChild(script);
 
-
-  });
+});
 
 }
-  await hydrateFixturesFromSheet(
-    appData
-  );
 
 
-  competitionMatchesCache =
-    getCompetitionMatches();
+// continue initialiseSite here
+
+await hydrateFixturesFromSheet(
+  appData
+);
+
+competitionMatchesCache =
+  getCompetitionMatches();
 
 
-
-  buildPlayerLookups();
-
+buildPlayerLookups();
 
 }
 
