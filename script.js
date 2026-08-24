@@ -17,7 +17,7 @@ function normalisePlayerName(value){
     .replace(/\s+/g," ");
 
 }
-function loadGoogleVisualizationTable(spreadsheetId, sheetName){
+function loadGoogleVisualizationTable(spreadsheetId, sheetName, includeAll){
 
   return new Promise((resolve,reject)=>{
 
@@ -47,12 +47,13 @@ function loadGoogleVisualizationTable(spreadsheetId, sheetName){
 
 
     script.src =
-      "https://docs.google.com/spreadsheets/d/"
-      + spreadsheetId
-      + "/gviz/tq?sheet="
-      + encodeURIComponent(sheetName)
-      + "&tqx=responseHandler:"
-      + callbackName;
+  "https://docs.google.com/spreadsheets/d/"
+  + spreadsheetId
+  + "/gviz/tq?sheet="
+  + encodeURIComponent(sheetName)
+  + "&tqx=responseHandler:"
+  + callbackName
+  + "&tq=";
 
 
     script.onerror = function(){
@@ -71,6 +72,38 @@ function loadGoogleVisualizationTable(spreadsheetId, sheetName){
     document.head.appendChild(script);
 
   });
+
+}
+function setupFilters(){
+
+  const search = $("searchInput");
+
+  if(search){
+    search.addEventListener(
+      "input",
+      function(){
+        renderAll();
+      }
+    );
+  }
+
+
+  const clear = $("clearFilters");
+
+  if(clear){
+    clear.addEventListener(
+      "click",
+      function(){
+
+        if(search){
+          search.value = "";
+        }
+
+        renderAll();
+
+      }
+    );
+  }
 
 }
 function setupNavigation(){
@@ -883,12 +916,10 @@ async function hydrateFixturesFromSheet(data){
     const table =
 
       await loadGoogleVisualizationTable(
-
-        sheetId,
-
-        'Fixtures'
-
-      );
+  sheetId,
+  'Fixtures',
+  true
+);
 
 
 
