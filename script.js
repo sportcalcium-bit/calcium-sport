@@ -298,21 +298,20 @@ async function loadApplicationData(){
       + "&tqx=responseHandler:"
       + callbackName;
 
+script.onerror = function(){
 
-    script.onerror = function(){
+  delete window[callbackName];
 
-      delete window[callbackName];
+  reject(
+    new Error(
+      "Google Visualization failed"
+    )
+  );
 
-      reject(
-        new Error(
-          "Google Visualization failed"
-        )
-      );
-
-    };
+};
 
 
-    document.head.appendChild(script);
+document.head.appendChild(script);
 
 });
 
