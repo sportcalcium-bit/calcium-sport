@@ -371,30 +371,30 @@ function renderDateTabs(){
   if(!container) return;
 
   const today = new Date();
-  const thisWeekMonday = getMonday(today);
-  const lastWeekMonday = addDays(thisWeekMonday,-7);
-  const nextWeekMonday = addDays(thisWeekMonday,7);
+  const thisWeekStart = getWeekStart(today);
+  const lastWeekStart = addDays(thisWeekStart,-7);
+  const nextWeekStart = addDays(thisWeekStart,7);
 
   const selected = parseDateOnly(selectedDateKey) || today;
-  const selectedMonday = getMonday(selected);
+  const selectedWeekStart = getWeekStart(selected);
 
   const weeks = [
-    {key:dateToKey(lastWeekMonday),label:'Last week',monday:lastWeekMonday},
-    {key:dateToKey(thisWeekMonday),label:'This week',monday:thisWeekMonday},
-    {key:dateToKey(nextWeekMonday),label:'Next week',monday:nextWeekMonday}
+    {key:dateToKey(lastWeekStart),label:'Last week',start:lastWeekStart},
+    {key:dateToKey(thisWeekStart),label:'This week',start:thisWeekStart},
+    {key:dateToKey(nextWeekStart),label:'Next week',start:nextWeekStart}
   ];
 
   const buttons = weeks.map(item=>{
-    const isActive = dateToKey(selectedMonday)===dateToKey(item.monday);
+    const isActive = dateToKey(selectedWeekStart)===dateToKey(item.start);
     return `
     <button type="button" class="${isActive?'active':''}" onclick="selectDateTab('${escapeAttr(item.key)}')">
       <span>${escapeHTML(item.label)}</span>
-      <strong>${escapeHTML(getWeekRangeLabel(item.monday))}</strong>
+      <strong>${escapeHTML(getWeekRangeLabel(item.start))}</strong>
     </button>
   `;
   }).join('');
 
-  const isCustomWeek = !weeks.some(item=>dateToKey(item.monday)===dateToKey(selectedMonday));
+  const isCustomWeek = !weeks.some(item=>dateToKey(item.start)===dateToKey(selectedWeekStart));
   const picked = selectedDateKey || getTodayKey();
 
   container.innerHTML = `
@@ -461,7 +461,7 @@ function renderMatchRowFlat(match){
 }
 function renderHomeGames(){
   const selected = parseDateOnly(selectedDateKey) || new Date();
-  const weekStart = getMonday(selected);
+  const weekStart = getWeekStart(selected);
   const weekEnd = addDays(weekStart,6);
 
   const matches = getGlobalMatches().filter(m=>{
@@ -493,7 +493,7 @@ function renderHomeTab(){ const allPanel=$('allGamesPanel'), myPanel=$('myGamesP
 const PERSONAL_DAY_PRIORITY = ['Friday','Monday','Sunday','Thursday','Tuesday','Wednesday','Saturday'];
 const WEEKDAY_NAMES_BY_JS_INDEX = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 function weekdayNameFromDate(d){ return WEEKDAY_NAMES_BY_JS_INDEX[d.getDay()]; }
-const WEEKDAY_OFFSET_FROM_MONDAY = { Monday:0, Tuesday:1, Wednesday:2, Thursday:3, Friday:4, Saturday:5, Sunday:6 };
+const WEEKDAY_OFFSET_FROM_WEEK_START = { Tuesday:0, Wednesday:1, Thursday:2, Friday:3, Saturday:4, Sunday:5, Monday:6 };
 
 /*
   Splits this week's not-yet-played My Games across the personal
@@ -518,7 +518,7 @@ function buildPersonalDayAssignments(unplayedMatches, weekStart, isCurrentWeek){
 
   if(isCurrentWeek){
     const remaining = PERSONAL_DAY_PRIORITY.filter(name=>{
-      const d = addDays(weekStart, WEEKDAY_OFFSET_FROM_MONDAY[name]);
+      const d = addDays(weekStart, WEEKDAY_OFFSET_FROM_WEEK_START[name]);
       return d.getTime() >= today.getTime();
     });
     if(remaining.length) eligibleDays = remaining;
@@ -554,7 +554,7 @@ function buildPersonalDayAssignments(unplayedMatches, weekStart, isCurrentWeek){
 function renderMyGames(){
   const all=Array.isArray(appData?.myGames)?appData.myGames:[];
   const selected=parseDateOnly(selectedDateKey)||new Date();
-  const weekStart=getMonday(selected);
+  const weekStart=getWeekStart(selected);
   const weekEnd=addDays(weekStart,6);
 
   const weekMatches=all.filter(match=>{
@@ -598,7 +598,7 @@ function renderMyGames(){
   const orderedDayNames = Array.from(dayGroups.keys()).sort((a,b)=>PERSONAL_DAY_PRIORITY.indexOf(a)-PERSONAL_DAY_PRIORITY.indexOf(b));
 
   const html = orderedDayNames.map(dayName=>{
-    const dayDate = addDays(weekStart, WEEKDAY_OFFSET_FROM_MONDAY[dayName]);
+    const dayDate = addDays(weekStart, WEEKDAY_OFFSET_FROM_WEEK_START[dayName]);
     const label = `${dayName} ${formatShortDateFromDate(dayDate).replace(/\.$/,'')}`;
     const dayMatches = dayGroups.get(dayName).sort((a,b)=>matchDateSortValue(a)-matchDateSortValue(b) || compareCompetitionPriority(a,b));
     return `<section class="home-time-block"><div class="home-time-heading">${escapeHTML(label)}</div>${dayMatches.map(renderMatchRowFlat).join('')}</section>`;
@@ -608,7 +608,7 @@ function renderMyGames(){
 }
 function renderScoreboard(){ const matches=getFilteredMatches(); if(!matches.length){ setHTML('scoreboardList','<div class="empty">No matches found.</div>'); return; } const round=getNextUpRound(matches); if(!round){ setHTML('scoreboardList','<div class="empty">No matches found.</div>'); return; } const rows=matches.filter(m=>normaliseText(m.Round||'')===normaliseText(round)).sort((a,b)=>matchDateSortValue(a)-matchDateSortValue(b)); const scheduled=rows.some(m=>m.Status!=='FT'); setHTML('scoreboardList',`${scheduled?'':'<div class="season-complete-note">Season completed. Showing the last round played.</div>'}<section class="round-block"><div class="round-heading">${escapeHTML(formatRoundLabel(round))}</div>${rows.map(renderScoreboardRow).join('')}</section>`); }
 function renderScoreboardRow(match){ const p=formatScoreboardDateParts(match.Date,match.Time); const score=match.Status==='FT'?renderScoreText(match):'- : -'; const click=match.MatchID?`onclick="openMatchDetail('${escapeAttr(match.MatchID)}')"`:''; return `<article class="scoreboard-row ${match.MatchID?'is-clickable':''}" ${click}><div class="scoreboard-date"><span class="scoreboard-date-main">${escapeHTML(p.date)}</span><span class="scoreboard-time-main">${escapeHTML(p.time)}</span></div><div class="score-team-home-name">${escapeHTML(match.HomeTeam)}</div><div class="score-team-home-logo">${renderTeamLogo(match.HomeLogo,match.HomeTeam)}</div><div class="scoreboard-score">${score}</div><div class="score-team-away-logo">${renderTeamLogo(match.AwayLogo,match.AwayTeam)}</div><div class="score-team-away-name">${escapeHTML(match.AwayTeam)}</div></article>`; }
-function renderResults(){ const results=getFilteredMatches().filter(m=>m.Status==='FT').sort((a,b)=>matchDateSortValue(b)-matchDateSortValue(a)); setHTML('resultsList',results.length?renderGroupedScoreboard(results):'<div class="empty">No results found.</div>'); setText('resultsCount',`${results.length} matches`); }
+function renderResults(){ const results=getFilteredMatches().filter(m=>m.Status==='FT').sort((a,b)=>matchDateSortValue(a)-matchDateSortValue(b)); setHTML('resultsList',results.length?renderGroupedScoreboard(results):'<div class="empty">No results found.</div>'); setText('resultsCount',`${results.length} matches`); }
 function renderFixtures(){ const fixtures=getFilteredMatches().filter(m=>m.Status!=='FT').sort((a,b)=>matchDateSortValue(a)-matchDateSortValue(b)); setHTML('fixturesList',fixtures.length?renderGroupedScoreboard(fixtures):'<div class="empty">No scheduled games found.</div>'); setText('fixturesCount',`${fixtures.length} matches`); }
 function renderGroupedScoreboard(matches){ const grouped=groupBy(matches,m=>formatRoundLabel(m.Round)); return Object.keys(grouped).map(round=>`<section class="round-block"><div class="round-heading">${escapeHTML(round)}</div>${grouped[round].map(renderScoreboardRow).join('')}</section>`).join(''); }
 function renderStandings(){
@@ -1088,10 +1088,10 @@ function formatFullDateTime(date,time){ const d=parseDateOnly(date); return [d?d
 function dateToKey(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 function getTodayKey(){ return dateToKey(new Date()); }
 function addDays(date,days){ const d=new Date(date); d.setDate(d.getDate()+days); return new Date(d.getFullYear(),d.getMonth(),d.getDate()); }
-function getMonday(date){ const d=new Date(date.getFullYear(),date.getMonth(),date.getDate()); const day=d.getDay(); d.setDate(d.getDate()+(day===0?-6:1-day)); return d; }
-function getWeekRangeLabel(date){ const mon=getMonday(date), sun=addDays(mon,6); return `${formatMyGamesDate(mon)} - ${formatMyGamesDate(sun)}`; }
-function getSeasonWeekLabel(date){ const selected=new Date(date.getFullYear(),date.getMonth(),date.getDate()); let y=selected.getMonth()>=7?selected.getFullYear():selected.getFullYear()-1; let first=getFirstMondayOfAugust(y); if(selected<first){ y--; first=getFirstMondayOfAugust(y); } return `Week ${Math.max(1,Math.floor((selected-first)/604800000)+1)}`; }
-function getFirstMondayOfAugust(y){ const d=new Date(y,7,1); const day=d.getDay(); d.setDate(d.getDate()+(day===1?0:(8-day)%7)); return d; }
+function getWeekStart(date){ const d=new Date(date.getFullYear(),date.getMonth(),date.getDate()); const day=d.getDay(); d.setDate(d.getDate()-((day-2+7)%7)); return d; }
+function getWeekRangeLabel(date){ const start=getWeekStart(date), end=addDays(start,6); return `${formatMyGamesDate(start)} - ${formatMyGamesDate(end)}`; }
+function getSeasonWeekLabel(date){ const selected=new Date(date.getFullYear(),date.getMonth(),date.getDate()); let y=selected.getMonth()>=7?selected.getFullYear():selected.getFullYear()-1; let first=getFirstWeekStartOfAugust(y); if(selected<first){ y--; first=getFirstWeekStartOfAugust(y); } return `Week ${Math.max(1,Math.floor((selected-first)/604800000)+1)}`; }
+function getFirstWeekStartOfAugust(y){ const d=new Date(y,7,1); const day=d.getDay(); d.setDate(d.getDate()+((2-day+7)%7)); return d; }
 function formatShortDateFromDate(d){ return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.`; }
 function formatMyGamesDate(d){ return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`; }
 function normaliseKickoffTime(v){ return String(v||'').trim()||'Scheduled'; }
