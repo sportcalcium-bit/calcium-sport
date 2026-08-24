@@ -461,7 +461,9 @@ function renderMatchRowFlat(match){
   const score = match.Status==='FT' ? renderScoreText(match) : 'vs';
   const click = match.MatchID ? `onclick="openMatchDetail('${escapeAttr(match.MatchID)}')"` : '';
   const league = match.CompetitionLabel || match.Competition || 'Competition';
-  return `<article class="my-games-match" ${click}><div class="my-games-date"><span>${escapeHTML(p.date)} - ${escapeHTML(p.time)}</span><span>${escapeHTML(league)}</span></div><div class="my-games-team-name home">${escapeHTML(match.HomeTeam)}</div><div class="my-games-logo">${renderTeamLogo(match.HomeLogo,match.HomeTeam)}</div><div class="my-games-score">${score}</div><div class="my-games-logo">${renderTeamLogo(match.AwayLogo,match.AwayTeam)}</div><div class="my-games-team-name away">${escapeHTML(match.AwayTeam)}</div><div class="my-games-status">${escapeHTML(match.Status||'Scheduled')}</div></article>`;
+  const statusText = match.Status || 'Scheduled';
+  const statusClass = statusText.trim().toUpperCase()==='FT' ? 'status-ft' : 'status-scheduled';
+  return `<article class="my-games-match" ${click}><div class="my-games-date"><span>${escapeHTML(p.date)} - ${escapeHTML(p.time)}</span><span>${escapeHTML(league)}</span></div><div class="my-games-team-name home">${escapeHTML(match.HomeTeam)}</div><div class="my-games-logo">${renderTeamLogo(match.HomeLogo,match.HomeTeam)}</div><div class="my-games-score">${score}</div><div class="my-games-logo">${renderTeamLogo(match.AwayLogo,match.AwayTeam)}</div><div class="my-games-team-name away">${escapeHTML(match.AwayTeam)}</div><div class="my-games-status ${statusClass}">${escapeHTML(statusText)}</div></article>`;
 }
 function renderHomeGames(){
   const selected = parseDateOnly(selectedDateKey) || new Date();
@@ -487,7 +489,7 @@ function renderHomeGames(){
   const html = Object.keys(dayGroups).sort((a,b)=>a.localeCompare(b)).map(dayKey=>{
     const dayMatches = dayGroups[dayKey].sort((a,b)=>matchDateSortValue(a)-matchDateSortValue(b) || compareCompetitionPriority(a,b));
     const dayDate = parseDateOnly(dayKey);
-    const dayLabel = dayDate ? formatShortDateFromDate(dayDate).replace(/\.$/,'') : dayKey;
+    const dayLabel = dayDate ? `${weekdayNameFromDate(dayDate)} ${formatShortDateFromDate(dayDate).replace(/\.$/,'')}` : dayKey;
     return `<section class="home-time-block"><div class="home-time-heading">${escapeHTML(dayLabel)}</div>${dayMatches.map(renderMatchRowFlat).join('')}</section>`;
   }).join('');
 
