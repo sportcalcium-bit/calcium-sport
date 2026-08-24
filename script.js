@@ -51,6 +51,9 @@ async function init(){
    reads (like gviz), never SpreadsheetApp reads.
 ========================================================= */
 
+let hubDataCache = null;
+let competitionsListCache = null;
+
 async function loadCompetition(competitionParam){
 
   appData = {
@@ -60,8 +63,11 @@ async function loadCompetition(competitionParam){
     selectedCompetition:null, site:{}
   };
 
-  const hubResponse = await fetch(`${API_URL}?action=hubData&v=${Date.now()}`, { cache:'no-store' }).catch(()=>null);
-  const hubData = (hubResponse && hubResponse.ok) ? await hubResponse.json().catch(()=>null) : null;
+  if(!hubDataCache){
+    const hubResponse = await fetch(`${API_URL}?action=hubData&v=${Date.now()}`, { cache:'no-store' }).catch(()=>null);
+    hubDataCache = (hubResponse && hubResponse.ok) ? await hubResponse.json().catch(()=>null) : null;
+  }
+  const hubData = hubDataCache;
 
   appData.players = (hubData && hubData.players) || [];
   teamLogoLookup = buildTeamLogoLookup((hubData && hubData.logos) || []);
@@ -96,12 +102,15 @@ async function loadHomeData(){
 }
 
 async function loadCompetitionData(slug){
-  const response = await fetch(`${API_URL}?action=competitions&v=${Date.now()}`, { cache:'no-store' });
-  if(!response.ok) throw new Error(`Backend error: ${response.status}`);
-  const data = await response.json();
-  if(data.error) throw new Error(data.error);
+  if(!competitionsListCache){
+    const response = await fetch(`${API_URL}?action=competitions&v=${Date.now()}`, { cache:'no-store' });
+    if(!response.ok) throw new Error(`Backend error: ${response.status}`);
+    const data = await response.json();
+    if(data.error) throw new Error(data.error);
+    competitionsListCache = (data.competitions||[]).map(mapApiCompetitionToPascal);
+  }
 
-  const competitions = (data.competitions||[]).map(mapApiCompetitionToPascal);
+  const competitions = competitionsListCache;
   appData.competitions = competitions;
 
   const selected = competitions.find(c => makeCompetitionSlug(c) === slug);
