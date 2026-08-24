@@ -371,30 +371,37 @@ function renderDateTabs(){
   if(!container) return;
 
   const today = new Date();
-  const yesterday = addDays(today,-1);
-  const tomorrow = addDays(today,1);
+  const thisWeekMonday = getMonday(today);
+  const lastWeekMonday = addDays(thisWeekMonday,-7);
+  const nextWeekMonday = addDays(thisWeekMonday,7);
 
-  const dates = [
-    {key:dateToKey(yesterday),dayLabel:'Yesterday',shortDate:formatShortDateFromDate(yesterday)},
-    {key:dateToKey(today),dayLabel:'Today',shortDate:formatShortDateFromDate(today)},
-    {key:dateToKey(tomorrow),dayLabel:'Tomorrow',shortDate:formatShortDateFromDate(tomorrow)}
+  const selected = parseDateOnly(selectedDateKey) || today;
+  const selectedMonday = getMonday(selected);
+
+  const weeks = [
+    {key:dateToKey(lastWeekMonday),label:'Last week',monday:lastWeekMonday},
+    {key:dateToKey(thisWeekMonday),label:'This week',monday:thisWeekMonday},
+    {key:dateToKey(nextWeekMonday),label:'Next week',monday:nextWeekMonday}
   ];
 
-  const buttons = dates.map(item=>`
-    <button type="button" class="${item.key===selectedDateKey?'active':''}" onclick="selectDateTab('${escapeAttr(item.key)}')">
-      <span>${escapeHTML(item.dayLabel)}</span>
-      <strong>${escapeHTML(item.shortDate)}</strong>
+  const buttons = weeks.map(item=>{
+    const isActive = dateToKey(selectedMonday)===dateToKey(item.monday);
+    return `
+    <button type="button" class="${isActive?'active':''}" onclick="selectDateTab('${escapeAttr(item.key)}')">
+      <span>${escapeHTML(item.label)}</span>
+      <strong>${escapeHTML(getWeekRangeLabel(item.monday))}</strong>
     </button>
-  `).join('');
+  `;
+  }).join('');
 
-  const customActive = dates.some(item=>item.key===selectedDateKey) ? '' : 'active';
+  const isCustomWeek = !weeks.some(item=>dateToKey(item.monday)===dateToKey(selectedMonday));
   const picked = selectedDateKey || getTodayKey();
 
   container.innerHTML = `
     ${buttons}
-    <div class="date-picker-button ${customActive}" id="datePickerButton">
+    <div class="date-picker-button ${isCustomWeek?'active':''}" id="datePickerButton">
       <span>📅</span>
-      <span>Pick a date</span>
+      <span>Pick a week</span>
       <input id="homeDatePicker" type="date" value="${escapeAttr(picked)}">
     </div>
   `;
@@ -446,14 +453,34 @@ function pickHomeDate(value){
 window.pickHomeDate = pickHomeDate;
 
 function renderHomeGames(){
-  const matches=getGlobalMatches().filter(m=>getDateKey(m.Date)===selectedDateKey).sort(compareHomeMatches);
-  setText('homeMatchCount', matches.length); setText('homeAllGamesTitle', `All games (${matches.length})`);
-  if(!matches.length){ setHTML('homeGamesList','<div class="empty home-empty">No games scheduled on this date.</div>'); return; }
-  const timeGroups=groupBy(matches, m=>normaliseKickoffTime(m.Time));
-  const html=Object.keys(timeGroups).sort((a,b)=>timeSortValue(a)-timeSortValue(b)).map(time=>{
-    const competitionGroups=groupBy(timeGroups[time].sort(compareHomeMatches), m=>m.CompetitionLabel || m.Competition || 'Competition');
-    return `<section class="home-time-block"><div class="home-time-heading">${escapeHTML(time||'Scheduled')}</div>${Object.keys(competitionGroups).sort((a,b)=>compareCompetitionNamePriority(a,b,competitionGroups)).map(name=>`<section class="home-competition-block"><div class="home-competition-mini-title"><span>${escapeHTML(getRegionForCompetition(competitionGroups[name][0]))}</span><strong>${escapeHTML(name)}</strong></div>${competitionGroups[name].map(renderHomeMatchRow).join('')}</section>`).join('')}</section>`;
+  const selected = parseDateOnly(selectedDateKey) || new Date();
+  const weekStart = getMonday(selected);
+  const weekEnd = addDays(weekStart,6);
+
+  const matches = getGlobalMatches().filter(m=>{
+    const d = parseDateOnly(m.Date);
+    if(!d) return false;
+    const cd = new Date(d.getFullYear(),d.getMonth(),d.getDate());
+    return cd >= weekStart && cd <= weekEnd;
+  }).sort((a,b)=>matchDateSortValue(a)-matchDateSortValue(b) || compareHomeMatches(a,b));
+
+  setText('homeMatchCount', matches.length);
+  setText('homeAllGamesTitle', `All games (${matches.length})`);
+
+  if(!matches.length){
+    setHTML('homeGamesList','<div class="empty home-empty">No games scheduled this week.</div>');
+    return;
+  }
+
+  const dayGroups = groupBy(matches, m=>getDateKey(m.Date));
+  const html = Object.keys(dayGroups).sort((a,b)=>a.localeCompare(b)).map(dayKey=>{
+    const dayMatches = dayGroups[dayKey].sort(compareHomeMatches);
+    const dayDate = parseDateOnly(dayKey);
+    const dayLabel = dayDate ? formatShortDateFromDate(dayDate).replace(/\.$/,'') : dayKey;
+    const competitionGroups = groupBy(dayMatches, m=>m.CompetitionLabel || m.Competition || 'Competition');
+    return `<section class="home-time-block"><div class="home-time-heading">${escapeHTML(dayLabel)}</div>${Object.keys(competitionGroups).sort((a,b)=>compareCompetitionNamePriority(a,b,competitionGroups)).map(name=>`<section class="home-competition-block"><div class="home-competition-mini-title"><span>${escapeHTML(getRegionForCompetition(competitionGroups[name][0]))}</span><strong>${escapeHTML(name)}</strong></div>${competitionGroups[name].map(renderHomeMatchRow).join('')}</section>`).join('')}</section>`;
   }).join('');
+
   setHTML('homeGamesList', html);
 }
 function renderHomeMatchRow(match){ const score=match.Status==='FT'?renderScoreText(match):'- : -'; const click=match.MatchID?`onclick="openMatchDetail('${escapeAttr(match.MatchID)}')"`:''; return `<article class="home-match-row" ${click}><div class="score-team-home-name">${escapeHTML(match.HomeTeam)}</div><div class="score-team-home-logo">${renderTeamLogo(match.HomeLogo,match.HomeTeam)}</div><div class="home-match-score">${score}</div><div class="score-team-away-logo">${renderTeamLogo(match.AwayLogo,match.AwayTeam)}</div><div class="score-team-away-name">${escapeHTML(match.AwayTeam)}</div></article>`; }
