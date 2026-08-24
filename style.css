@@ -608,3 +608,8 @@
   .team-cell .team-logo{width:34px;height:34px;min-width:34px;min-height:34px}
   .standings-points strong{min-width:44px;height:38px;font-size:18px}
 }
+
+.flat-row-meta{display:flex;align-items:baseline;gap:8px;overflow:hidden;white-space:nowrap}
+.flat-row-datetime{color:#d3e2e8;font-weight:950;font-size:14px;white-space:nowrap}
+.flat-row-league{color:var(--muted);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.my-games-match{grid-template-columns:190px minmax(150px,1fr) 46px 90px 46px minmax(150px,1fr) 96px}
