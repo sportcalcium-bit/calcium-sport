@@ -568,12 +568,35 @@ function renderMyGames(){
   const weekStart=getWeekStart(selected);
   const weekEnd=addDays(weekStart,6);
 
-  const weekMatches=all.filter(match=>{
+  const currentWeekStart = getWeekStart(new Date());
+  const isCurrentWeek = dateToKey(weekStart)===dateToKey(currentWeekStart);
+  const isPastWeek = weekStart.getTime() < currentWeekStart.getTime();
+
+  let weekMatches=all.filter(match=>{
     const d=parseDateOnly(match.Date);
     if(!d) return false;
     const cd=new Date(d.getFullYear(),d.getMonth(),d.getDate());
     return cd>=weekStart && cd<=weekEnd;
   });
+
+  if(isCurrentWeek){
+    // Carry forward anything from an earlier week that's still not marked
+    // played, so it never gets stuck in the past and forgotten. Since these
+    // are always older than this week's matches, sorting by real date
+    // naturally puts them first once they're mixed in below.
+    const overdue = all.filter(match=>{
+      if(match.Status==='FT') return false;
+      const d=parseDateOnly(match.Date);
+      if(!d) return false;
+      const cd=new Date(d.getFullYear(),d.getMonth(),d.getDate());
+      return cd < weekStart;
+    });
+    weekMatches = overdue.concat(weekMatches);
+  } else if(isPastWeek){
+    // Unplayed matches from a past week have moved to the current week's
+    // list instead, so don't show them here too.
+    weekMatches = weekMatches.filter(match=>match.Status==='FT');
+  }
 
   setText('myGamesTitle', getSeasonWeekLabel(selected));
   setText('myGamesSubtitle', getWeekRangeLabel(selected));
@@ -585,9 +608,6 @@ function renderMyGames(){
   }
 
   const unplayedMatches = weekMatches.filter(m=>m.Status!=='FT');
-
-  const todayKey = getTodayKey();
-  const isCurrentWeek = todayKey>=dateToKey(weekStart) && todayKey<=dateToKey(weekEnd);
 
   const personalAssignment = buildPersonalDayAssignments(unplayedMatches, weekStart, isCurrentWeek);
 
@@ -607,6 +627,7 @@ function renderMyGames(){
   });
 
   const orderedDayNames = Array.from(dayGroups.keys()).sort((a,b)=>MONDAY_TO_SUNDAY_DISPLAY_ORDER.indexOf(a)-MONDAY_TO_SUNDAY_DISPLAY_ORDER.indexOf(b));
+
 
   const html = orderedDayNames.map(dayName=>{
     const dayDate = addDays(weekStart, WEEKDAY_OFFSET_FROM_WEEK_START[dayName]);
