@@ -490,6 +490,65 @@ function renderHomeGames(){
 }
 function renderHomeMatchRow(match){ const score=match.Status==='FT'?renderScoreText(match):'- : -'; const click=match.MatchID?`onclick="openMatchDetail('${escapeAttr(match.MatchID)}')"`:''; return `<article class="home-match-row" ${click}><div class="score-team-home-name">${escapeHTML(match.HomeTeam)}</div><div class="score-team-home-logo">${renderTeamLogo(match.HomeLogo,match.HomeTeam)}</div><div class="home-match-score">${score}</div><div class="score-team-away-logo">${renderTeamLogo(match.AwayLogo,match.AwayTeam)}</div><div class="score-team-away-name">${escapeHTML(match.AwayTeam)}</div></article>`; }
 function renderHomeTab(){ const allPanel=$('allGamesPanel'), myPanel=$('myGamesPanel'), jump=$('jumpSelect'); document.querySelectorAll('[data-home-tab]').forEach(b=>b.classList.toggle('active',b.dataset.homeTab===currentHomeTab)); allPanel?.classList.toggle('hidden',currentHomeTab!=='allGames'); myPanel?.classList.toggle('hidden',currentHomeTab!=='myGames'); if(jump&&isHomePage()) jump.value=currentHomeTab==='myGames'?'myGames':'nextUp'; }
+const PERSONAL_DAY_PRIORITY = ['Friday','Monday','Sunday','Thursday','Tuesday','Wednesday','Saturday'];
+const WEEKDAY_OFFSET_FROM_MONDAY = { Monday:0, Tuesday:1, Wednesday:2, Thursday:3, Friday:4, Saturday:5, Sunday:6 };
+
+/*
+  Splits this week's not-yet-played My Games across the personal
+  priority order (Friday, Monday, Sunday, Thursday, Tuesday,
+  Wednesday, Saturday), as evenly as possible - any remainder games
+  go to the earliest days in that priority list.
+
+  If the selected week is the current week, days that have already
+  passed are excluded from the split, so games roll forward onto
+  the remaining days instead of staying stuck on a day that's gone.
+  Since this recomputes fresh from today's real date and each
+  match's Status every time the page renders, it naturally
+  re-balances itself day to day without needing any actual
+  scheduled job.
+*/
+function buildPersonalDayAssignments(unplayedMatches, weekStart, isCurrentWeek){
+
+  const today = new Date();
+  today.setHours(0,0,0,0);
+
+  let eligibleDays = PERSONAL_DAY_PRIORITY.slice();
+
+  if(isCurrentWeek){
+    const remaining = PERSONAL_DAY_PRIORITY.filter(name=>{
+      const d = addDays(weekStart, WEEKDAY_OFFSET_FROM_MONDAY[name]);
+      return d.getTime() >= today.getTime();
+    });
+    if(remaining.length) eligibleDays = remaining;
+  }
+
+  const total = unplayedMatches.length;
+  const dayCount = eligibleDays.length;
+  const base = dayCount ? Math.floor(total/dayCount) : 0;
+  const remainder = dayCount ? total%dayCount : 0;
+
+  const capacity = {};
+  eligibleDays.forEach((name,i)=>{ capacity[name] = base + (i<remainder?1:0); });
+
+  const sorted = [...unplayedMatches].sort((a,b)=>matchDateSortValue(a)-matchDateSortValue(b));
+  const assignment = new Map();
+  let index = 0;
+
+  eligibleDays.forEach(name=>{
+    for(let n=0; n<capacity[name] && index<sorted.length; n++,index++){
+      assignment.set(sorted[index], name);
+    }
+  });
+
+  while(index < sorted.length){
+    assignment.set(sorted[index], eligibleDays[eligibleDays.length-1] || 'Saturday');
+    index++;
+  }
+
+  return assignment;
+
+}
+
 function renderMyGames(){
   const all=Array.isArray(appData?.myGames)?appData.myGames:[];
   const selected=parseDateOnly(selectedDateKey)||new Date();
@@ -512,17 +571,40 @@ function renderMyGames(){
     return;
   }
 
-  const dayGroups = groupBy(weekMatches, m=>getDateKey(m.Date));
-  const html = Object.keys(dayGroups).sort((a,b)=>a.localeCompare(b)).map(dayKey=>{
-    const dayMatches = dayGroups[dayKey];
-    const dayDate = parseDateOnly(dayKey);
-    const dayLabel = dayDate ? formatShortDateFromDate(dayDate).replace(/\.$/,'') : dayKey;
-    const leagueGroups = groupBy(dayMatches, m=>m.Competition || 'Competition');
+  const unplayedMatches = weekMatches.filter(m=>m.Status!=='FT');
+
+  const todayKey = getTodayKey();
+  const isCurrentWeek = todayKey>=dateToKey(weekStart) && todayKey<=dateToKey(weekEnd);
+
+  const personalAssignment = buildPersonalDayAssignments(unplayedMatches, weekStart, isCurrentWeek);
+
+  const dividerFor = (match)=>{
+    if(match.Status==='FT'){
+      const d = parseDateOnly(match.Date);
+      const key = getDateKey(match.Date);
+      return { key, label: d?formatShortDateFromDate(d).replace(/\.$/,''):key, sortValue: d?d.getTime():0 };
+    }
+    const dayName = personalAssignment.get(match) || 'Saturday';
+    const d = addDays(weekStart, WEEKDAY_OFFSET_FROM_MONDAY[dayName]);
+    return { key:`personal-${dayName}`, label:`${dayName} ${formatShortDateFromDate(d).replace(/\.$/,'')}`, sortValue:d.getTime() };
+  };
+
+  const dividerGroups = new Map();
+  weekMatches.forEach(match=>{
+    const divider = dividerFor(match);
+    if(!dividerGroups.has(divider.key)) dividerGroups.set(divider.key,{label:divider.label,sortValue:divider.sortValue,matches:[]});
+    dividerGroups.get(divider.key).matches.push(match);
+  });
+
+  const orderedDividers = Array.from(dividerGroups.values()).sort((a,b)=>a.sortValue-b.sortValue);
+
+  const html = orderedDividers.map(divider=>{
+    const leagueGroups = groupBy(divider.matches, m=>m.Competition || 'Competition');
     const leagueHtml = Object.keys(leagueGroups).sort((a,b)=>compareCompetitionBlockChronological(a,b,leagueGroups)).map(league=>{
       const rows = leagueGroups[league].sort(compareHomeMatches);
       return `<section class="my-games-league-card"><div class="my-games-league-head"><span class="my-games-region">${escapeHTML(getRegionForCompetition(rows[0]))}</span><strong class="my-games-league-name">${escapeHTML(league)}</strong></div>${rows.map(renderMyGamesRow).join('')}</section>`;
     }).join('');
-    return `<section class="home-time-block"><div class="home-time-heading">${escapeHTML(dayLabel)}</div>${leagueHtml}</section>`;
+    return `<section class="home-time-block"><div class="home-time-heading">${escapeHTML(divider.label)}</div>${leagueHtml}</section>`;
   }).join('');
 
   setHTML('myGamesList', html);
