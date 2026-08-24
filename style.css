@@ -102,9 +102,16 @@
 
   .scoreboard-date-main,.my-games-date span:first-child{font-size:13px}
   .scoreboard-time-main,.my-games-date span:last-child{font-size:12px}
+  .my-games-date span:first-child{white-space:normal}
+  .my-games-date span:last-child{display:none}
 
   .panel{padding:18px 12px}
   .standings-table{min-width:650px}
+  .standings-table th:nth-child(-n+3),.standings-table td:nth-child(-n+3){position:sticky;background:#03242b;z-index:2}
+  .standings-table th:nth-child(1),.standings-table td:nth-child(1){left:0;width:46px;padding-left:8px;padding-right:4px}
+  .standings-table th:nth-child(2),.standings-table td:nth-child(2){left:46px;width:140px;max-width:140px;padding-left:8px;padding-right:8px}
+  .standings-table td:nth-child(2) .standing-team-content{max-width:132px}
+  .standings-table th:nth-child(3),.standings-table td:nth-child(3){left:186px}
   .stat-player-name{font-size:17px}
 
   .match-modal{align-items:stretch;padding:10px}
