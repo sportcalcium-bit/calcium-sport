@@ -452,6 +452,11 @@ function pickHomeDate(value){
 }
 window.pickHomeDate = pickHomeDate;
 
+function compareCompetitionBlockChronological(nameA,nameB,grouped){
+  const earliestA = Math.min(...grouped[nameA].map(m=>matchDateSortValue(m)));
+  const earliestB = Math.min(...grouped[nameB].map(m=>matchDateSortValue(m)));
+  return earliestA-earliestB || compareCompetitionPriority(grouped[nameA][0]||{},grouped[nameB][0]||{});
+}
 function renderHomeGames(){
   const selected = parseDateOnly(selectedDateKey) || new Date();
   const weekStart = getMonday(selected);
@@ -478,7 +483,7 @@ function renderHomeGames(){
     const dayDate = parseDateOnly(dayKey);
     const dayLabel = dayDate ? formatShortDateFromDate(dayDate).replace(/\.$/,'') : dayKey;
     const competitionGroups = groupBy(dayMatches, m=>m.CompetitionLabel || m.Competition || 'Competition');
-    return `<section class="home-time-block"><div class="home-time-heading">${escapeHTML(dayLabel)}</div>${Object.keys(competitionGroups).sort((a,b)=>compareCompetitionNamePriority(a,b,competitionGroups)).map(name=>`<section class="home-competition-block"><div class="home-competition-mini-title"><span>${escapeHTML(getRegionForCompetition(competitionGroups[name][0]))}</span><strong>${escapeHTML(name)}</strong></div>${competitionGroups[name].map(renderHomeMatchRow).join('')}</section>`).join('')}</section>`;
+    return `<section class="home-time-block"><div class="home-time-heading">${escapeHTML(dayLabel)}</div>${Object.keys(competitionGroups).sort((a,b)=>compareCompetitionBlockChronological(a,b,competitionGroups)).map(name=>`<section class="home-competition-block"><div class="home-competition-mini-title"><span>${escapeHTML(getRegionForCompetition(competitionGroups[name][0]))}</span><strong>${escapeHTML(name)}</strong></div>${competitionGroups[name].map(renderHomeMatchRow).join('')}</section>`).join('')}</section>`;
   }).join('');
 
   setHTML('homeGamesList', html);
@@ -486,15 +491,40 @@ function renderHomeGames(){
 function renderHomeMatchRow(match){ const score=match.Status==='FT'?renderScoreText(match):'- : -'; const click=match.MatchID?`onclick="openMatchDetail('${escapeAttr(match.MatchID)}')"`:''; return `<article class="home-match-row" ${click}><div class="score-team-home-name">${escapeHTML(match.HomeTeam)}</div><div class="score-team-home-logo">${renderTeamLogo(match.HomeLogo,match.HomeTeam)}</div><div class="home-match-score">${score}</div><div class="score-team-away-logo">${renderTeamLogo(match.AwayLogo,match.AwayTeam)}</div><div class="score-team-away-name">${escapeHTML(match.AwayTeam)}</div></article>`; }
 function renderHomeTab(){ const allPanel=$('allGamesPanel'), myPanel=$('myGamesPanel'), jump=$('jumpSelect'); document.querySelectorAll('[data-home-tab]').forEach(b=>b.classList.toggle('active',b.dataset.homeTab===currentHomeTab)); allPanel?.classList.toggle('hidden',currentHomeTab!=='allGames'); myPanel?.classList.toggle('hidden',currentHomeTab!=='myGames'); if(jump&&isHomePage()) jump.value=currentHomeTab==='myGames'?'myGames':'nextUp'; }
 function renderMyGames(){
-  const all=Array.isArray(appData?.myGames)?appData.myGames:[]; const selected=parseDateOnly(selectedDateKey)||new Date(); const weekStart=getMonday(selected); const weekEnd=addDays(weekStart,6);
-  const weekMatches=all.filter(match=>{ const d=parseDateOnly(match.Date); if(!d) return false; const cd=new Date(d.getFullYear(),d.getMonth(),d.getDate()); return cd>=weekStart && cd<=weekEnd; }).sort(compareMyGamesMatches);
-  setText('myGamesTitle', getSeasonWeekLabel(selected)); setText('myGamesSubtitle', getWeekRangeLabel(selected)); setText('myGamesCount', weekMatches.length);
-  if(!weekMatches.length){ setHTML('myGamesList','<div class="empty home-empty">No My Games found for this week.</div>'); return; }
-  const grouped=groupBy(weekMatches, m=>getMyGamesGroupLabel(m)); const order=['England','Italy','Spain','Germany','France','Europe','World','National Teams'];
-  const html=Object.keys(grouped).sort((a,b)=>(order.indexOf(a)===-1?999:order.indexOf(a))-(order.indexOf(b)===-1?999:order.indexOf(b))||a.localeCompare(b)).map(groupName=>{
-    const leagues=groupBy(grouped[groupName], m=>m.Competition||'Competition');
-    return Object.keys(leagues).sort((a,b)=>compareCompetitionNamePriorityFromName(groupName,a,b)).map(league=>`<section class="my-games-league-card"><div class="my-games-league-head"><span class="my-games-region">${escapeHTML(groupName)}</span><strong class="my-games-league-name">${escapeHTML(league)}</strong></div>${leagues[league].sort(compareMyGamesMatches).map(renderMyGamesRow).join('')}</section>`).join('');
+  const all=Array.isArray(appData?.myGames)?appData.myGames:[];
+  const selected=parseDateOnly(selectedDateKey)||new Date();
+  const weekStart=getMonday(selected);
+  const weekEnd=addDays(weekStart,6);
+
+  const weekMatches=all.filter(match=>{
+    const d=parseDateOnly(match.Date);
+    if(!d) return false;
+    const cd=new Date(d.getFullYear(),d.getMonth(),d.getDate());
+    return cd>=weekStart && cd<=weekEnd;
+  });
+
+  setText('myGamesTitle', getSeasonWeekLabel(selected));
+  setText('myGamesSubtitle', getWeekRangeLabel(selected));
+  setText('myGamesCount', weekMatches.length);
+
+  if(!weekMatches.length){
+    setHTML('myGamesList','<div class="empty home-empty">No My Games found for this week.</div>');
+    return;
+  }
+
+  const dayGroups = groupBy(weekMatches, m=>getDateKey(m.Date));
+  const html = Object.keys(dayGroups).sort((a,b)=>a.localeCompare(b)).map(dayKey=>{
+    const dayMatches = dayGroups[dayKey];
+    const dayDate = parseDateOnly(dayKey);
+    const dayLabel = dayDate ? formatShortDateFromDate(dayDate).replace(/\.$/,'') : dayKey;
+    const leagueGroups = groupBy(dayMatches, m=>m.Competition || 'Competition');
+    const leagueHtml = Object.keys(leagueGroups).sort((a,b)=>compareCompetitionBlockChronological(a,b,leagueGroups)).map(league=>{
+      const rows = leagueGroups[league].sort(compareHomeMatches);
+      return `<section class="my-games-league-card"><div class="my-games-league-head"><span class="my-games-region">${escapeHTML(getRegionForCompetition(rows[0]))}</span><strong class="my-games-league-name">${escapeHTML(league)}</strong></div>${rows.map(renderMyGamesRow).join('')}</section>`;
+    }).join('');
+    return `<section class="home-time-block"><div class="home-time-heading">${escapeHTML(dayLabel)}</div>${leagueHtml}</section>`;
   }).join('');
+
   setHTML('myGamesList', html);
 }
 function renderMyGamesRow(match){ const p=formatScoreboardDateParts(match.Date,match.Time); const score=match.Status==='FT'?renderScoreText(match):'- : -'; const click=match.MatchID?`onclick="openMatchDetail('${escapeAttr(match.MatchID)}')"`:''; return `<article class="my-games-match" ${click}><div class="my-games-date"><span>${escapeHTML(p.date)}</span><span>${escapeHTML(p.time)}</span></div><div class="my-games-team-name home">${escapeHTML(match.HomeTeam)}</div><div class="my-games-logo">${renderTeamLogo(match.HomeLogo,match.HomeTeam)}</div><div class="my-games-score">${score}</div><div class="my-games-logo">${renderTeamLogo(match.AwayLogo,match.AwayTeam)}</div><div class="my-games-team-name away">${escapeHTML(match.AwayTeam)}</div><div class="my-games-status">${escapeHTML(match.Status||'Scheduled')}</div></article>`; }
@@ -528,7 +558,7 @@ const html = orderedGroups.map(groupName => {
             : renderLeagueLegend()
         );
 
-    return `<section class="table-card"><div class="table-card-header"><h3>${escapeHTML(groupName)}</h3><span>${rows.length} teams</span></div><div class="standings-table-wrap"><table class="standings-table"><thead><tr><th>#</th><th>Team</th><th>PT</th><th>GW</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th></tr></thead><tbody>${rows.map((team,i)=>{const zone=getRankClass(i,rows.length,isGroupStage);return `<tr class="standing-row standing-row-${zone.replace('rank-','')}"><td><span class="rank-badge ${zone}">${i+1}</span></td><td class="team-cell">${renderTeamLogo(getStandingTeamLogo(team),team.Team)}<span>${escapeHTML(team.Team)}</span></td><td class="standings-points"><strong>${safeNumber(team.Points)}</strong></td><td>${safeNumber(team.Played)}</td><td>${safeNumber(team.Won)}</td><td>${safeNumber(team.Drawn)}</td><td>${safeNumber(team.Lost)}</td><td>${safeNumber(team.GoalsFor)}</td><td>${safeNumber(team.GoalsAgainst)}</td><td>${formatGoalDifference(team.GoalDifference)}</td></tr>`;}).join('')}</tbody></table></div>${legend}</section>`;
+    return `<section class="table-card"><div class="table-card-header"><h3>${escapeHTML(groupName)}</h3><span>${rows.length} teams</span></div><div class="standings-table-wrap"><table class="standings-table"><thead><tr><th>#</th><th>Team</th><th>PT</th><th>GW</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th></tr></thead><tbody>${rows.map((team,i)=>{const zone=getRankClass(i,rows.length,isGroupStage);return `<tr class="standing-row standing-row-${zone.replace('rank-','')}"><td><span class="rank-badge ${zone}">${i+1}</span></td><td class="team-cell"><div class="standing-team-content">${renderTeamLogo(getStandingTeamLogo(team),team.Team)}<span class="standing-team-name">${escapeHTML(team.Team)}</span></div></td><td class="standings-points"><strong>${safeNumber(team.Points)}</strong></td><td>${safeNumber(team.Played)}</td><td>${safeNumber(team.Won)}</td><td>${safeNumber(team.Drawn)}</td><td>${safeNumber(team.Lost)}</td><td>${safeNumber(team.GoalsFor)}</td><td>${safeNumber(team.GoalsAgainst)}</td><td>${formatGoalDifference(team.GoalDifference)}</td></tr>`;}).join('')}</tbody></table></div>${legend}</section>`;
   }).join('');
 
   setHTML('standingsContainer',html);
