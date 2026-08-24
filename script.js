@@ -315,8 +315,6 @@ document.head.appendChild(script);
 
 };
 
-}
-
 
 // continue initialiseSite here
 
