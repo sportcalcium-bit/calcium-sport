@@ -17,7 +17,7 @@ function normalisePlayerName(value){
     .replace(/\s+/g," ");
 
 }
-function loadGoogleVisualizationTable(spreadsheetId, sheetName, includeAll){
+function loadGoogleVisualizationTable(spreadsheetId, sheetName){
 
   return new Promise((resolve,reject)=>{
 
@@ -47,13 +47,12 @@ function loadGoogleVisualizationTable(spreadsheetId, sheetName, includeAll){
 
 
     script.src =
-  "https://docs.google.com/spreadsheets/d/"
-  + spreadsheetId
-  + "/gviz/tq?sheet="
-  + encodeURIComponent(sheetName)
-  + "&tqx=responseHandler:"
-  + callbackName
-  + "&tq=";
+      "https://docs.google.com/spreadsheets/d/"
+      + spreadsheetId
+      + "/gviz/tq?sheet="
+      + encodeURIComponent(sheetName)
+      + "&tqx=responseHandler:"
+      + callbackName;
 
 
     script.onerror = function(){
@@ -920,7 +919,9 @@ async function hydrateFixturesFromSheet(data){
   'Fixtures',
   true
 );
-
+console.log("FIXTURE TABLE:", table);
+console.log("FIXTURE COLUMNS:", table?.cols);
+console.log("FIXTURE ROWS:", table?.rows);
 
 
     if(
