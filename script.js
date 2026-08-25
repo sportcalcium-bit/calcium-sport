@@ -618,32 +618,19 @@ function renderMyGames(){
     return;
   }
 
-  const unplayedMatches = weekMatches.filter(m=>m.Status!=='FT');
-
-  const personalAssignment = buildPersonalDayAssignments(unplayedMatches, weekStart, isCurrentWeek);
-
-  const dayNameFor = (match)=>{
-    if(match.Status==='FT'){
-      const d = parseDateOnly(match.Date);
-      return d ? weekdayNameFromDate(d) : 'Saturday';
-    }
-    return personalAssignment.get(match) || 'Saturday';
-  };
-
   const dayGroups = new Map();
   weekMatches.forEach(match=>{
-    const dayName = dayNameFor(match);
-    if(!dayGroups.has(dayName)) dayGroups.set(dayName,[]);
-    dayGroups.get(dayName).push(match);
+    const dateKey = getDateKey(match.Date) || 'unknown';
+    if(!dayGroups.has(dateKey)) dayGroups.set(dateKey,[]);
+    dayGroups.get(dateKey).push(match);
   });
 
-  const orderedDayNames = Array.from(dayGroups.keys()).sort((a,b)=>MONDAY_TO_SUNDAY_DISPLAY_ORDER.indexOf(a)-MONDAY_TO_SUNDAY_DISPLAY_ORDER.indexOf(b));
+  const orderedDateKeys = Array.from(dayGroups.keys()).sort((a,b)=>a.localeCompare(b));
 
-
-  const html = orderedDayNames.map(dayName=>{
-    const dayDate = addDays(weekStart, WEEKDAY_OFFSET_FROM_WEEK_START[dayName]);
-    const label = `${dayName} ${formatShortDateFromDate(dayDate).replace(/\.$/,'')}`;
-    const dayMatches = dayGroups.get(dayName).sort((a,b)=>matchDateSortValue(a)-matchDateSortValue(b) || compareCompetitionPriority(a,b));
+  const html = orderedDateKeys.map(dateKey=>{
+    const dayDate = parseDateOnly(dateKey);
+    const label = dayDate ? `${weekdayNameFromDate(dayDate)} ${formatShortDateFromDate(dayDate).replace(/\.$/,'')}` : dateKey;
+    const dayMatches = dayGroups.get(dateKey).sort((a,b)=>matchDateSortValue(a)-matchDateSortValue(b) || compareCompetitionPriority(a,b));
     return `<section class="home-time-block"><div class="home-time-heading">${escapeHTML(label)}</div>${dayMatches.map(renderMatchRowFlat).join('')}</section>`;
   }).join('');
 
