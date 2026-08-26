@@ -249,6 +249,7 @@ function mapApiMatchToPascal(match){
     Venue: match.venue || '',
     YouTubeURL: match.youtube || '',
     Status: match.status || '',
+    DatePlayed: match.datePlayed || '',
     HomeLogo: teamLogoLookup.get(normaliseTeamName(home)) || '',
     AwayLogo: teamLogoLookup.get(normaliseTeamName(away)) || ''
   };
@@ -512,102 +513,22 @@ function weekdayNameFromDate(d){ return WEEKDAY_NAMES_BY_JS_INDEX[d.getDay()]; }
 const WEEKDAY_OFFSET_FROM_WEEK_START = { Monday:0, Tuesday:1, Wednesday:2, Thursday:3, Friday:4, Saturday:5, Sunday:6 };
 
 /*
-  Splits this week's not-yet-played My Games across the personal
-  priority order (Friday, Monday, Sunday, Thursday, Tuesday,
-  Wednesday, Saturday), as evenly as possible - any remainder games
-  go to the earliest days in that priority list.
+  My Games dividers are grouped by the REAL calendar day a match's
+  result actually landed (DatePlayed, stamped by the backend's Play Log
+  the first time a match is seen as FT) - never by kickoff date, and
+  never by a projected/assigned day. A Friday-kickoff match that gets
+  its result entered on Wednesday shows under the Wednesday divider,
+  full stop.
 
-  If the selected week is the current week, days that have already
-  passed are excluded from the split, so games roll forward onto
-  the remaining days instead of staying stuck on a day that's gone.
-  Since this recomputes fresh from today's real date and each
-  match's Status every time the page renders, it naturally
-  re-balances itself day to day without needing any actual
-  scheduled job.
+  Matches with no DatePlayed yet (not finished) have no real completion
+  day to group by, so they're shown separately under "Not yet played"
+  instead of being guessed into a divider - sorted by kickoff order
+  within that section, since that's the only date they actually have.
+
+  Because every divider here is a single real calendar date, sorting
+  them chronologically is trivial and can never go out of order or
+  overlap - there's exactly one bucket per date.
 */
-/*
-  My Games dividers reflect a weekly PLAN, not real kickoff date - the
-  Friday/Monday/Sunday/Thursday/Tuesday/Wednesday/Saturday priority order,
-  sized from the week's total match count.
-
-  Every match (played or not) gets a fixed slot in that plan, filled as
-  CONTIGUOUS chunks of the chronologically-sorted match list into
-  priority-ordered day buckets. Because the chunks are contiguous slices
-  of one sorted list, no two buckets' date ranges can ever overlap - that
-  is what guarantees strict chronological order once displayed (sorted by
-  each bucket's earliest real date).
-
-  For the current week: find the first not-yet-played match in real
-  chronological order. Everything before that point is confirmed played
-  and keeps its planned slot untouched. Everything from that point
-  onward (played or not) is the "still open" pool, which gets freshly
-  redistributed - evenly, in the same priority order - across today's
-  day and every day after it. Recomputing this fresh on every load is
-  what gives the "every day at 00:01" behaviour without needing an
-  actual scheduled job: if you played exactly your plan, the pool splits
-  right back into the same shape it already had; fall behind or jump
-  ahead, and the split simply reflects whatever's genuinely left.
-*/
-function buildWeeklyPlayDayAssignment(weekMatches, weekStart, isCurrentWeek){
-
-  const sortedAll = [...weekMatches].sort((a,b)=>matchDateSortValue(a)-matchDateSortValue(b));
-
-  const total = sortedAll.length;
-  const dayCount = PERSONAL_DAY_PRIORITY.length;
-  const base = Math.floor(total/dayCount);
-  const remainder = total % dayCount;
-
-  const quota = {};
-  PERSONAL_DAY_PRIORITY.forEach((name,i)=>{ quota[name] = base + (i<remainder?1:0); });
-
-  const baseline = new Map();
-  let idx = 0;
-  PERSONAL_DAY_PRIORITY.forEach(name=>{
-    for(let n=0; n<quota[name] && idx<sortedAll.length; n++,idx++){
-      baseline.set(sortedAll[idx], name);
-    }
-  });
-
-  if(!isCurrentWeek){
-    return baseline;
-  }
-
-  const today = new Date();
-  today.setHours(0,0,0,0);
-
-  const eligibleDays = PERSONAL_DAY_PRIORITY.filter(name=>{
-    const d = addDays(weekStart, WEEKDAY_OFFSET_FROM_WEEK_START[name]);
-    return d.getTime() >= today.getTime();
-  });
-  const finalEligibleDays = eligibleDays.length ? eligibleDays : PERSONAL_DAY_PRIORITY.slice();
-
-  let splitIndex = sortedAll.findIndex(m=>m.Status!=='FT');
-  if(splitIndex===-1) splitIndex = sortedAll.length;
-
-  const confirmed = sortedAll.slice(0, splitIndex);
-  const pool = sortedAll.slice(splitIndex);
-
-  const assignment = new Map();
-  confirmed.forEach(m=>assignment.set(m, baseline.get(m)));
-
-  if(pool.length){
-    const dayCountEligible = finalEligibleDays.length;
-    const basePool = Math.floor(pool.length/dayCountEligible);
-    const remainderPool = pool.length % dayCountEligible;
-
-    let ri = 0;
-    finalEligibleDays.forEach((name,i)=>{
-      const q = basePool + (i<remainderPool?1:0);
-      for(let n=0; n<q && ri<pool.length; n++,ri++){
-        assignment.set(pool[ri], name);
-      }
-    });
-  }
-
-  return assignment;
-
-}
-
 function renderMyGames(){
   const all=Array.isArray(appData?.myGames)?appData.myGames:[];
   const selected=parseDateOnly(selectedDateKey)||new Date();
@@ -627,9 +548,7 @@ function renderMyGames(){
 
   if(isCurrentWeek){
     // Carry forward anything from an earlier week that's still not marked
-    // played, so it never gets stuck in the past and forgotten. Since these
-    // are always older than this week's matches, sorting by real date
-    // naturally puts them first once they're mixed in below.
+    // played, so it never gets stuck in the past and forgotten.
     const overdue = all.filter(match=>{
       if(match.Status==='FT') return false;
       const d=parseDateOnly(match.Date);
@@ -653,30 +572,36 @@ function renderMyGames(){
     return;
   }
 
-  const dayAssignment = buildWeeklyPlayDayAssignment(weekMatches, weekStart, isCurrentWeek);
+  // A match already showing FT on the home page must never look
+  // "not yet played" here just because the backend's periodic stamping
+  // hasn't caught up yet. If it's FT but has no DatePlayed on record,
+  // treat it as played today for display - the Play Log still becomes
+  // the permanent record once its next run stamps the real date.
+  const effectivePlayedDate = m => m.DatePlayed || (m.Status==='FT' ? getTodayKey() : '');
+
+  const played = weekMatches.filter(m=>m.Status==='FT');
+  const notYetPlayed = weekMatches.filter(m=>m.Status!=='FT');
 
   const dayGroups = new Map();
-  weekMatches.forEach(match=>{
-    const dayName = dayAssignment.get(match) || 'Saturday';
-    if(!dayGroups.has(dayName)) dayGroups.set(dayName,[]);
-    dayGroups.get(dayName).push(match);
+  played.forEach(match=>{
+    const dateKey = effectivePlayedDate(match) || 'unknown';
+    if(!dayGroups.has(dateKey)) dayGroups.set(dateKey,[]);
+    dayGroups.get(dateKey).push(match);
   });
 
-  // Buckets were filled as contiguous chronological chunks, so sorting by
-  // each bucket's earliest real match date reconstructs strict
-  // chronological order with no possible overlap.
-  const orderedDayNames = Array.from(dayGroups.keys()).sort((a,b)=>{
-    const aMin = Math.min(...dayGroups.get(a).map(matchDateSortValue));
-    const bMin = Math.min(...dayGroups.get(b).map(matchDateSortValue));
-    return aMin-bMin;
-  });
+  const orderedDateKeys = Array.from(dayGroups.keys()).sort((a,b)=>a.localeCompare(b));
 
-  const html = orderedDayNames.map(dayName=>{
-    const dayDate = addDays(weekStart, WEEKDAY_OFFSET_FROM_WEEK_START[dayName]);
-    const label = `${dayName} ${formatShortDateFromDate(dayDate).replace(/\.$/,'')}`;
-    const dayMatches = dayGroups.get(dayName).sort((a,b)=>matchDateSortValue(a)-matchDateSortValue(b) || compareCompetitionPriority(a,b));
+  let html = orderedDateKeys.map(dateKey=>{
+    const dayDate = parseDateOnly(dateKey);
+    const label = dayDate ? `${weekdayNameFromDate(dayDate)} ${formatShortDateFromDate(dayDate).replace(/\.$/,'')}` : dateKey;
+    const dayMatches = dayGroups.get(dateKey).sort((a,b)=>matchDateSortValue(a)-matchDateSortValue(b) || compareCompetitionPriority(a,b));
     return `<section class="home-time-block"><div class="home-time-heading">${escapeHTML(label)}</div>${dayMatches.map(renderMatchRowFlat).join('')}</section>`;
   }).join('');
+
+  if(notYetPlayed.length){
+    const pending = notYetPlayed.sort((a,b)=>matchDateSortValue(a)-matchDateSortValue(b) || compareCompetitionPriority(a,b));
+    html += `<section class="home-time-block"><div class="home-time-heading">Not yet played</div>${pending.map(renderMatchRowFlat).join('')}</section>`;
+  }
 
   setHTML('myGamesList', html);
 }
