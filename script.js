@@ -525,48 +525,83 @@ const WEEKDAY_OFFSET_FROM_WEEK_START = { Monday:0, Tuesday:1, Wednesday:2, Thurs
   re-balances itself day to day without needing any actual
   scheduled job.
 */
-function buildPersonalDayAssignments(unplayedMatches, weekStart, isCurrentWeek){
+/*
+  My Games dividers reflect a weekly PLAN, not real kickoff date - the
+  Friday/Monday/Sunday/Thursday/Tuesday/Wednesday/Saturday priority order,
+  sized from the week's total match count.
+
+  Every match (played or not) gets a fixed slot in that plan, filled as
+  CONTIGUOUS chunks of the chronologically-sorted match list into
+  priority-ordered day buckets. Because the chunks are contiguous slices
+  of one sorted list, no two buckets' date ranges can ever overlap - that
+  is what guarantees strict chronological order once displayed (sorted by
+  each bucket's earliest real date).
+
+  For the current week: find the first not-yet-played match in real
+  chronological order. Everything before that point is confirmed played
+  and keeps its planned slot untouched. Everything from that point
+  onward (played or not) is the "still open" pool, which gets freshly
+  redistributed - evenly, in the same priority order - across today's
+  day and every day after it. Recomputing this fresh on every load is
+  what gives the "every day at 00:01" behaviour without needing an
+  actual scheduled job: if you played exactly your plan, the pool splits
+  right back into the same shape it already had; fall behind or jump
+  ahead, and the split simply reflects whatever's genuinely left.
+*/
+function buildWeeklyPlayDayAssignment(weekMatches, weekStart, isCurrentWeek){
+
+  const sortedAll = [...weekMatches].sort((a,b)=>matchDateSortValue(a)-matchDateSortValue(b));
+
+  const total = sortedAll.length;
+  const dayCount = PERSONAL_DAY_PRIORITY.length;
+  const base = Math.floor(total/dayCount);
+  const remainder = total % dayCount;
+
+  const quota = {};
+  PERSONAL_DAY_PRIORITY.forEach((name,i)=>{ quota[name] = base + (i<remainder?1:0); });
+
+  const baseline = new Map();
+  let idx = 0;
+  PERSONAL_DAY_PRIORITY.forEach(name=>{
+    for(let n=0; n<quota[name] && idx<sortedAll.length; n++,idx++){
+      baseline.set(sortedAll[idx], name);
+    }
+  });
+
+  if(!isCurrentWeek){
+    return baseline;
+  }
 
   const today = new Date();
   today.setHours(0,0,0,0);
 
-  let eligibleDays = PERSONAL_DAY_PRIORITY.slice();
-
-  if(isCurrentWeek){
-    const remaining = PERSONAL_DAY_PRIORITY.filter(name=>{
-      const d = addDays(weekStart, WEEKDAY_OFFSET_FROM_WEEK_START[name]);
-      return d.getTime() >= today.getTime();
-    });
-    if(remaining.length) eligibleDays = remaining;
-  }
-
-  const total = unplayedMatches.length;
-  const dayCount = eligibleDays.length;
-  const base = dayCount ? Math.floor(total/dayCount) : 0;
-  const remainder = dayCount ? total%dayCount : 0;
-
-  const capacity = {};
-  eligibleDays.forEach((name,i)=>{ capacity[name] = base + (i<remainder?1:0); });
-
-  // Quotas above are decided by priority rank (Friday/Monday/Sunday... get
-  // the remainder first), but matches are filled - and days displayed - in
-  // real calendar order, so each day's content stays chronologically
-  // consistent with the days around it.
-  const fillOrder = MONDAY_TO_SUNDAY_DISPLAY_ORDER.filter(name=>eligibleDays.includes(name));
-
-  const sorted = [...unplayedMatches].sort((a,b)=>matchDateSortValue(a)-matchDateSortValue(b));
-  const assignment = new Map();
-  let index = 0;
-
-  fillOrder.forEach(name=>{
-    for(let n=0; n<capacity[name] && index<sorted.length; n++,index++){
-      assignment.set(sorted[index], name);
-    }
+  const eligibleDays = PERSONAL_DAY_PRIORITY.filter(name=>{
+    const d = addDays(weekStart, WEEKDAY_OFFSET_FROM_WEEK_START[name]);
+    return d.getTime() >= today.getTime();
   });
+  const finalEligibleDays = eligibleDays.length ? eligibleDays : PERSONAL_DAY_PRIORITY.slice();
 
-  while(index < sorted.length){
-    assignment.set(sorted[index], fillOrder[fillOrder.length-1] || 'Saturday');
-    index++;
+  let splitIndex = sortedAll.findIndex(m=>m.Status!=='FT');
+  if(splitIndex===-1) splitIndex = sortedAll.length;
+
+  const confirmed = sortedAll.slice(0, splitIndex);
+  const pool = sortedAll.slice(splitIndex);
+
+  const assignment = new Map();
+  confirmed.forEach(m=>assignment.set(m, baseline.get(m)));
+
+  if(pool.length){
+    const dayCountEligible = finalEligibleDays.length;
+    const basePool = Math.floor(pool.length/dayCountEligible);
+    const remainderPool = pool.length % dayCountEligible;
+
+    let ri = 0;
+    finalEligibleDays.forEach((name,i)=>{
+      const q = basePool + (i<remainderPool?1:0);
+      for(let n=0; n<q && ri<pool.length; n++,ri++){
+        assignment.set(pool[ri], name);
+      }
+    });
   }
 
   return assignment;
@@ -618,19 +653,28 @@ function renderMyGames(){
     return;
   }
 
+  const dayAssignment = buildWeeklyPlayDayAssignment(weekMatches, weekStart, isCurrentWeek);
+
   const dayGroups = new Map();
   weekMatches.forEach(match=>{
-    const dateKey = getDateKey(match.Date) || 'unknown';
-    if(!dayGroups.has(dateKey)) dayGroups.set(dateKey,[]);
-    dayGroups.get(dateKey).push(match);
+    const dayName = dayAssignment.get(match) || 'Saturday';
+    if(!dayGroups.has(dayName)) dayGroups.set(dayName,[]);
+    dayGroups.get(dayName).push(match);
   });
 
-  const orderedDateKeys = Array.from(dayGroups.keys()).sort((a,b)=>a.localeCompare(b));
+  // Buckets were filled as contiguous chronological chunks, so sorting by
+  // each bucket's earliest real match date reconstructs strict
+  // chronological order with no possible overlap.
+  const orderedDayNames = Array.from(dayGroups.keys()).sort((a,b)=>{
+    const aMin = Math.min(...dayGroups.get(a).map(matchDateSortValue));
+    const bMin = Math.min(...dayGroups.get(b).map(matchDateSortValue));
+    return aMin-bMin;
+  });
 
-  const html = orderedDateKeys.map(dateKey=>{
-    const dayDate = parseDateOnly(dateKey);
-    const label = dayDate ? `${weekdayNameFromDate(dayDate)} ${formatShortDateFromDate(dayDate).replace(/\.$/,'')}` : dateKey;
-    const dayMatches = dayGroups.get(dateKey).sort((a,b)=>matchDateSortValue(a)-matchDateSortValue(b) || compareCompetitionPriority(a,b));
+  const html = orderedDayNames.map(dayName=>{
+    const dayDate = addDays(weekStart, WEEKDAY_OFFSET_FROM_WEEK_START[dayName]);
+    const label = `${dayName} ${formatShortDateFromDate(dayDate).replace(/\.$/,'')}`;
+    const dayMatches = dayGroups.get(dayName).sort((a,b)=>matchDateSortValue(a)-matchDateSortValue(b) || compareCompetitionPriority(a,b));
     return `<section class="home-time-block"><div class="home-time-heading">${escapeHTML(label)}</div>${dayMatches.map(renderMatchRowFlat).join('')}</section>`;
   }).join('');
 
