@@ -640,7 +640,8 @@ function renderMyGames(){
 
   setText('myGamesTitle', getSeasonWeekLabel(selected));
   setText('myGamesSubtitle', getWeekRangeLabel(selected));
-  setText('myGamesCount', weekMatches.length);
+  const myGamesPlayedCount = weekMatches.filter(isPlayedMatch).length;
+  setText('myGamesCount', `${myGamesPlayedCount}/${weekMatches.length}`);
 
   if(!weekMatches.length){
     setHTML('myGamesList','<div class="empty home-empty">No My Games found for this week.</div>');
