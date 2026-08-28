@@ -604,13 +604,29 @@ function buildMyGamesDayAssignment(weekMatches, weekStart, isCurrentWeek){
 
 }
 
+function getMyGamesWeekStart(date){
+  // Same Monday-start week as getWeekStart, EXCEPT: a Monday itself is
+  // treated as belonging to the PREVIOUS week's block, since a Monday
+  // night fixture is the tail end of the previous weekend's gameweek,
+  // not the start of a new one. Only used for My Games grouping - the
+  // shared date-tab labels and Global Games still use plain
+  // getWeekStart/getWeekRangeLabel, untouched.
+  const normalStart = getWeekStart(date);
+  return date.getDay()===1 ? addDays(normalStart,-7) : normalStart;
+}
+
 function renderMyGames(){
   const all=Array.isArray(appData?.myGames)?appData.myGames:[];
   const selected=parseDateOnly(selectedDateKey)||new Date();
   const weekStart=getWeekStart(selected);
-  const weekEnd=addDays(weekStart,6);
+  // The My Games match window runs one day later than the visible label
+  // (Tuesday through the FOLLOWING Monday) so a Monday night fixture is
+  // grouped with the gameweek that's ending, not the one about to start.
+  // The "This week / 24/08 - 30/08" label itself is untouched.
+  const matchWindowStart = addDays(weekStart,1);
+  const matchWindowEnd = addDays(weekStart,7);
 
-  const currentWeekStart = getWeekStart(new Date());
+  const currentWeekStart = getMyGamesWeekStart(new Date());
   const isCurrentWeek = dateToKey(weekStart)===dateToKey(currentWeekStart);
   const isPastWeek = weekStart.getTime() < currentWeekStart.getTime();
 
@@ -618,7 +634,7 @@ function renderMyGames(){
     const d=parseDateOnly(match.Date);
     if(!d) return false;
     const cd=new Date(d.getFullYear(),d.getMonth(),d.getDate());
-    return cd>=weekStart && cd<=weekEnd;
+    return cd>=matchWindowStart && cd<=matchWindowEnd;
   });
 
   if(isCurrentWeek){
@@ -629,7 +645,7 @@ function renderMyGames(){
       const d=parseDateOnly(match.Date);
       if(!d) return false;
       const cd=new Date(d.getFullYear(),d.getMonth(),d.getDate());
-      return cd < weekStart;
+      return cd < matchWindowStart;
     });
     weekMatches = overdue.concat(weekMatches);
   } else if(isPastWeek){
