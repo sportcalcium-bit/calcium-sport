@@ -567,7 +567,7 @@ function fillDaysInCalendarOrder(sortedMatches, dayNames, quota){
 
 function buildMyGamesDayAssignment(weekMatches, weekStart, isCurrentWeek){
 
-  const sortedAll = [...weekMatches].sort((a,b)=>matchDateSortValue(a)-matchDateSortValue(b));
+  const sortedAll = [...weekMatches].sort(compareMyGamesMatches);
 
   const baselineQuota = computeDayQuotas(sortedAll.length, MONDAY_TO_SUNDAY_DISPLAY_ORDER);
   const baseline = fillDaysInCalendarOrder(sortedAll, MONDAY_TO_SUNDAY_DISPLAY_ORDER, baselineQuota);
@@ -659,7 +659,7 @@ function renderMyGames(){
   const html = MONDAY_TO_SUNDAY_DISPLAY_ORDER.map(dayName=>{
     const dayDate = addDays(weekStart, WEEKDAY_OFFSET_FROM_WEEK_START[dayName]);
     const label = `${dayName} ${formatShortDateFromDate(dayDate).replace(/\.$/,'')}`;
-    const dayMatches = dayGroups.get(dayName).sort((a,b)=>matchDateSortValue(a)-matchDateSortValue(b) || compareCompetitionPriority(a,b));
+    const dayMatches = dayGroups.get(dayName).sort(compareMyGamesMatches);
     const body = dayMatches.length ? dayMatches.map(renderMatchRowFlat).join('') : '<div class="empty home-empty">No games.</div>';
     return `<section class="home-time-block"><div class="home-time-heading">${escapeHTML(label)}</div>${body}</section>`;
   }).join('');
@@ -1081,9 +1081,40 @@ function compareHomeMatches(a,b){ return timeSortValue(normaliseKickoffTime(a.Ti
 function compareCompetitionPriority(a,b){ const order=['england','italy','spain','germany','france','europe','world','national-teams']; const ak=getCompetitionCategoryKey(a), bk=getCompetitionCategoryKey(b); return (order.indexOf(ak)===-1?999:order.indexOf(ak))-(order.indexOf(bk)===-1?999:order.indexOf(bk))||getCompetitionPriority(ak,{'Competition Name':a.Competition||a.CompetitionLabel||''})-getCompetitionPriority(bk,{'Competition Name':b.Competition||b.CompetitionLabel||''}); }
 function compareCompetitionNamePriority(a,b,grouped){ return compareCompetitionPriority(grouped[a][0]||{},grouped[b][0]||{})||a.localeCompare(b); }
 function compareCompetitionNamePriorityFromName(groupName,a,b){ const key={England:'england',Italy:'italy',Spain:'spain',Germany:'germany',France:'france',Europe:'europe',World:'world','National Teams':'national-teams'}[groupName]||'world'; return getCompetitionPriority(key,{'Competition Name':a})-getCompetitionPriority(key,{'Competition Name':b})||a.localeCompare(b); }
-function compareMyGamesMatches(a,b){ return getMyGamesGroupPriority(a)-getMyGamesGroupPriority(b)||compareCompetitionPriority(a,b)||matchDateSortValue(a)-matchDateSortValue(b)||String(a.HomeTeam||'').localeCompare(String(b.HomeTeam||'')); }
-function getMyGamesGroupPriority(m){ const order=['England','Italy','Spain','Germany','France','Europe','World','National Teams']; const i=order.indexOf(getMyGamesGroupLabel(m)); return i===-1?999:i; }
+/*
+  My Games ordering ONLY (Global Games keeps using compareCompetitionPriority
+  and is untouched by any of this).
+
+  Priority is: Cups before Leagues, then within each of those,
+  France > Germany > Spain > Italy > England (Europe / World /
+  National Teams competitions - which are neither a domestic cup nor
+  one of the 5 domestic leagues - are kept after England, in their
+  existing relative order, since that case wasn't specified).
+*/
+const MY_GAMES_COUNTRY_ORDER = ['france','germany','spain','italy','england','europe','world','national-teams'];
+const MY_GAMES_LEAGUE_NAME_KEYWORDS = ['premier league','serie a','la liga','bundesliga','ligue 1','championship'];
+const MY_GAMES_CUP_NAME_KEYWORDS = ['cup','coppa','copa','pokal','coupe','trophee','trophée','shield','supercoppa','supercopa','supercup','super cup'];
+
+function isCupCompetition(m){
+  const name = String(m.Competition||m.CompetitionLabel||'').toLowerCase();
+  if(MY_GAMES_LEAGUE_NAME_KEYWORDS.some(k=>name.includes(k))) return false;
+  return MY_GAMES_CUP_NAME_KEYWORDS.some(k=>name.includes(k));
+}
+
 function getMyGamesGroupLabel(m){ return ({england:'England',italy:'Italy',spain:'Spain',germany:'Germany',france:'France',europe:'Europe',world:'World','national-teams':'National Teams'}[getCompetitionCategoryKey(m)]||'World'); }
+
+function compareMyGamesMatches(a,b){
+  const aCup = isCupCompetition(a) ? 0 : 1;
+  const bCup = isCupCompetition(b) ? 0 : 1;
+  if(aCup !== bCup) return aCup - bCup;
+
+  const ak = getCompetitionCategoryKey(a), bk = getCompetitionCategoryKey(b);
+  const ai = MY_GAMES_COUNTRY_ORDER.indexOf(ak), bi = MY_GAMES_COUNTRY_ORDER.indexOf(bk);
+  const aIdx = ai===-1?999:ai, bIdx = bi===-1?999:bi;
+  if(aIdx !== bIdx) return aIdx - bIdx;
+
+  return matchDateSortValue(a)-matchDateSortValue(b) || String(a.HomeTeam||'').localeCompare(String(b.HomeTeam||''));
+}
 function getRankClass(index,size,isGroup){
 
   const pos = index + 1;
