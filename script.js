@@ -1413,6 +1413,7 @@ function getRankClass(index,size,isGroup,teamRow,groupName){
   const pos = index + 1;
   const competitionKey = getStandingsRuleKey();
   const league = getLeagueKeyForStandings();
+
   const competitionName = slugify(normaliseCompetitionName(
     appData?.selectedCompetition?.['Competition Name'] ||
     appData?.site?.competition ||
@@ -1421,17 +1422,13 @@ function getRankClass(index,size,isGroup,teamRow,groupName){
   ));
 
   // Champions League league phase
-  // 1–8 green = direct Round of 16
-  // 9–24 orange = play-off
-  // 25–36 red = eliminated
   if(competitionKey === 'champions-league' || competitionName.includes('champions-league')){
     if(pos <= 8) return 'rank-qualified';
     if(pos <= 24) return 'rank-uel';
     return 'rank-eliminated';
   }
 
-  // Europa League and Conference League OLD 8-group format
-  // Top 2 green, bottom 2 red
+  // Europa League and Conference League old 8-group format
   if(
     competitionKey === 'europa-league-old-groups' ||
     competitionKey === 'conference-league-old-groups'
@@ -1440,41 +1437,27 @@ function getRankClass(index,size,isGroup,teamRow,groupName){
     return 'rank-eliminated';
   }
 
-  // Nations League custom visual logic
+  // Nations League
   if(competitionKey === 'nations-league' || competitionName.includes('nations-league')){
 
     const leagueLabel = getNationsLeagueLevel(teamRow, groupName);
 
-    // League A:
-    // Top 2 green = quarter-finals
-    // 3rd and below red = relegated / danger
+    // League A = top 2 green, 3rd red
     if(leagueLabel === 'A'){
       if(pos <= 2) return 'rank-qualified';
-      if(pos >= 3) return 'rank-eliminated';
+      if(pos === 3) return 'rank-eliminated';
       return 'rank-neutral';
     }
 
-    // League B:
-    // 1st green = promoted
-    // No relegation colour requested
+    // League B = 1st green, 3rd red
     if(leagueLabel === 'B'){
       if(pos === 1) return 'rank-qualified';
+      if(pos === 3) return 'rank-eliminated';
       return 'rank-neutral';
     }
 
-    // League C:
-    // 1st green = promoted
-    // 3rd and below red = relegation
+    // League C = 1st green, no 3rd red
     if(leagueLabel === 'C'){
-      if(pos === 1) return 'rank-qualified';
-      if(pos >= 3) return 'rank-eliminated';
-      return 'rank-neutral';
-    }
-
-    // League D:
-    // 1st green = promoted
-    // 3rd no colour because there is no lower league
-    if(leagueLabel === 'D'){
       if(pos === 1) return 'rank-qualified';
       return 'rank-neutral';
     }
@@ -1482,13 +1465,13 @@ function getRankClass(index,size,isGroup,teamRow,groupName){
     return 'rank-neutral';
   }
 
-  // Generic traditional group stage
+  // Generic group stage
   if(isGroup){
     if(size <= 2) return 'rank-neutral';
     return pos <= 2 ? 'rank-qualified' : 'rank-eliminated';
   }
 
-  // Domestic top 5 leagues
+  // Domestic leagues
   if(['premier-league','serie-a','la-liga'].includes(league)){
     if(pos <= 4) return 'rank-ucl';
     if(pos <= 6) return 'rank-uel';
@@ -1506,47 +1489,54 @@ function getRankClass(index,size,isGroup,teamRow,groupName){
 
   if(league === 'ligue-1'){
 
-  const seasonYear = String(
-    appData?.selectedCompetition?.Year ||
-    appData?.site?.year ||
-    ''
-  ).trim();
+    const seasonYear = String(
+      appData?.selectedCompetition?.Year ||
+      appData?.site?.year ||
+      ''
+    ).trim();
 
-  const teamName = normaliseTeamName(teamRow?.Team || '');
+    const teamName = normaliseTeamName(teamRow?.Team || '');
 
-  // ONE-OFF OVERRIDE: Ligue 1 2026
-  // Toulouse won Coupe de France, so Toulouse gets Europa League.
-  // Nice drops out of European colour.
-  // AS Monaco falls into Conference League.
-  if(seasonYear === '2026'){
+    // ONE-OFF OVERRIDE: Ligue 1 2026
+    if(seasonYear === '2026'){
 
+      // 1st to 3rd = Champions League
+      if(pos <= 3) return 'rank-ucl';
+
+      // Toulouse = Europa League = orange
+      if(teamName === normaliseTeamName('Toulouse')){
+        return 'rank-uel';
+      }
+
+      // AS Monaco + Lyon = Conference League = green
+      if(
+        teamName === normaliseTeamName('AS Monaco') ||
+        teamName === normaliseTeamName('Lyon')
+      ){
+        return 'rank-uecl';
+      }
+
+      // Nice = no colour
+      if(teamName === normaliseTeamName('Nice')){
+        return 'rank-neutral';
+      }
+
+      // 4th = Europa League normally
+      if(pos === 4) return 'rank-uel';
+
+      if(pos === 16) return 'rank-playout';
+      if(pos >= 17) return 'rank-relegation';
+
+      return 'rank-neutral';
+    }
+
+    // Normal Ligue 1 seasons
     if(pos <= 3) return 'rank-ucl';
-
-    // Europa League league positions
     if(pos <= 5) return 'rank-uel';
-
-    // AS Monaco gets Conference League
-    if(teamName === normaliseTeamName('AS Monaco')) return 'rank-uecl';
-
-    // Toulouse gets Europa League because of Coupe de France
-    if(teamName === normaliseTeamName('Toulouse')) return 'rank-uel';
-
-    // Nice gets no colour
-    if(teamName === normaliseTeamName('Nice')) return 'rank-neutral';
-
+    if(pos <= 7) return 'rank-uecl';
     if(pos === 16) return 'rank-playout';
     if(pos >= 17) return 'rank-relegation';
-
-    return 'rank-neutral';
   }
-
-  // Normal Ligue 1 seasons
-  if(pos <= 3) return 'rank-ucl';
-  if(pos <= 5) return 'rank-uel';
-  if(pos <= 7) return 'rank-uecl';
-  if(pos === 16) return 'rank-playout';
-  if(pos >= 17) return 'rank-relegation';
-}
 
   return 'rank-neutral';
 }
@@ -1560,10 +1550,9 @@ function getNationsLeagueLevel(teamRow, groupName){
 
   const text = values.join(' ').toLowerCase();
 
-  if(/\bleague\s*a\b/.test(text) || /\ba\s*[·-]/.test(text)) return 'A';
-  if(/\bleague\s*b\b/.test(text) || /\bb\s*[·-]/.test(text)) return 'B';
-  if(/\bleague\s*c\b/.test(text) || /\bc\s*[·-]/.test(text)) return 'C';
-  if(/\bleague\s*d\b/.test(text) || /\bd\s*[·-]/.test(text)) return 'D';
+  if(/\bleague\s*a\b/.test(text)) return 'A';
+  if(/\bleague\s*b\b/.test(text)) return 'B';
+  if(/\bleague\s*c\b/.test(text)) return 'C';
 
   return '';
 }
@@ -1696,4 +1685,4 @@ function safeScore(v){ return v===''||v===undefined||v===null?'-':v; }
 function formatGoalDifference(v){ const n=Number(v); if(!Number.isFinite(n))return'0'; return n>0?`+${n}`:String(n); }
 function escapeHTML(v){ return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
 function escapeAttr(v){ return escapeHTML(v); }
-window.CALCIUM_SCRIPT_VERSION='7085-ligue1-2026-coupe-france-override';
+window.CALCIUM_SCRIPT_VERSION='7088-final-ligue1-nations-zones';
