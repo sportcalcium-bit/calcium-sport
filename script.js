@@ -1,5 +1,9 @@
 const API_URL = 'https://script.google.com/macros/s/AKfycbwGK-Qg0o1UwBzU6np-y9_XA9KefEiuqGmEVax7kfT2cees6WD5zwBz4iCGHSYt5CwQ/exec';
 const HUB_SPREADSHEET_ID = '1XpJYhVzkPLqj_xFBpUGYzY4Jn8hTmGvbFbTGJCEOKw0';
+const MY_GAMES_NATIONAL_TEAMS = new Set([
+  'Portugal','Spain','France','England','Italy','Netherlands',
+  'Germany','Morocco','Brazil','Argentina'
+].map(normaliseTeamName));
 
 let appData = null;
 let playerImageLookup = new Map();
@@ -104,6 +108,16 @@ async function loadHomeData(){
   // snapshot after a hub rebuild. Keep Nations League visible by falling back
   // to the same dedicated Fixtures source used by its competition page.
   await mergeMissingHomeCompetition('Nations League');
+  mergeNationalTeamFavouritesIntoMyGames();
+}
+
+function mergeNationalTeamFavouritesIntoMyGames(){
+  const nationalTeamMatches = appData.allMatches.filter(match => {
+    if(getCompetitionCategoryKey(match) !== 'national-teams') return false;
+    return MY_GAMES_NATIONAL_TEAMS.has(normaliseTeamName(match.HomeTeam)) ||
+      MY_GAMES_NATIONAL_TEAMS.has(normaliseTeamName(match.AwayTeam));
+  });
+  appData.myGames = dedupeMatchArray(appData.myGames.concat(nationalTeamMatches));
 }
 
 async function mergeMissingHomeCompetition(competitionName){
