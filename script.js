@@ -778,15 +778,9 @@ const html = orderedGroups.map(groupName => {
     const rows=[...groups[groupName]].sort(compareStandingRows); 
     const isGroupStage=isGroupStageCompetition();
 
-    const legend = isLeaguePhaseCompetition()
-      ? '<div class="qualification-note"><span class="note-dot qualified"></span> Top 8 qualify to Round of 16 <span class="note-dot ucl"></span> 9–24 qualify to Play-off <span class="note-dot eliminated"></span> 25–36 eliminated</div>'
-      : (
-          isGroupStage
-            ? '<div class="qualification-note"><span class="note-dot qualified"></span> Top 2 qualify <span class="note-dot eliminated"></span> Bottom 2 eliminated</div>'
-            : renderLeagueLegend()
-        );
+    const legend = getCompetitionLegend(isGroupStage);
 
-    return `<section class="table-card"><div class="table-card-header"><h3>${escapeHTML(groupName)}</h3><span>${rows.length} teams</span></div><div class="standings-table-wrap"><table class="standings-table"><thead><tr><th>#</th><th>Team</th><th>PT</th><th>GW</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th></tr></thead><tbody>${rows.map((team,i)=>{const zone=getRankClass(i,rows.length,isGroupStage);return `<tr class="standing-row standing-row-${zone.replace('rank-','')}"><td><span class="rank-badge ${zone}">${i+1}</span></td><td class="team-cell"><div class="standing-team-content">${renderTeamLogo(getStandingTeamLogo(team),team.Team)}<span class="standing-team-name">${escapeHTML(team.Team)}</span></div></td><td class="standings-points"><strong>${safeNumber(team.Points)}</strong></td><td>${safeNumber(team.Played)}</td><td>${safeNumber(team.Won)}</td><td>${safeNumber(team.Drawn)}</td><td>${safeNumber(team.Lost)}</td><td>${safeNumber(team.GoalsFor)}</td><td>${safeNumber(team.GoalsAgainst)}</td><td>${formatGoalDifference(team.GoalDifference)}</td></tr>`;}).join('')}</tbody></table></div>${legend}</section>`;
+    return `<section class="table-card"><div class="table-card-header"><h3>${escapeHTML(groupName)}</h3><span>${rows.length} teams</span></div><div class="standings-table-wrap"><table class="standings-table"><thead><tr><th>#</th><th>Team</th><th>PT</th><th>GW</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th></tr></thead><tbody>${rows.map((team,i)=>{const zone=getRankClass(i,rows.length,isGroupStage,team,groupName);return `<tr class="standing-row standing-row-${zone.replace('rank-','')}"><td><span class="rank-badge ${zone}">${i+1}</span></td><td class="team-cell"><div class="standing-team-content">${renderTeamLogo(getStandingTeamLogo(team),team.Team)}<span class="standing-team-name">${escapeHTML(team.Team)}</span></div></td><td class="standings-points"><strong>${safeNumber(team.Points)}</strong></td><td>${safeNumber(team.Played)}</td><td>${safeNumber(team.Won)}</td><td>${safeNumber(team.Drawn)}</td><td>${safeNumber(team.Lost)}</td><td>${safeNumber(team.GoalsFor)}</td><td>${safeNumber(team.GoalsAgainst)}</td><td>${formatGoalDifference(team.GoalDifference)}</td></tr>`;}).join('')}</tbody></table></div>${legend}</section>`;
   }).join('');
 
   setHTML('standingsContainer',html);
@@ -1414,52 +1408,162 @@ function compareMyGamesMatches(a,b){
 
   return matchDateSortValue(a)-matchDateSortValue(b) || String(a.HomeTeam||'').localeCompare(String(b.HomeTeam||''));
 }
-function getRankClass(index,size,isGroup){
+function getRankClass(index,size,isGroup,teamRow,groupName){
 
   const pos = index + 1;
+  const competitionKey = getStandingsRuleKey();
+  const league = getLeagueKeyForStandings();
+  const competitionName = slugify(normaliseCompetitionName(
+    appData?.selectedCompetition?.['Competition Name'] ||
+    appData?.site?.competition ||
+    currentCompetition ||
+    ''
+  ));
 
-  // UEFA League Phase (Champions League, Europa League, Conference League)
-  if (isLeaguePhaseCompetition()) {
-    if (pos <= 8) return 'rank-qualified';
-    if (pos <= 24) return 'rank-ucl';
+  // Champions League league phase
+  // 1–8 green = direct Round of 16
+  // 9–24 orange = play-off
+  // 25–36 red = eliminated
+  if(competitionKey === 'champions-league' || competitionName.includes('champions-league')){
+    if(pos <= 8) return 'rank-qualified';
+    if(pos <= 24) return 'rank-uel';
     return 'rank-eliminated';
   }
 
-  // Traditional groups
-  if (isGroup) {
-    if (size <= 2) return 'rank-neutral';
+  // Europa League and Conference League OLD 8-group format
+  // Top 2 green, bottom 2 red
+  if(
+    competitionKey === 'europa-league-old-groups' ||
+    competitionKey === 'conference-league-old-groups'
+  ){
+    if(pos <= 2) return 'rank-qualified';
+    return 'rank-eliminated';
+  }
+
+  // Nations League custom visual logic
+  if(competitionKey === 'nations-league' || competitionName.includes('nations-league')){
+
+    const leagueLabel = getNationsLeagueLevel(teamRow, groupName);
+
+    // League A:
+    // Top 2 green = quarter-finals
+    // 3rd and below red = relegated / danger
+    if(leagueLabel === 'A'){
+      if(pos <= 2) return 'rank-qualified';
+      if(pos >= 3) return 'rank-eliminated';
+      return 'rank-neutral';
+    }
+
+    // League B:
+    // 1st green = promoted
+    // No relegation colour requested
+    if(leagueLabel === 'B'){
+      if(pos === 1) return 'rank-qualified';
+      return 'rank-neutral';
+    }
+
+    // League C:
+    // 1st green = promoted
+    // 3rd and below red = relegation
+    if(leagueLabel === 'C'){
+      if(pos === 1) return 'rank-qualified';
+      if(pos >= 3) return 'rank-eliminated';
+      return 'rank-neutral';
+    }
+
+    // League D:
+    // 1st green = promoted
+    // 3rd no colour because there is no lower league
+    if(leagueLabel === 'D'){
+      if(pos === 1) return 'rank-qualified';
+      return 'rank-neutral';
+    }
+
+    return 'rank-neutral';
+  }
+
+  // Generic traditional group stage
+  if(isGroup){
+    if(size <= 2) return 'rank-neutral';
     return pos <= 2 ? 'rank-qualified' : 'rank-eliminated';
   }
 
-  const league = getLeagueKeyForStandings();
-
-  if (['premier-league','serie-a','la-liga'].includes(league)) {
-    if (pos <= 4) return 'rank-ucl';
-    if (pos <= 6) return 'rank-uel';
-    if (pos <= 8) return 'rank-uecl';
-    if (pos >= 18) return 'rank-relegation';
+  // Domestic top 5 leagues
+  if(['premier-league','serie-a','la-liga'].includes(league)){
+    if(pos <= 4) return 'rank-ucl';
+    if(pos <= 6) return 'rank-uel';
+    if(pos <= 8) return 'rank-uecl';
+    if(pos >= 18) return 'rank-relegation';
   }
 
-  if (league === 'bundesliga') {
-    if (pos <= 4) return 'rank-ucl';
-    if (pos <= 6) return 'rank-uel';
-    if (pos <= 8) return 'rank-uecl';
-    if (pos === 16) return 'rank-playout';
-    if (pos >= 17) return 'rank-relegation';
+  if(league === 'bundesliga'){
+    if(pos <= 4) return 'rank-ucl';
+    if(pos <= 6) return 'rank-uel';
+    if(pos <= 8) return 'rank-uecl';
+    if(pos === 16) return 'rank-playout';
+    if(pos >= 17) return 'rank-relegation';
   }
 
-  if (league === 'ligue-1') {
-    if (pos <= 3) return 'rank-ucl';
-    if (pos <= 5) return 'rank-uel';
-    if (pos <= 7) return 'rank-uecl';
-    if (pos === 16) return 'rank-playout';
-    if (pos >= 17) return 'rank-relegation';
+  if(league === 'ligue-1'){
+    if(pos <= 3) return 'rank-ucl';
+    if(pos <= 5) return 'rank-uel';
+    if(pos <= 7) return 'rank-uecl';
+    if(pos === 16) return 'rank-playout';
+    if(pos >= 17) return 'rank-relegation';
   }
 
   return 'rank-neutral';
 }
+function getNationsLeagueLevel(teamRow, groupName){
+
+  const values = [
+    teamRow?.League,
+    teamRow?.Group,
+    groupName
+  ].map(value => String(value || '').trim());
+
+  const text = values.join(' ').toLowerCase();
+
+  if(/\bleague\s*a\b/.test(text) || /\ba\s*[·-]/.test(text)) return 'A';
+  if(/\bleague\s*b\b/.test(text) || /\bb\s*[·-]/.test(text)) return 'B';
+  if(/\bleague\s*c\b/.test(text) || /\bc\s*[·-]/.test(text)) return 'C';
+  if(/\bleague\s*d\b/.test(text) || /\bd\s*[·-]/.test(text)) return 'D';
+
+  return '';
+}
 function getLeagueKeyForStandings(){ const selected=appData?.selectedCompetition||{}, site=appData?.site||{}; const slug=slugify(normaliseCompetitionName(selected['Competition Name']||selected.competition||site.competition||currentCompetition||'')); if(slug.includes('premier-league'))return'premier-league'; if(slug.includes('serie-a'))return'serie-a'; if(slug.includes('la-liga')||slug.includes('laliga'))return'la-liga'; if(slug.includes('bundesliga'))return'bundesliga'; if(slug.includes('ligue-1'))return'ligue-1'; return''; }
 function renderLeagueLegend(){ const league=getLeagueKeyForStandings(); if(!['premier-league','serie-a','la-liga','bundesliga','ligue-1'].includes(league)) return ''; const items=[['ucl','Champions League'],['uel','Europa League'],['uecl','Conference League']]; if(['bundesliga','ligue-1'].includes(league)) items.push(['playout','Play-out relegation']); items.push(['relegation','Relegation']); return `<div class="qualification-note">${items.map(i=>`<span class="note-dot ${i[0]}"></span>${escapeHTML(i[1])}`).join('')}</div>`; }
+function getCompetitionLegend(isGroupStage){
+
+  const competitionKey = getStandingsRuleKey();
+  const competitionName = slugify(normaliseCompetitionName(
+    appData?.selectedCompetition?.['Competition Name'] ||
+    appData?.site?.competition ||
+    currentCompetition ||
+    ''
+  ));
+
+  if(competitionKey === 'champions-league' || competitionName.includes('champions-league')){
+    return '<div class="qualification-note"><span class="note-dot qualified"></span> 1–8 Round of 16 <span class="note-dot uel"></span> 9–24 Play-off <span class="note-dot eliminated"></span> 25–36 eliminated</div>';
+  }
+
+  if(
+    competitionKey === 'europa-league-old-groups' ||
+    competitionKey === 'conference-league-old-groups'
+  ){
+    return '<div class="qualification-note"><span class="note-dot qualified"></span> Top 2 qualify <span class="note-dot eliminated"></span> Bottom 2 eliminated</div>';
+  }
+
+  if(competitionKey === 'nations-league' || competitionName.includes('nations-league')){
+    return '<div class="qualification-note"><span class="note-dot qualified"></span> Green = qualification / promotion <span class="note-dot eliminated"></span> Red = relegation / eliminated</div>';
+  }
+
+  if(isGroupStage){
+    return '<div class="qualification-note"><span class="note-dot qualified"></span> Top 2 qualify <span class="note-dot eliminated"></span> Bottom 2 eliminated</div>';
+  }
+
+  return renderLeagueLegend();
+}
 function getCurrentCompetitionType(){
   const selected=appData?.selectedCompetition||{};
   const site=appData?.site||{};
@@ -1517,4 +1621,4 @@ function safeScore(v){ return v===''||v===undefined||v===null?'-':v; }
 function formatGoalDifference(v){ const n=Number(v); if(!Number.isFinite(n))return'0'; return n>0?`+${n}`:String(n); }
 function escapeHTML(v){ return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
 function escapeAttr(v){ return escapeHTML(v); }
-window.CALCIUM_SCRIPT_VERSION='7083-competition-table-tiebreakers-h2h-ready';
+window.CALCIUM_SCRIPT_VERSION='7084-uefa-nations-visual-zones';
