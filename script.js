@@ -174,7 +174,8 @@ async function loadCompetitionData(slug){
     competition: selected['Competition Name'],
     year: selected.Year,
     logoUrl: selected['Logo URL'],
-    region: selected.Region
+    region: selected.Region,
+    competitionType: selected['Competition Type'] || ''
   };
 
   const sheetId = selected['Sheet ID'];
@@ -417,13 +418,31 @@ function parseStandingsTable(rows,data){
       League:values.league||'', Group:values.group||'', Team:values.team||'', Logo:values.logo||'',
       Points:safeNumber(values.points), Played:safeNumber(values.played), Won:safeNumber(values.won),
       Drawn:safeNumber(values.drawn), Lost:safeNumber(values.lost), GoalsFor:safeNumber(values.goalsFor),
-      GoalsAgainst:safeNumber(values.goalsAgainst), GoalDifference:safeNumber(values.goalDifference)
+      GoalsAgainst:safeNumber(values.goalsAgainst), GoalDifference:safeNumber(values.goalDifference),
+      AwayGoals:safeNumber(values.awayGoals), AwayWins:safeNumber(values.awayWins),
+      DisciplinaryPoints:safeNumber(values.disciplinaryPoints), FairPlayPoints:safeNumber(values.fairPlayPoints),
+      ClubCoefficient:safeNumber(values.clubCoefficient), AccessListRank:safeNumber(values.accessListRank)
     };
   }).filter(row=>String(row.Team).trim());
 }
 function normaliseStandingHeader(value){
   const key=String(value||'').toLowerCase().replace(/[^a-z0-9]/g,'');
-  return ({league:'league',group:'group',team:'team',teams:'team',logo:'logo',logourl:'logo',pt:'points',points:'points',gw:'played',played:'played',w:'won',won:'won',d:'drawn',drawn:'drawn',l:'lost',lost:'lost',gf:'goalsFor',goalsfor:'goalsFor',ga:'goalsAgainst',goalsagainst:'goalsAgainst',gd:'goalDifference',goaldifference:'goalDifference'})[key]||'';
+  return ({
+    league:'league', group:'group', team:'team', teams:'team', logo:'logo', logourl:'logo',
+    pt:'points', pts:'points', points:'points',
+    gw:'played', p:'played', played:'played', matches:'played',
+    w:'won', won:'won', wins:'won',
+    d:'drawn', drawn:'drawn', draws:'drawn',
+    l:'lost', lost:'lost', losses:'lost',
+    gf:'goalsFor', goalsfor:'goalsFor', goals:'goalsFor',
+    ga:'goalsAgainst', goalsagainst:'goalsAgainst',
+    gd:'goalDifference', goaldifference:'goalDifference', goaldiff:'goalDifference',
+    ag:'awayGoals', awaygoals:'awayGoals',
+    aw:'awayWins', awaywins:'awayWins',
+    dp:'disciplinaryPoints', disciplinarypoints:'disciplinaryPoints', discipline:'disciplinaryPoints', fairplay:'fairPlayPoints', fairplaypoints:'fairPlayPoints',
+    coefficient:'clubCoefficient', clubcoefficient:'clubCoefficient', coeff:'clubCoefficient',
+    accesslist:'accessListRank', accesslistrank:'accessListRank', nationleagueaccesslist:'accessListRank', nationsleagueaccesslist:'accessListRank'
+  })[key]||'';
 }
 function formatStandingLeague(league){ const value=String(league||'').trim(); return !value ? '' : /^league\s/i.test(value) ? value : `League ${value}`; }
 function formatStandingGroup(group){ const value=String(group||'').trim(); return !value ? '' : /^group\s/i.test(value) ? value : `Group ${value}`; }
@@ -1038,6 +1057,19 @@ function getFilteredMatches(){ let matches=getCompetitionMatches(); if(currentSe
 function getFilteredStandings(){ let standings=appData.standings||[]; if(currentSearch) standings=standings.filter(r=>[r.Team,r.League,r.Group,r.Competition].join(' ').toLowerCase().includes(currentSearch)); if(currentGroup) standings=standings.filter(r=>normaliseText(getStandingGroupKey(r))===normaliseText(currentGroup)); return standings; }
 function getFilteredStats(){ let stats=appData.stats||[]; if(currentSearch) stats=stats.filter(r=>[r.Player,r.Team].join(' ').toLowerCase().includes(currentSearch)); return stats; }
 function getNextUpRound(matches){ const ordered=[...matches].sort((a,b)=>matchDateSortValue(a)-matchDateSortValue(b)); const now=Date.now()-86400000; const next=ordered.find(m=>m.Status!=='FT'&&matchDateSortValue(m)>=now); if(next) return next.Round||''; const completed=ordered.filter(m=>m.Status==='FT'&&matchDateSortValue(m)>0).sort((a,b)=>matchDateSortValue(b)-matchDateSortValue(a)); return completed.length?completed[0].Round||'':''; }
+const TABLE_TIEBREAKER_RULES = {
+  'premier-league': ['goalDifference','goalsFor','headToHeadPoints','headToHeadAwayGoals'],
+  'serie-a': ['headToHeadPoints','headToHeadGoalDifference','goalDifference','goalsFor'],
+  'la-liga': ['headToHeadPoints','headToHeadGoalDifference','goalDifference','goalsFor','fairPlayPoints'],
+  'bundesliga': ['goalDifference','goalsFor','headToHeadPoints','headToHeadGoalDifference','headToHeadAwayGoals','awayGoals'],
+  'ligue-1': ['goalDifference','headToHeadPoints','headToHeadGoalDifference','goalsFor','won','awayWins','disciplinaryPoints'],
+  'champions-league': ['goalDifference','goalsFor','awayGoals','won','awayWins','opponentsPoints','opponentsGoalDifference','opponentsGoalsFor','disciplinaryPoints','clubCoefficient'],
+  'nations-league': ['headToHeadPoints','headToHeadGoalDifference','headToHeadGoalsFor','goalDifference','goalsFor','awayGoals','won','awayWins','disciplinaryPoints','accessListRank'],
+  'europa-league-old-groups': ['headToHeadPoints','headToHeadGoalDifference','headToHeadGoalsFor','goalDifference','goalsFor','awayGoals','won','awayWins','disciplinaryPoints','clubCoefficient'],
+  'conference-league-old-groups': ['headToHeadPoints','headToHeadGoalDifference','headToHeadGoalsFor','goalDifference','goalsFor','awayGoals','won','awayWins','disciplinaryPoints','clubCoefficient'],
+  default: ['goalDifference','goalsFor','goalsAgainst']
+};
+
 function compareStandingRows(a,b){
   const pA=safeNumber(a.Points), pB=safeNumber(b.Points);
   if(pB!==pA) return pB-pA;
@@ -1047,91 +1079,233 @@ function compareStandingRows(a,b){
     safeNumber(r.Points)===pA
   );
 
-  if(tiedTeams.length>=3){
-    const miniRank=getMiniTableRank(tiedTeams);
-    const aRank=miniRank[normaliseTeamName(a.Team)];
-    const bRank=miniRank[normaliseTeamName(b.Team)];
+  const ruleKey=getStandingsRuleKey();
+  const rules=TABLE_TIEBREAKER_RULES[ruleKey] || TABLE_TIEBREAKER_RULES.default;
 
-    if(aRank!==undefined && bRank!==undefined && aRank!==bRank){
-      return aRank-bRank;
-    }
+  for(const metric of rules){
+    const result=compareStandingMetric(a,b,metric,tiedTeams);
+    if(result!==0) return result;
   }
 
-  if(tiedTeams.length===2){
-    const h=getHeadToHeadWinner(a.Team,b.Team);
-    if(h===a.Team) return -1;
-    if(h===b.Team) return 1;
-  }
-
-  const gdA=safeNumber(a.GoalDifference), gdB=safeNumber(b.GoalDifference);
-  if(gdB!==gdA) return gdB-gdA;
-
-  const gfA=safeNumber(a.GoalsFor), gfB=safeNumber(b.GoalsFor);
-  if(gfB!==gfA) return gfB-gfA;
-
-  const gaA=safeNumber(a.GoalsAgainst), gaB=safeNumber(b.GoalsAgainst);
-  if(gaA!==gaB) return gaA-gaB;
-
+  // Final stable fallback for criteria that are not in the sheets yet
+  // such as fair play, UEFA access list, coefficients or drawing lots.
   return String(a.Team||'').localeCompare(String(b.Team||''));
 }
 
-function getMiniTableRank(tiedTeams){
-  const keys=tiedTeams.map(t=>normaliseTeamName(t.Team));
-  const mini={};
+function getStandingsRuleKey(){
+  const selected=appData?.selectedCompetition||{};
+  const site=appData?.site||{};
+  const name=slugify(normaliseCompetitionName(
+    selected['Competition Name'] || selected.competition || site.competition || currentCompetition || ''
+  ));
+  const type=normaliseText(selected['Competition Type'] || selected.CompetitionType || site.competitionType || appData?.competitionType || '');
 
-  tiedTeams.forEach(t=>{
-    const key=normaliseTeamName(t.Team);
-    mini[key]={team:t.Team,pts:0,gd:0,gf:0,ga:0};
-  });
+  if(name.includes('premier-league')) return 'premier-league';
+  if(name.includes('serie-a')) return 'serie-a';
+  if(name.includes('la-liga') || name.includes('laliga')) return 'la-liga';
+  if(name.includes('bundesliga')) return 'bundesliga';
+  if(name.includes('ligue-1') || name.includes('ligue1')) return 'ligue-1';
+  if(name.includes('champions-league')) return 'champions-league';
+  if(name.includes('nations-league')) return 'nations-league';
 
-  getCompetitionMatches().forEach(m=>{
-    if(m.Status!=='FT') return;
+  // The user's Europa League / Conference League data is the old 8-group format.
+  if(name.includes('europa-league') && !type.includes('league phase')) return 'europa-league-old-groups';
+  if(name.includes('conference-league') && !type.includes('league phase')) return 'conference-league-old-groups';
 
-    const home=normaliseTeamName(m.HomeTeam);
-    const away=normaliseTeamName(m.AwayTeam);
+  return 'default';
+}
 
-    if(!keys.includes(home) || !keys.includes(away)) return;
+function compareStandingMetric(a,b,metric,tiedTeams){
+  const direction = ['disciplinaryPoints','fairPlayPoints','goalsAgainst','accessListRank'].includes(metric) ? 'asc' : 'desc';
+  const aValue = getStandingMetricValue(a,metric,tiedTeams);
+  const bValue = getStandingMetricValue(b,metric,tiedTeams);
 
-    const hs=safeNumber(m.HomeScore);
-    const as=safeNumber(m.AwayScore);
+  if(aValue===bValue) return 0;
+  return direction==='asc' ? aValue-bValue : bValue-aValue;
+}
 
-    mini[home].gf+=hs;
-    mini[home].ga+=as;
-    mini[home].gd+=hs-as;
+function getStandingMetricValue(row,metric,tiedTeams){
+  const teamKey=normaliseTeamName(row.Team);
+  const h2h=getHeadToHeadStatsForTie(tiedTeams || []);
+  const overall=getOverallMatchStatsForTable(tiedTeams || []);
+  const opponents=getOpponentStrengthStatsForTable(tiedTeams || []);
 
-    mini[away].gf+=as;
-    mini[away].ga+=hs;
-    mini[away].gd+=as-hs;
+  switch(metric){
+    case 'goalDifference': return safeNumber(row.GoalDifference);
+    case 'goalsFor': return safeNumber(row.GoalsFor);
+    case 'goalsAgainst': return safeNumber(row.GoalsAgainst);
+    case 'won': return safeNumber(row.Won);
+    case 'awayGoals': return getOptionalOrCalculated(row,'AwayGoals',overall[teamKey]?.awayGoals);
+    case 'awayWins': return getOptionalOrCalculated(row,'AwayWins',overall[teamKey]?.awayWins);
+    case 'disciplinaryPoints': return getOptionalOrCalculated(row,'DisciplinaryPoints',0);
+    case 'fairPlayPoints': return getOptionalOrCalculated(row,'FairPlayPoints',0);
+    case 'clubCoefficient': return getOptionalOrCalculated(row,'ClubCoefficient',0);
+    case 'accessListRank': return getOptionalOrCalculated(row,'AccessListRank',9999);
+    case 'opponentsPoints': return opponents[teamKey]?.points || 0;
+    case 'opponentsGoalDifference': return opponents[teamKey]?.goalDifference || 0;
+    case 'opponentsGoalsFor': return opponents[teamKey]?.goalsFor || 0;
+    case 'headToHeadPoints': return h2h[teamKey]?.points || 0;
+    case 'headToHeadGoalDifference': return h2h[teamKey]?.goalDifference || 0;
+    case 'headToHeadGoalsFor': return h2h[teamKey]?.goalsFor || 0;
+    case 'headToHeadAwayGoals': return h2h[teamKey]?.awayGoals || 0;
+    default: return 0;
+  }
+}
 
-    if(hs>as) mini[home].pts+=3;
-    else if(as>hs) mini[away].pts+=3;
-    else{
-      mini[home].pts+=1;
-      mini[away].pts+=1;
-    }
-  });
+function getOptionalOrCalculated(row,key,calculatedValue){
+  const own = Number(row?.[key]);
+  if(Number.isFinite(own) && own !== 0) return own;
+  const calculated = Number(calculatedValue);
+  return Number.isFinite(calculated) ? calculated : 0;
+}
 
-  const ranked=Object.values(mini).sort((a,b)=>{
-    if(b.pts!==a.pts) return b.pts-a.pts;
-    if(b.gd!==a.gd) return b.gd-a.gd;
-    if(b.gf!==a.gf) return b.gf-a.gf;
-    if(a.ga!==b.ga) return a.ga-b.ga;
-
-    const h=getHeadToHeadWinner(a.team,b.team);
-    if(h===a.team) return -1;
-    if(h===b.team) return 1;
-
-    return String(a.team||'').localeCompare(String(b.team||''));
-  });
-
+function getHeadToHeadStatsForTie(tiedTeams){
+  const keys=(tiedTeams||[]).map(t=>normaliseTeamName(t.Team)).filter(Boolean);
+  const uniqueKeys=[...new Set(keys)];
   const output={};
-  ranked.forEach((item,index)=>{
-    output[normaliseTeamName(item.team)]=index;
+
+  uniqueKeys.forEach(key=>{
+    const row=(tiedTeams||[]).find(t=>normaliseTeamName(t.Team)===key) || {};
+    output[key]={team:row.Team||'',points:0,goalsFor:0,goalsAgainst:0,goalDifference:0,awayGoals:0,wins:0,awayWins:0,matches:0};
+  });
+
+  if(uniqueKeys.length<2) return output;
+
+  getCompetitionMatches().forEach(match=>{
+    if(!isPlayedMatch(match)) return;
+
+    const home=normaliseTeamName(match.HomeTeam);
+    const away=normaliseTeamName(match.AwayTeam);
+    if(!output[home] || !output[away]) return;
+
+    const homeScore=safeNumber(match.HomeScore);
+    const awayScore=safeNumber(match.AwayScore);
+
+    output[home].matches += 1;
+    output[away].matches += 1;
+
+    output[home].goalsFor += homeScore;
+    output[home].goalsAgainst += awayScore;
+    output[home].goalDifference += homeScore-awayScore;
+
+    output[away].goalsFor += awayScore;
+    output[away].goalsAgainst += homeScore;
+    output[away].goalDifference += awayScore-homeScore;
+    output[away].awayGoals += awayScore;
+
+    if(homeScore>awayScore){
+      output[home].points += 3;
+      output[home].wins += 1;
+    } else if(awayScore>homeScore){
+      output[away].points += 3;
+      output[away].wins += 1;
+      output[away].awayWins += 1;
+    } else {
+      output[home].points += 1;
+      output[away].points += 1;
+    }
   });
 
   return output;
 }
-function getHeadToHeadWinner(a,b){ const aKey=normaliseTeamName(a), bKey=normaliseTeamName(b); const direct=getCompetitionMatches().filter(m=>m.Status==='FT'&&((normaliseTeamName(m.HomeTeam)===aKey&&normaliseTeamName(m.AwayTeam)===bKey)||(normaliseTeamName(m.HomeTeam)===bKey&&normaliseTeamName(m.AwayTeam)===aKey))); if(!direct.length) return ''; let aPts=0,bPts=0; direct.forEach(m=>{ const home=normaliseTeamName(m.HomeTeam), hs=safeNumber(m.HomeScore), as=safeNumber(m.AwayScore); if(hs===as){aPts++;bPts++;return;} const winner=hs>as?home:normaliseTeamName(m.AwayTeam); if(winner===aKey)aPts+=3; if(winner===bKey)bPts+=3; }); return aPts>bPts?a:bPts>aPts?b:''; }
+
+function getOverallMatchStatsForTable(tableRows){
+  const keys=(tableRows||[]).map(row=>normaliseTeamName(row.Team)).filter(Boolean);
+  const output={};
+
+  keys.forEach(key=>{
+    output[key]={awayGoals:0,awayWins:0,wins:0};
+  });
+
+  getCompetitionMatches().forEach(match=>{
+    if(!isPlayedMatch(match)) return;
+
+    const home=normaliseTeamName(match.HomeTeam);
+    const away=normaliseTeamName(match.AwayTeam);
+    if(!output[home] && !output[away]) return;
+
+    const homeScore=safeNumber(match.HomeScore);
+    const awayScore=safeNumber(match.AwayScore);
+
+    if(output[home] && homeScore>awayScore) output[home].wins += 1;
+    if(output[away]){
+      output[away].awayGoals += awayScore;
+      if(awayScore>homeScore){
+        output[away].wins += 1;
+        output[away].awayWins += 1;
+      }
+    }
+  });
+
+  return output;
+}
+
+function getOpponentStrengthStatsForTable(tableRows){
+  const standingLookup={};
+  (tableRows||[]).forEach(row=>{
+    const key=normaliseTeamName(row.Team);
+    if(key) standingLookup[key]=row;
+  });
+
+  const output={};
+  Object.keys(standingLookup).forEach(key=>{
+    output[key]={points:0,goalDifference:0,goalsFor:0};
+  });
+
+  getCompetitionMatches().forEach(match=>{
+    if(!isPlayedMatch(match)) return;
+
+    const home=normaliseTeamName(match.HomeTeam);
+    const away=normaliseTeamName(match.AwayTeam);
+
+    if(output[home] && standingLookup[away]){
+      output[home].points += safeNumber(standingLookup[away].Points);
+      output[home].goalDifference += safeNumber(standingLookup[away].GoalDifference);
+      output[home].goalsFor += safeNumber(standingLookup[away].GoalsFor);
+    }
+
+    if(output[away] && standingLookup[home]){
+      output[away].points += safeNumber(standingLookup[home].Points);
+      output[away].goalDifference += safeNumber(standingLookup[home].GoalDifference);
+      output[away].goalsFor += safeNumber(standingLookup[home].GoalsFor);
+    }
+  });
+
+  return output;
+}
+
+function getMiniTableRank(tiedTeams){
+  const rules=['headToHeadPoints','headToHeadGoalDifference','headToHeadGoalsFor','headToHeadAwayGoals'];
+  const rows=[...(tiedTeams||[])];
+  const ranked=rows.sort((a,b)=>{
+    for(const metric of rules){
+      const result=compareStandingMetric(a,b,metric,tiedTeams);
+      if(result!==0) return result;
+    }
+    return String(a.Team||'').localeCompare(String(b.Team||''));
+  });
+
+  const output={};
+  ranked.forEach((item,index)=>{
+    output[normaliseTeamName(item.Team)]=index;
+  });
+  return output;
+}
+
+function getHeadToHeadWinner(a,b){
+  const rows=[{Team:a},{Team:b}];
+  const stats=getHeadToHeadStatsForTie(rows);
+  const aKey=normaliseTeamName(a), bKey=normaliseTeamName(b);
+  const aStats=stats[aKey] || {};
+  const bStats=stats[bKey] || {};
+
+  if((aStats.points||0)!==(bStats.points||0)) return (aStats.points||0)>(bStats.points||0)?a:b;
+  if((aStats.goalDifference||0)!==(bStats.goalDifference||0)) return (aStats.goalDifference||0)>(bStats.goalDifference||0)?a:b;
+  if((aStats.goalsFor||0)!==(bStats.goalsFor||0)) return (aStats.goalsFor||0)>(bStats.goalsFor||0)?a:b;
+  if((aStats.awayGoals||0)!==(bStats.awayGoals||0)) return (aStats.awayGoals||0)>(bStats.awayGoals||0)?a:b;
+
+  return '';
+}
 function renderCompetitionCategoryNav(){ const nav=$('competitionCategoryNav'); if(!nav||!appData?.competitions) return; const home=`<div class="competition-category ${isHomePage()?'is-active':''}"><button type="button" class="category-button" onclick="goHomePage()"><span class="category-icon">🏠</span><span class="category-name">Home</span></button></div>`; nav.innerHTML=home+getCompetitionCategories().map(cat=>{ const comps=getUniqueCompetitionsForCategory(cat.key); const active=!isHomePage()&&comps.some(c=>normaliseCompetitionName(c['Competition Name'])===normaliseCompetitionName(appData.selectedCompetition?.['Competition Name'])&&getCompetitionCategoryKey(c)===getCompetitionCategoryKey(appData.selectedCompetition||{})); const items=comps.length?comps.map(comp=>{ const latest=getLatestSeasonForCompetition(comp); const slug=makeCompetitionSlug(latest); const isActive=!isHomePage()&&normaliseCompetitionName(comp['Competition Name'])===normaliseCompetitionName(appData.selectedCompetition?.['Competition Name'])&&getCompetitionCategoryKey(comp)===getCompetitionCategoryKey(appData.selectedCompetition||{}); return `<button type="button" class="category-menu-item ${isActive?'active-item':''}" onclick="selectCompetitionFromCategory('${escapeAttr(slug)}')"><span>${escapeHTML(comp['Competition Name']||'Competition')}</span>${isActive?'<strong>Current</strong>':''}</button>`; }).join(''):`<div class="category-empty">No competitions yet</div>`; return `<div class="competition-category ${active?'is-active':''} ${comps.length?'':'is-empty'}"><button type="button" class="category-button" onclick="toggleCompetitionCategory('${escapeAttr(cat.key)}')"><span class="category-icon">${cat.icon}</span><span class="category-name">${escapeHTML(cat.label)}</span><span class="category-arrow">⌄</span></button><div class="category-menu" data-category-menu="${escapeAttr(cat.key)}"><div class="category-menu-title"><span>${cat.icon}</span><strong>${escapeHTML(cat.label)}</strong></div>${items}</div></div>`; }).join(''); }
 function getCompetitionCategories(){ return [{key:'england',label:'England',icon:'🏴󠁧󠁢󠁥󠁮󠁧󠁿'},{key:'italy',label:'Italy',icon:'🇮🇹'},{key:'spain',label:'Spain',icon:'🇪🇸'},{key:'germany',label:'Germany',icon:'🇩🇪'},{key:'france',label:'France',icon:'🇫🇷'},{key:'europe',label:'Europe',icon:'🇪🇺'},{key:'world',label:'World',icon:'🌍'},{key:'national-teams',label:'National Teams',icon:'🏆'}]; }
 function getUniqueCompetitionsForCategory(key){ const map=new Map(); (appData.competitions||[]).filter(c=>getCompetitionCategoryKey(c)===key).forEach(c=>{ const k=`${key}|${normaliseCompetitionName(c['Competition Name'])}`; if(!map.has(k)||compareSeasonsDesc(c.Year,map.get(k).Year)<0) map.set(k,c); }); return Array.from(map.values()).sort((a,b)=>getCompetitionPriority(key,a)-getCompetitionPriority(key,b)||String(a['Competition Name']||'').localeCompare(String(b['Competition Name']||''))); }
@@ -1232,14 +1406,21 @@ function getRankClass(index,size,isGroup){
 }
 function getLeagueKeyForStandings(){ const selected=appData?.selectedCompetition||{}, site=appData?.site||{}; const slug=slugify(normaliseCompetitionName(selected['Competition Name']||selected.competition||site.competition||currentCompetition||'')); if(slug.includes('premier-league'))return'premier-league'; if(slug.includes('serie-a'))return'serie-a'; if(slug.includes('la-liga')||slug.includes('laliga'))return'la-liga'; if(slug.includes('bundesliga'))return'bundesliga'; if(slug.includes('ligue-1'))return'ligue-1'; return''; }
 function renderLeagueLegend(){ const league=getLeagueKeyForStandings(); if(!['premier-league','serie-a','la-liga','bundesliga','ligue-1'].includes(league)) return ''; const items=[['ucl','Champions League'],['uel','Europa League'],['uecl','Conference League']]; if(['bundesliga','ligue-1'].includes(league)) items.push(['playout','Play-out relegation']); items.push(['relegation','Relegation']); return `<div class="qualification-note">${items.map(i=>`<span class="note-dot ${i[0]}"></span>${escapeHTML(i[1])}`).join('')}</div>`; }
+function getCurrentCompetitionType(){
+  const selected=appData?.selectedCompetition||{};
+  const site=appData?.site||{};
+  return String(selected['Competition Type'] || selected.CompetitionType || appData?.competitionType || site.competitionType || '').toLowerCase();
+}
+
 function isGroupStageCompetition(){
-  const type = String(appData.competitionType || appData.site?.competitionType || '').toLowerCase();
+  const type = getCurrentCompetitionType();
   return type.includes('group') && !type.includes('league phase');
 }
 
 function isLeaguePhaseCompetition(){
-  const type = String(appData.competitionType || appData.site?.competitionType || '').toLowerCase();
-  return type.includes('league phase');
+  const type = getCurrentCompetitionType();
+  const name = slugify(normaliseCompetitionName(appData?.selectedCompetition?.['Competition Name'] || appData?.site?.competition || currentCompetition || ''));
+  return type.includes('league phase') || name.includes('champions-league');
 }
 function getRegionForCompetition(m){ return String(m.Region||'World').toUpperCase(); }
 function getDateKey(v){ const d=parseDateOnly(v); return d?dateToKey(d):''; }
@@ -1282,4 +1463,4 @@ function safeScore(v){ return v===''||v===undefined||v===null?'-':v; }
 function formatGoalDifference(v){ const n=Number(v); if(!Number.isFinite(n))return'0'; return n>0?`+${n}`:String(n); }
 function escapeHTML(v){ return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
 function escapeAttr(v){ return escapeHTML(v); }
-window.CALCIUM_SCRIPT_VERSION='7031-player-seasons-master-search-fix';
+window.CALCIUM_SCRIPT_VERSION='7082-competition-table-tiebreakers';
