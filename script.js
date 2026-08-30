@@ -1505,12 +1505,48 @@ function getRankClass(index,size,isGroup,teamRow,groupName){
   }
 
   if(league === 'ligue-1'){
+
+  const seasonYear = String(
+    appData?.selectedCompetition?.Year ||
+    appData?.site?.year ||
+    ''
+  ).trim();
+
+  const teamName = normaliseTeamName(teamRow?.Team || '');
+
+  // ONE-OFF OVERRIDE: Ligue 1 2026
+  // Toulouse won Coupe de France, so Toulouse gets Europa League.
+  // Nice drops out of European colour.
+  // AS Monaco falls into Conference League.
+  if(seasonYear === '2026'){
+
     if(pos <= 3) return 'rank-ucl';
+
+    // Europa League league positions
     if(pos <= 5) return 'rank-uel';
-    if(pos <= 7) return 'rank-uecl';
+
+    // AS Monaco gets Conference League
+    if(teamName === normaliseTeamName('AS Monaco')) return 'rank-uecl';
+
+    // Toulouse gets Europa League because of Coupe de France
+    if(teamName === normaliseTeamName('Toulouse')) return 'rank-uel';
+
+    // Nice gets no colour
+    if(teamName === normaliseTeamName('Nice')) return 'rank-neutral';
+
     if(pos === 16) return 'rank-playout';
     if(pos >= 17) return 'rank-relegation';
+
+    return 'rank-neutral';
   }
+
+  // Normal Ligue 1 seasons
+  if(pos <= 3) return 'rank-ucl';
+  if(pos <= 5) return 'rank-uel';
+  if(pos <= 7) return 'rank-uecl';
+  if(pos === 16) return 'rank-playout';
+  if(pos >= 17) return 'rank-relegation';
+}
 
   return 'rank-neutral';
 }
@@ -1532,7 +1568,46 @@ function getNationsLeagueLevel(teamRow, groupName){
   return '';
 }
 function getLeagueKeyForStandings(){ const selected=appData?.selectedCompetition||{}, site=appData?.site||{}; const slug=slugify(normaliseCompetitionName(selected['Competition Name']||selected.competition||site.competition||currentCompetition||'')); if(slug.includes('premier-league'))return'premier-league'; if(slug.includes('serie-a'))return'serie-a'; if(slug.includes('la-liga')||slug.includes('laliga'))return'la-liga'; if(slug.includes('bundesliga'))return'bundesliga'; if(slug.includes('ligue-1'))return'ligue-1'; return''; }
-function renderLeagueLegend(){ const league=getLeagueKeyForStandings(); if(!['premier-league','serie-a','la-liga','bundesliga','ligue-1'].includes(league)) return ''; const items=[['ucl','Champions League'],['uel','Europa League'],['uecl','Conference League']]; if(['bundesliga','ligue-1'].includes(league)) items.push(['playout','Play-out relegation']); items.push(['relegation','Relegation']); return `<div class="qualification-note">${items.map(i=>`<span class="note-dot ${i[0]}"></span>${escapeHTML(i[1])}`).join('')}</div>`; }
+function renderLeagueLegend(){
+
+  const league = getLeagueKeyForStandings();
+
+  if(!['premier-league','serie-a','la-liga','bundesliga','ligue-1'].includes(league)){
+    return '';
+  }
+
+  const seasonYear = String(
+    appData?.selectedCompetition?.Year ||
+    appData?.site?.year ||
+    ''
+  ).trim();
+
+  if(league === 'ligue-1' && seasonYear === '2026'){
+    return `<div class="qualification-note">
+      <span class="note-dot ucl"></span> Champions League
+      <span class="note-dot uel"></span> Europa League
+      <span class="note-dot uecl"></span> Conference League
+      <span class="note-dot playout"></span> Play-out relegation
+      <span class="note-dot relegation"></span> Relegation
+    </div>`;
+  }
+
+  const items = [
+    ['ucl','Champions League'],
+    ['uel','Europa League'],
+    ['uecl','Conference League']
+  ];
+
+  if(['bundesliga','ligue-1'].includes(league)){
+    items.push(['playout','Play-out relegation']);
+  }
+
+  items.push(['relegation','Relegation']);
+
+  return `<div class="qualification-note">${items.map(i =>
+    `<span class="note-dot ${i[0]}"></span>${escapeHTML(i[1])}`
+  ).join('')}</div>`;
+}
 function getCompetitionLegend(isGroupStage){
 
   const competitionKey = getStandingsRuleKey();
@@ -1621,4 +1696,4 @@ function safeScore(v){ return v===''||v===undefined||v===null?'-':v; }
 function formatGoalDifference(v){ const n=Number(v); if(!Number.isFinite(n))return'0'; return n>0?`+${n}`:String(n); }
 function escapeHTML(v){ return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
 function escapeAttr(v){ return escapeHTML(v); }
-window.CALCIUM_SCRIPT_VERSION='7084-uefa-nations-visual-zones';
+window.CALCIUM_SCRIPT_VERSION='7085-ligue1-2026-coupe-france-override';
