@@ -99,6 +99,43 @@ async function loadHomeData(){
   appData.allMatches = (data.allGames||[]).map(mapApiMatchToPascal);
   appData.myGames = (data.myGames||[]).map(mapApiMatchToPascal);
   appData.competitions = (data.competitions||[]).map(mapApiCompetitionToPascal);
+
+  // The deployed home endpoint can temporarily serve an older Global Games
+  // snapshot after a hub rebuild. Keep Nations League visible by falling back
+  // to the same dedicated Fixtures source used by its competition page.
+  await mergeMissingHomeCompetition('Nations League');
+}
+
+async function mergeMissingHomeCompetition(competitionName){
+  const wanted = normaliseCompetitionName(competitionName);
+  const alreadyIncluded = appData.allMatches.some(match =>
+    normaliseCompetitionName(match.Competition) === wanted
+  );
+  if(alreadyIncluded) return;
+
+  const competition = appData.competitions
+    .filter(comp => normaliseCompetitionName(comp['Competition Name']) === wanted)
+    .sort((a,b) => compareSeasonsDesc(a.Year,b.Year))[0];
+  const sheetId = String(competition?.['Sheet ID'] || '').trim();
+  if(!competition || !sheetId) return;
+
+  try{
+    const response = await fetch(`${API_URL}?action=competitionDetail&sheetId=${encodeURIComponent(sheetId)}&v=${Date.now()}`, { cache:'no-store' });
+    if(!response.ok) return;
+    const detail = await response.json();
+    if(detail.error) return;
+
+    const matches = parseFixturesTable(detail.fixtures || []).map(match => ({
+      ...match,
+      Competition: competition['Competition Name'],
+      Year: competition.Year,
+      Region: competition.Region,
+      CompetitionType: competition['Competition Type']
+    }));
+    appData.allMatches = dedupeMatchArray(appData.allMatches.concat(matches));
+  } catch(error){
+    console.warn(`Could not load ${competitionName} home fallback.`, error);
+  }
 }
 
 async function loadCompetitionData(slug){
