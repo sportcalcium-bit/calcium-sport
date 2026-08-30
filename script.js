@@ -1144,11 +1144,21 @@ function getStandingMetricValue(row,metric,tiedTeams){
     case 'opponentsPoints': return opponents[teamKey]?.points || 0;
     case 'opponentsGoalDifference': return opponents[teamKey]?.goalDifference || 0;
     case 'opponentsGoalsFor': return opponents[teamKey]?.goalsFor || 0;
-    case 'headToHeadPoints': return h2h[teamKey]?.points || 0;
-    case 'headToHeadGoalDifference': return h2h[teamKey]?.goalDifference || 0;
-    case 'headToHeadGoalsFor': return h2h[teamKey]?.goalsFor || 0;
-    case 'headToHeadAwayGoals': return h2h[teamKey]?.awayGoals || 0;
-    default: return 0;
+        case 'headToHeadPoints':
+      if(!isHeadToHeadTieReady(tiedTeams || [])) return 0;
+      return h2h[teamKey]?.points || 0;
+
+    case 'headToHeadGoalDifference':
+      if(!isHeadToHeadTieReady(tiedTeams || [])) return 0;
+      return h2h[teamKey]?.goalDifference || 0;
+
+    case 'headToHeadGoalsFor':
+      if(!isHeadToHeadTieReady(tiedTeams || [])) return 0;
+      return h2h[teamKey]?.goalsFor || 0;
+
+    case 'headToHeadAwayGoals':
+      if(!isHeadToHeadTieReady(tiedTeams || [])) return 0;
+      return h2h[teamKey]?.awayGoals || 0;
   }
 }
 
@@ -1208,7 +1218,51 @@ function getHeadToHeadStatsForTie(tiedTeams){
 
   return output;
 }
+function isHeadToHeadTieReady(tiedTeams){
 
+  const keys = [...new Set(
+    (tiedTeams || [])
+      .map(team => normaliseTeamName(team.Team))
+      .filter(Boolean)
+  )];
+
+  if(keys.length < 2){
+    return false;
+  }
+
+  let playedHeadToHeadMatches = 0;
+
+  getCompetitionMatches().forEach(match => {
+    if(!isPlayedMatch(match)) return;
+
+    const home = normaliseTeamName(match.HomeTeam);
+    const away = normaliseTeamName(match.AwayTeam);
+
+    if(keys.includes(home) && keys.includes(away)){
+      playedHeadToHeadMatches += 1;
+    }
+  });
+
+  const competitionKey = getStandingsRuleKey();
+
+  const doubleRoundRobinCompetitions = [
+    'serie-a',
+    'la-liga',
+    'bundesliga',
+    'ligue-1',
+    'premier-league',
+    'europa-league-old-groups',
+    'conference-league-old-groups',
+    'nations-league'
+  ];
+
+  if(doubleRoundRobinCompetitions.includes(competitionKey)){
+    const requiredMatches = keys.length * (keys.length - 1);
+    return playedHeadToHeadMatches >= requiredMatches;
+  }
+
+  return playedHeadToHeadMatches > 0;
+}
 function getOverallMatchStatsForTable(tableRows){
   const keys=(tableRows||[]).map(row=>normaliseTeamName(row.Team)).filter(Boolean);
   const output={};
@@ -1463,4 +1517,4 @@ function safeScore(v){ return v===''||v===undefined||v===null?'-':v; }
 function formatGoalDifference(v){ const n=Number(v); if(!Number.isFinite(n))return'0'; return n>0?`+${n}`:String(n); }
 function escapeHTML(v){ return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
 function escapeAttr(v){ return escapeHTML(v); }
-window.CALCIUM_SCRIPT_VERSION='7082-competition-table-tiebreakers';
+window.CALCIUM_SCRIPT_VERSION='7083-competition-table-tiebreakers-h2h-ready';
