@@ -1024,6 +1024,9 @@ function getCompetitionMatches(){ return dedupeMatchArray((Array.isArray(appData
 function getGlobalMatches(){ return dedupeMatchArray(Array.isArray(appData?.allMatches)?appData.allMatches:[]); }
 function findTeamLogo(teamName){
   const team=normaliseTeamName(teamName);
+  const directLogo = teamLogoLookup.get(team);
+  if(directLogo) return directLogo;
+
   const matches=getGlobalMatches().concat(getCompetitionMatches()).concat(Array.isArray(appData?.myGames)?appData.myGames:[]);
   for(const match of matches){
     if(normaliseTeamName(match.HomeTeam)===team&&match.HomeLogo) return match.HomeLogo;
@@ -1031,19 +1034,27 @@ function findTeamLogo(teamName){
   }
   return '';
 }
+
 function getStandingTeamLogo(standing){
   if(standing?.Logo) return standing.Logo;
+
   const team=normaliseTeamName(standing?.Team);
   if(!team) return '';
+
+  const directLogo = teamLogoLookup.get(team);
+  if(directLogo) return directLogo;
+
   const matches=[]
     .concat(Array.isArray(appData?.matches)?appData.matches:[])
     .concat(Array.isArray(appData?.playoffs)?appData.playoffs:[])
     .concat(Array.isArray(appData?.allMatches)?appData.allMatches:[])
     .concat(Array.isArray(appData?.myGames)?appData.myGames:[]);
+
   for(const match of matches){
     if(normaliseTeamName(match?.HomeTeam)===team&&match?.HomeLogo) return match.HomeLogo;
     if(normaliseTeamName(match?.AwayTeam)===team&&match?.AwayLogo) return match.AwayLogo;
   }
+
   return '';
 }
 function dedupeMatchArray(matches){ const seen=new Set(); return (matches||[]).filter(m=>{ const key=String(m.MatchID||m.ID||'').trim(); if(!key||seen.has(key)) return false; seen.add(key); return true; }); }
