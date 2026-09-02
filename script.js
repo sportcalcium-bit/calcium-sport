@@ -1697,3 +1697,15 @@ function formatGoalDifference(v){ const n=Number(v); if(!Number.isFinite(n))retu
 function escapeHTML(v){ return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
 function escapeAttr(v){ return escapeHTML(v); }
 window.CALCIUM_SCRIPT_VERSION='7089-standings-logo-sheet-fix';
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register("./service-worker.js")
+      .then(() => {
+        console.log("Calcium Sport PWA ready");
+      })
+      .catch(error => {
+        console.error("Service Worker registration failed:", error);
+      });
+  });
+}
