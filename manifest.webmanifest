@@ -1,0 +1,17 @@
+{
+  "name": "Calcium Sport",
+  "short_name": "Calcium Sport",
+  "description": "Calcium Sport Football Universe",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "./calcium-logo.jpeg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}
