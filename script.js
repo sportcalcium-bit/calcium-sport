@@ -1408,16 +1408,135 @@ function isCupCompetition(m){
 function getMyGamesGroupLabel(m){ return ({england:'England',italy:'Italy',spain:'Spain',germany:'Germany',france:'France',europe:'Europe',world:'World','national-teams':'National Teams'}[getCompetitionCategoryKey(m)]||'World'); }
 
 function compareMyGamesMatches(a,b){
-  const aCup = isCupCompetition(a) ? 0 : 1;
-  const bCup = isCupCompetition(b) ? 0 : 1;
-  if(aCup !== bCup) return aCup - bCup;
 
-  const ak = getCompetitionCategoryKey(a), bk = getCompetitionCategoryKey(b);
-  const ai = MY_GAMES_COUNTRY_ORDER.indexOf(ak), bi = MY_GAMES_COUNTRY_ORDER.indexOf(bk);
-  const aIdx = ai===-1?999:ai, bIdx = bi===-1?999:bi;
-  if(aIdx !== bIdx) return aIdx - bIdx;
+  const aName =
+    String(
+      a.Competition ||
+      a.CompetitionLabel ||
+      ''
+    ).toLowerCase();
 
-  return matchDateSortValue(a)-matchDateSortValue(b) || String(a.HomeTeam||'').localeCompare(String(b.HomeTeam||''));
+  const bName =
+    String(
+      b.Competition ||
+      b.CompetitionLabel ||
+      ''
+    ).toLowerCase();
+
+
+  // 1. UEFA Champions League
+  const aUCL =
+    aName.includes('champions league')
+      ? 0
+      : 1;
+
+  const bUCL =
+    bName.includes('champions league')
+      ? 0
+      : 1;
+
+  if(aUCL !== bUCL){
+    return aUCL - bUCL;
+  }
+
+
+  // 2. UEFA Europa League
+  const aUEL =
+    aName.includes('europa league')
+      ? 0
+      : 1;
+
+  const bUEL =
+    bName.includes('europa league')
+      ? 0
+      : 1;
+
+  if(aUEL !== bUEL){
+    return aUEL - bUEL;
+  }
+
+
+  // 3. UEFA Conference League
+  const aUECL =
+    aName.includes('conference league')
+      ? 0
+      : 1;
+
+  const bUECL =
+    bName.includes('conference league')
+      ? 0
+      : 1;
+
+  if(aUECL !== bUECL){
+    return aUECL - bUECL;
+  }
+
+
+  // 4. Domestic Cups
+  const aCup =
+    isCupCompetition(a)
+      ? 0
+      : 1;
+
+  const bCup =
+    isCupCompetition(b)
+      ? 0
+      : 1;
+
+  if(aCup !== bCup){
+    return aCup - bCup;
+  }
+
+
+  // 5. Domestic country order
+  // France -> Germany -> Spain -> Italy -> England
+  const countryOrder = [
+    'france',
+    'germany',
+    'spain',
+    'italy',
+    'england'
+  ];
+
+  const ak =
+    getCompetitionCategoryKey(a);
+
+  const bk =
+    getCompetitionCategoryKey(b);
+
+  const ai =
+    countryOrder.indexOf(ak);
+
+  const bi =
+    countryOrder.indexOf(bk);
+
+  const aIndex =
+    ai === -1
+      ? 999
+      : ai;
+
+  const bIndex =
+    bi === -1
+      ? 999
+      : bi;
+
+  if(aIndex !== bIndex){
+    return aIndex - bIndex;
+  }
+
+
+  // Same priority = real kickoff order
+  return (
+    matchDateSortValue(a) -
+    matchDateSortValue(b)
+  ) ||
+  String(
+    a.HomeTeam || ''
+  ).localeCompare(
+    String(
+      b.HomeTeam || ''
+    )
+  );
 }
 function getRankClass(index,size,isGroup,teamRow,groupName){
 
