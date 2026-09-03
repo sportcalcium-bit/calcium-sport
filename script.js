@@ -576,7 +576,6 @@ function renderHomeGames(){
 }
 function renderHomeTab(){ const allPanel=$('allGamesPanel'), myPanel=$('myGamesPanel'), jump=$('jumpSelect'); document.querySelectorAll('[data-home-tab]').forEach(b=>b.classList.toggle('active',b.dataset.homeTab===currentHomeTab)); allPanel?.classList.toggle('hidden',currentHomeTab!=='allGames'); myPanel?.classList.toggle('hidden',currentHomeTab!=='myGames'); if(jump&&isHomePage()) jump.value=currentHomeTab==='myGames'?'myGames':'nextUp'; }
 const PERSONAL_DAY_PRIORITY = ['Friday','Monday','Sunday','Thursday','Tuesday','Wednesday','Saturday'];
-const PERSONAL_DAY_PRIORITY = ['Friday','Monday','Sunday','Thursday','Tuesday','Wednesday','Saturday'];
 const MONDAY_TO_SUNDAY_DISPLAY_ORDER = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const WEEKDAY_NAMES_BY_JS_INDEX = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
