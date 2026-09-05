@@ -857,22 +857,79 @@ async function openMatchDetail(matchId){
 window.openMatchDetail=openMatchDetail;
 function closeMatchModal(){ $('matchModal')?.classList.add('hidden'); document.body.classList.remove('modal-open'); }
 window.closeMatchModal=closeMatchModal;
-function renderMatchDetail(match,eventsLoading=false){ const events=getMatchEvents(match.MatchID||match.ID); const youtube=match.YouTubeURL||match.YoutubeURL||match.HighlightsURL||''; const penalty=getPenaltyWinnerText(match); const motm=getMatchMOTM(match); const eventContent=eventsLoading?'<div class="empty">Loading goals, assists and cards...</div>':renderTimelineEvents(events,match); return `<section class="match-hero"><div class="match-date-main">${escapeHTML(formatFullDateTime(match.Date,match.Time))}</div><div class="match-main-teams"><div class="match-main-team"><div class="match-main-logo">${match.HomeLogo?`<img src="${escapeAttr(match.HomeLogo)}" alt="">`:''}</div><strong>${escapeHTML(match.HomeTeam)}</strong></div><div class="match-main-score"><div>${renderScoreText(match)}</div>${penalty?`<span>${escapeHTML(penalty)}</span>`:''}</div><div class="match-main-team"><div class="match-main-logo">${match.AwayLogo?`<img src="${escapeAttr(match.AwayLogo)}" alt="">`:''}</div><strong>${escapeHTML(match.AwayTeam)}</strong></div></div></section><section class="venue-row"><span>🏟️ Venue:</span><strong>${escapeHTML(match.Venue||match.Stadium||'Venue unavailable')}</strong></section><section class="event-section">${eventContent}</section>${motm?`<section class="motm-row"><span>⭐ Man of the Match:</span>${renderPlayerLink(motm)}</section>`:''}${renderHighlights(youtube)}`; }
-async function loadCompetitionDetailsForMatch(match){
-  const slug=resolveMatchCompetitionSlug(match);
-  if(!slug) return;
-  let detail=competitionDetailCache.get(slug);
-  if(!detail){
-    try{
-      const response=await fetch(`${API_URL}?competition=${encodeURIComponent(slug)}&v=${Date.now()}`,{cache:'no-store'});
-      if(!response.ok) return;
-      detail=await response.json();
-      if(detail?.error) return;
-      competitionDetailCache.set(slug,detail);
-    }catch(error){ console.warn('Could not load match events for the home popup.',error); return; }
-  }
-  appData.allEvents=mergeUniqueEvents(appData.allEvents,detail.allEvents||detail.events||[]);
-  appData.matchData=(appData.matchData||[]).concat(detail.matchData||detail.data||[]);
+function renderMatchDetail(match,eventsLoading=false){
+  const events=getMatchEvents(match.MatchID||match.ID);
+  const youtube=match.YouTubeURL||match.YoutubeURL||match.HighlightsURL||'';
+  const penalty=getPenaltyWinnerText(match);
+  const motm=getMatchMOTM(match);
+
+  const competition =
+    match.Competition ||
+    match.CompetitionLabel ||
+    match['Competition Name'] ||
+    appData?.selectedCompetition?.['Competition Name'] ||
+    appData?.site?.competition ||
+    '';
+
+  const eventContent=eventsLoading
+    ? '<div class="empty">Loading goals, assists and cards...</div>'
+    : renderTimelineEvents(events,match);
+
+  return `
+    <section class="match-hero">
+
+      <div class="match-date-main">
+        ${escapeHTML(formatFullDateTime(match.Date,match.Time))}
+        ${competition ? `
+          <div style="margin-top:4px;font-size:13px;font-weight:700;opacity:.72;">
+            ${escapeHTML(competition)}
+          </div>
+        ` : ''}
+      </div>
+
+      <div class="match-main-teams">
+
+        <div class="match-main-team">
+          <div class="match-main-logo">
+            ${match.HomeLogo ? `<img src="${escapeAttr(match.HomeLogo)}" alt="">` : ''}
+          </div>
+          <strong>${escapeHTML(match.HomeTeam)}</strong>
+        </div>
+
+        <div class="match-main-score">
+          <div>${renderScoreText(match)}</div>
+          ${penalty ? `<span>${escapeHTML(penalty)}</span>` : ''}
+        </div>
+
+        <div class="match-main-team">
+          <div class="match-main-logo">
+            ${match.AwayLogo ? `<img src="${escapeAttr(match.AwayLogo)}" alt="">` : ''}
+          </div>
+          <strong>${escapeHTML(match.AwayTeam)}</strong>
+        </div>
+
+      </div>
+
+    </section>
+
+    <section class="venue-row">
+      <span>🏟️ Venue:</span>
+      <strong>${escapeHTML(match.Venue||match.Stadium||'Venue unavailable')}</strong>
+    </section>
+
+    <section class="event-section">
+      ${eventContent}
+    </section>
+
+    ${motm ? `
+      <section class="motm-row">
+        <span>⭐ Man of the Match:</span>
+        ${renderPlayerLink(motm)}
+      </section>
+    ` : ''}
+
+    ${renderHighlights(youtube)}
+  `;
 }
 function resolveMatchCompetitionSlug(match){
   const direct=String(match.CompetitionSlug||match.Slug||'').trim();
