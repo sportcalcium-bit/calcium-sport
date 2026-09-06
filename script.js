@@ -1624,28 +1624,36 @@ function getRankClass(index,size,isGroup,teamRow,groupName){
     return 'rank-eliminated';
   }
 
-  // Nations League
+    // Nations League
   if(competitionKey === 'nations-league' || competitionName.includes('nations-league')){
 
     const leagueLabel = getNationsLeagueLevel(teamRow, groupName);
 
-    // League A = top 2 green, 3rd red
+    // League A
+    // 1st + 2nd = qualify to Finals
+    // 3rd = safe
+    // 4th = relegated to League B
     if(leagueLabel === 'A'){
       if(pos <= 2) return 'rank-qualified';
-      if(pos === 3) return 'rank-eliminated';
+      if(pos === 4) return 'rank-relegation';
       return 'rank-neutral';
     }
 
-    // League B = 1st green, 3rd red
+    // League B
+    // 1st to 4th = promoted to League A
+    // 5th + 6th = safe
+    // 7th to 10th = relegated to League C
     if(leagueLabel === 'B'){
-      if(pos === 1) return 'rank-qualified';
-      if(pos === 3) return 'rank-eliminated';
+      if(pos <= 4) return 'rank-qualified';
+      if(pos >= 7) return 'rank-relegation';
       return 'rank-neutral';
     }
 
-    // League C = 1st green, no 3rd red
+    // League C
+    // 1st to 4th = promoted to League B
+    // 5th to 10th = safe
     if(leagueLabel === 'C'){
-      if(pos === 1) return 'rank-qualified';
+      if(pos <= 4) return 'rank-qualified';
       return 'rank-neutral';
     }
 
@@ -1794,8 +1802,8 @@ function getCompetitionLegend(isGroupStage){
     ''
   ));
 
-  if(competitionKey === 'champions-league' || competitionName.includes('champions-league')){
-    return '<div class="qualification-note"><span class="note-dot qualified"></span> 1–8 Round of 16 <span class="note-dot uel"></span> 9–24 Play-off <span class="note-dot eliminated"></span> 25–36 eliminated</div>';
+    if(competitionKey === 'nations-league' || competitionName.includes('nations-league')){
+    return '<div class="qualification-note"><span class="note-dot qualified"></span> Green = Finals / Promotion <span class="note-dot relegation"></span> Red = Relegation</div>';
   }
 
   if(
@@ -1872,7 +1880,7 @@ function safeScore(v){ return v===''||v===undefined||v===null?'-':v; }
 function formatGoalDifference(v){ const n=Number(v); if(!Number.isFinite(n))return'0'; return n>0?`+${n}`:String(n); }
 function escapeHTML(v){ return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
 function escapeAttr(v){ return escapeHTML(v); }
-window.CALCIUM_SCRIPT_VERSION='7089-standings-logo-sheet-fix';
+window.CALCIUM_SCRIPT_VERSION='7090-nations-league-fc25-format';
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker
