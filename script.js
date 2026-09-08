@@ -610,57 +610,74 @@ function weekdayNameFromDate(d){ return WEEKDAY_NAMES_BY_JS_INDEX[d.getDay()]; }
 const WEEKDAY_OFFSET_FROM_WEEK_START = { Monday:0, Tuesday:1, Wednesday:2, Thursday:3, Friday:4, Saturday:5, Sunday:6 };
 
 /* =========================================================
-   MY GAMES DAILY SCHEDULER — LOCKED SYSTEM
+   MY GAMES DAILY SCHEDULER — FINAL LOCKED SYSTEM
 
-   1) The visible My Games week is Monday -> Sunday.
-   2) Its fixture pool is Tuesday -> the FOLLOWING Monday.
-   3) Every match has one permanent master priority:
-      UCL -> UEL -> UECL -> domestic cups (FR/DE/ES/IT/EN)
-      -> domestic leagues (FR/DE/ES/IT/EN) -> everything else.
-   4) Within the same competition, real kickoff datetime decides order.
-   5) At/after 00:01 each day, the first page load creates that day's
-      snapshot. Played matches keep their previous assigned day; only
-      still-unplayed matches are redistributed over TODAY -> Sunday.
-   6) The snapshot is stored in localStorage and remains frozen for the
-      rest of that calendar day, even if more results are entered later.
-   7) A new snapshot is created on the first page load after 00:01 the
-      following day.
-   8) Global Games never uses this scheduler.
+   Visible assignment week: Monday -> Sunday.
+   Fixture pool: Tuesday -> the FOLLOWING Monday.
+
+   MASTER ORDER:
+   1) UEFA Champions League
+   2) UEFA Europa League
+   3) UEFA Conference League
+   4) Domestic Cups: France -> Germany -> Spain -> Italy -> England
+   5) Domestic Leagues: France -> Germany -> Spain -> Italy -> England
+
+   Inside the SAME competition, real fixture kickoff datetime is absolute.
+
+   DAILY 00:01 RULE:
+   - At the first load at/after 00:01, create one frozen snapshot.
+   - Matches that became FT since the previous snapshot are recorded on
+     the PREVIOUS assignment day (the day they were actually played in
+     this workflow) and no longer consume today's/future quotas.
+   - Only matches still unplayed at the snapshot are redistributed over
+     TODAY -> Sunday.
+   - That new plan stays frozen for the rest of the day.
+   - If extra games are played during the day, their assignment is not
+     reshuffled until the next 00:01 snapshot.
+   - Global Games never uses this scheduler.
 ========================================================= */
-const MY_GAMES_SCHEDULE_STORAGE_KEY = 'calciumSport.myGamesDailySchedule.v2';
-const MY_GAMES_SCHEDULE_VERSION = 2;
+const MY_GAMES_SCHEDULE_STORAGE_KEY = 'calciumSport.myGamesDailySchedule.v3';
+const MY_GAMES_SCHEDULE_VERSION = 3;
 
 function computeDayQuotas(total, dayNames){
   const dayCount = dayNames.length;
   if(!dayCount) return {};
+
   const base = Math.floor(total/dayCount);
   const remainder = total % dayCount;
+
   const priorityOrder = PERSONAL_DAY_PRIORITY.filter(name=>dayNames.includes(name));
-  const remainderDays = new Set(priorityOrder.slice(0, remainder));
+  const remainderDays = new Set(priorityOrder.slice(0,remainder));
+
   const quota = {};
-  dayNames.forEach(name=>{ quota[name] = base + (remainderDays.has(name)?1:0); });
+  dayNames.forEach(name=>{
+    quota[name] = base + (remainderDays.has(name) ? 1 : 0);
+  });
   return quota;
 }
 
-function fillDaysInCalendarOrder(sortedMatches, dayNames, quota){
+function fillDaysInCalendarOrder(sortedMatches,dayNames,quota){
   const assignment = new Map();
   if(!dayNames.length) return assignment;
-  let idx = 0;
-  dayNames.forEach(name=>{
-    for(let n=0; n<(quota[name]||0) && idx<sortedMatches.length; n++, idx++){
-      assignment.set(sortedMatches[idx], name);
+
+  let index = 0;
+
+  dayNames.forEach(dayName=>{
+    const count = quota[dayName] || 0;
+    for(let n=0;n<count && index<sortedMatches.length;n++,index++){
+      assignment.set(sortedMatches[index],dayName);
     }
   });
-  while(idx < sortedMatches.length){
-    assignment.set(sortedMatches[idx], dayNames[dayNames.length-1]);
-    idx++;
+
+  while(index<sortedMatches.length){
+    assignment.set(sortedMatches[index],dayNames[dayNames.length-1]);
+    index++;
   }
+
   return assignment;
 }
 
 function getMyGamesWeekStart(date){
-  // My Games uses a Tuesday -> following Monday fixture pool. Therefore
-  // Monday itself still closes the previous My Games block.
   const normalStart = getWeekStart(date);
   return date.getDay()===1 ? addDays(normalStart,-7) : normalStart;
 }
@@ -670,13 +687,7 @@ function resolveSelectedMyGamesWeekStart(selected){
   const today = new Date();
   today.setHours(0,0,0,0);
 
-  // On a real Monday, "today" belongs to the My Games block that is
-  // finishing that day. Do not apply this exception to arbitrary weeks
-  // chosen with the date picker.
-  if(
-    today.getDay()===1 &&
-    dateToKey(selected)===dateToKey(today)
-  ){
+  if(today.getDay()===1 && dateToKey(selected)===dateToKey(today)){
     return addDays(normalStart,-7);
   }
 
@@ -686,8 +697,7 @@ function resolveSelectedMyGamesWeekStart(selected){
 function getMyGamesSnapshotDate(now=new Date()){
   const snapshot = new Date(now.getFullYear(),now.getMonth(),now.getDate());
 
-  // 00:00:00 -> 00:00:59 still belongs to yesterday's frozen snapshot.
-  // The new daily plan becomes eligible at 00:01 local browser time.
+  // The new day becomes active at 00:01, not 00:00.
   if(now.getHours()===0 && now.getMinutes()===0){
     snapshot.setDate(snapshot.getDate()-1);
   }
@@ -698,11 +708,16 @@ function getMyGamesSnapshotDate(now=new Date()){
 function loadMyGamesScheduleStore(){
   try{
     const raw = localStorage.getItem(MY_GAMES_SCHEDULE_STORAGE_KEY);
-    if(!raw) return {version:MY_GAMES_SCHEDULE_VERSION,weeks:{}};
+    if(!raw){
+      return {version:MY_GAMES_SCHEDULE_VERSION,weeks:{}};
+    }
+
     const parsed = JSON.parse(raw);
+
     if(parsed?.version!==MY_GAMES_SCHEDULE_VERSION || typeof parsed?.weeks!=='object'){
       return {version:MY_GAMES_SCHEDULE_VERSION,weeks:{}};
     }
+
     return parsed;
   }catch(_error){
     return {version:MY_GAMES_SCHEDULE_VERSION,weeks:{}};
@@ -711,18 +726,19 @@ function loadMyGamesScheduleStore(){
 
 function saveMyGamesScheduleStore(store){
   try{
-    localStorage.setItem(MY_GAMES_SCHEDULE_STORAGE_KEY, JSON.stringify(store));
+    localStorage.setItem(MY_GAMES_SCHEDULE_STORAGE_KEY,JSON.stringify(store));
   }catch(_error){
-    // If browser storage is unavailable, the scheduler still works for
-    // the current page load; it simply cannot remain frozen after reload.
+    // The page still works without persistence; only the frozen-after-reload
+    // behaviour is unavailable in browsers that block localStorage.
   }
 }
 
 function getMatchStorageKey(match){
   const direct = String(match?.MatchID || match?.ID || '').trim();
   if(direct) return direct;
+
   return [
-    normaliseCompetitionName(match?.Competition || match?.CompetitionLabel || ''),
+    getMyGamesCanonicalCompetitionKey(match),
     getDateKey(match?.Date),
     String(match?.Time||'').trim(),
     normaliseTeamName(match?.HomeTeam),
@@ -732,19 +748,36 @@ function getMatchStorageKey(match){
 
 function assignmentMapToStoredObject(map){
   const output = {};
+
   map.forEach((dayName,match)=>{
     const key = getMatchStorageKey(match);
     if(key) output[key] = dayName;
   });
+
   return output;
 }
 
-function storedObjectToAssignmentMap(storedAssignments, weekMatches){
-  const byId = new Map(weekMatches.map(match=>[getMatchStorageKey(match),match]));
+function statusMapToStoredObject(weekMatches){
+  const output = {};
+
+  weekMatches.forEach(match=>{
+    const key = getMatchStorageKey(match);
+    if(key) output[key] = isPlayedMatch(match);
+  });
+
+  return output;
+}
+
+function storedObjectToAssignmentMap(storedAssignments,weekMatches){
+  const byId = new Map(
+    weekMatches.map(match=>[getMatchStorageKey(match),match])
+  );
+
   const output = new Map();
 
   Object.entries(storedAssignments||{}).forEach(([key,dayName])=>{
     const match = byId.get(key);
+
     if(match && MONDAY_TO_SUNDAY_DISPLAY_ORDER.includes(dayName)){
       output.set(match,dayName);
     }
@@ -754,178 +787,481 @@ function storedObjectToAssignmentMap(storedAssignments, weekMatches){
 }
 
 function buildMyGamesBaselineAssignment(weekMatches){
-  const sortedAll = [...weekMatches].sort(compareMyGamesMatches);
-  const quota = computeDayQuotas(sortedAll.length, MONDAY_TO_SUNDAY_DISPLAY_ORDER);
-  return fillDaysInCalendarOrder(sortedAll, MONDAY_TO_SUNDAY_DISPLAY_ORDER, quota);
+  const sorted = [...weekMatches].sort(compareMyGamesMatches);
+  const quota = computeDayQuotas(sorted.length,MONDAY_TO_SUNDAY_DISPLAY_ORDER);
+  return fillDaysInCalendarOrder(sorted,MONDAY_TO_SUNDAY_DISPLAY_ORDER,quota);
 }
 
-function getEligibleMyGamesDays(weekStart, snapshotDate){
+function getEligibleMyGamesDays(weekStart,snapshotDate){
   const weekEnd = addDays(weekStart,6);
-  const dayTime = snapshotDate.getTime();
+  const snapshotTime = snapshotDate.getTime();
 
-  if(dayTime < weekStart.getTime()){
+  if(snapshotTime < weekStart.getTime()){
     return MONDAY_TO_SUNDAY_DISPLAY_ORDER.slice();
   }
 
-  if(dayTime <= weekEnd.getTime()){
-    return MONDAY_TO_SUNDAY_DISPLAY_ORDER.filter(name=>{
-      const d = addDays(weekStart, WEEKDAY_OFFSET_FROM_WEEK_START[name]);
-      return d.getTime() >= dayTime;
+  if(snapshotTime <= weekEnd.getTime()){
+    return MONDAY_TO_SUNDAY_DISPLAY_ORDER.filter(dayName=>{
+      const dayDate = addDays(
+        weekStart,
+        WEEKDAY_OFFSET_FROM_WEEK_START[dayName]
+      );
+
+      return dayDate.getTime() >= snapshotTime;
     });
   }
 
-  // The fixture pool contains the following Monday. If a match is somehow
-  // still unplayed after Sunday, keep it visible rather than losing it.
-  // Sunday is the final assignment bucket for that completed block.
   return ['Sunday'];
 }
 
-function getLatestStoredMyGamesSnapshot(weekStore, snapshotKey){
-  const keys = Object.keys(weekStore?.snapshots||{})
-    .filter(key=>key < snapshotKey)
-    .sort();
-  return keys.length ? weekStore.snapshots[keys[keys.length-1]] : null;
+function getElapsedMyGamesDays(weekStart,snapshotDate){
+  const snapshotTime = snapshotDate.getTime();
+
+  return MONDAY_TO_SUNDAY_DISPLAY_ORDER.filter(dayName=>{
+    const dayDate = addDays(
+      weekStart,
+      WEEKDAY_OFFSET_FROM_WEEK_START[dayName]
+    );
+
+    return dayDate.getTime() < snapshotTime;
+  });
 }
 
-function buildFrozenCurrentMyGamesAssignment(weekMatches, weekStart){
+function getDayNameForSnapshotDate(weekStart,snapshotDate){
+  for(const dayName of MONDAY_TO_SUNDAY_DISPLAY_ORDER){
+    const dayDate = addDays(
+      weekStart,
+      WEEKDAY_OFFSET_FROM_WEEK_START[dayName]
+    );
+
+    if(dateToKey(dayDate)===dateToKey(snapshotDate)){
+      return dayName;
+    }
+  }
+
+  return '';
+}
+
+function getLatestStoredMyGamesSnapshotEntry(weekStore,snapshotKey){
+  const keys = Object.keys(weekStore?.snapshots||{})
+    .filter(key=>key<snapshotKey)
+    .sort();
+
+  if(!keys.length) return null;
+
+  const key = keys[keys.length-1];
+
+  return {
+    key,
+    snapshot:weekStore.snapshots[key]
+  };
+}
+
+function assignAlreadyPlayedMatchesWithoutHistory(
+  playedMatches,
+  weekStart,
+  snapshotDate
+){
+  const assignment = new Map();
+
+  if(!playedMatches.length) return assignment;
+
+  const elapsedDays = getElapsedMyGamesDays(weekStart,snapshotDate);
+
+  // First snapshot may happen mid-week with no previous local history.
+  // Completed games must NEVER consume today's/future quota, so distribute
+  // them only across elapsed assignment days.
+  if(!elapsedDays.length){
+    const fallbackDay = MONDAY_TO_SUNDAY_DISPLAY_ORDER[0];
+    [...playedMatches]
+      .sort(compareMyGamesMatches)
+      .forEach(match=>assignment.set(match,fallbackDay));
+    return assignment;
+  }
+
+  const sorted = [...playedMatches].sort(compareMyGamesMatches);
+  const quota = computeDayQuotas(sorted.length,elapsedDays);
+  return fillDaysInCalendarOrder(sorted,elapsedDays,quota);
+}
+
+function buildFrozenCurrentMyGamesAssignment(weekMatches,weekStart){
   const snapshotDate = getMyGamesSnapshotDate(new Date());
   const snapshotKey = dateToKey(snapshotDate);
   const weekKey = dateToKey(weekStart);
+
   const store = loadMyGamesScheduleStore();
-  const weekStore = store.weeks[weekKey] || {snapshots:{}};
-  const existing = weekStore.snapshots?.[snapshotKey];
 
-  // If today's frozen plan already exists, reuse it exactly. Missing or
-  // removed match IDs are ignored safely; newly-added matches are appended
-  // through a controlled repair without disturbing stored assignments.
+  if(!store.weeks[weekKey]){
+    store.weeks[weekKey] = {snapshots:{}};
+  }
+
+  if(!store.weeks[weekKey].snapshots){
+    store.weeks[weekKey].snapshots = {};
+  }
+
+  const weekStore = store.weeks[weekKey];
+  const existing = weekStore.snapshots[snapshotKey];
+
+  // Today's plan is frozen. Reuse it exactly once created.
   if(existing?.assignments){
-    const assignment = storedObjectToAssignmentMap(existing.assignments, weekMatches);
-    const assignedKeys = new Set([...assignment.keys()].map(getMatchStorageKey));
-    const missingMatches = weekMatches.filter(match=>!assignedKeys.has(getMatchStorageKey(match)));
+    const assignment = storedObjectToAssignmentMap(
+      existing.assignments,
+      weekMatches
+    );
 
+    const assignedKeys = new Set(
+      [...assignment.keys()].map(getMatchStorageKey)
+    );
+
+    const missingMatches = weekMatches.filter(
+      match=>!assignedKeys.has(getMatchStorageKey(match))
+    );
+
+    // Repair genuinely new matches without rebuilding today's frozen plan.
     if(missingMatches.length){
-      const eligibleDays = getEligibleMyGamesDays(weekStart,snapshotDate);
-      const missingSorted = [...missingMatches].sort(compareMyGamesMatches);
-      const quota = computeDayQuotas(missingSorted.length, eligibleDays);
-      const repaired = fillDaysInCalendarOrder(missingSorted, eligibleDays, quota);
-      repaired.forEach((dayName,match)=>assignment.set(match,dayName));
+      const unplayedMissing = missingMatches
+        .filter(match=>!isPlayedMatch(match))
+        .sort(compareMyGamesMatches);
+
+      const playedMissing = missingMatches
+        .filter(isPlayedMatch)
+        .sort(compareMyGamesMatches);
+
+      const eligibleDays = getEligibleMyGamesDays(
+        weekStart,
+        snapshotDate
+      );
+
+      if(unplayedMissing.length){
+        const quota = computeDayQuotas(
+          unplayedMissing.length,
+          eligibleDays
+        );
+
+        const repaired = fillDaysInCalendarOrder(
+          unplayedMissing,
+          eligibleDays,
+          quota
+        );
+
+        repaired.forEach((dayName,match)=>{
+          assignment.set(match,dayName);
+        });
+      }
+
+      if(playedMissing.length){
+        const elapsedAssignment =
+          assignAlreadyPlayedMatchesWithoutHistory(
+            playedMissing,
+            weekStart,
+            snapshotDate
+          );
+
+        elapsedAssignment.forEach((dayName,match)=>{
+          assignment.set(match,dayName);
+        });
+      }
 
       existing.assignments = assignmentMapToStoredObject(assignment);
+      existing.playedAtSnapshot = statusMapToStoredObject(weekMatches);
       saveMyGamesScheduleStore(store);
     }
 
     return assignment;
   }
 
-  const baseline = buildMyGamesBaselineAssignment(weekMatches);
-  const previousSnapshot = getLatestStoredMyGamesSnapshot(weekStore,snapshotKey);
+  const previousEntry =
+    getLatestStoredMyGamesSnapshotEntry(
+      weekStore,
+      snapshotKey
+    );
+
+  const previousSnapshot = previousEntry?.snapshot || null;
+
   const previousAssignment = previousSnapshot?.assignments
-    ? storedObjectToAssignmentMap(previousSnapshot.assignments,weekMatches)
-    : baseline;
+    ? storedObjectToAssignmentMap(
+        previousSnapshot.assignments,
+        weekMatches
+      )
+    : new Map();
+
+  const previousStatuses =
+    previousSnapshot?.playedAtSnapshot || {};
 
   const assignment = new Map();
 
-  // Played matches are frozen where they were previously assigned. This is
-  // what lets you play ahead without destroying the historical plan.
-  weekMatches.forEach(match=>{
-    if(!isPlayedMatch(match)) return;
-    assignment.set(match, previousAssignment.get(match) || baseline.get(match) || 'Monday');
-  });
+  const playedNow = weekMatches
+    .filter(isPlayedMatch)
+    .sort(compareMyGamesMatches);
 
-  // Only still-unplayed matches participate in today's redistribution.
-  const pool = weekMatches
+  if(previousSnapshot){
+    const previousSnapshotDate =
+      parseDateOnly(previousEntry.key);
+
+    let previousDayName =
+      previousSnapshotDate
+        ? getDayNameForSnapshotDate(
+            weekStart,
+            previousSnapshotDate
+          )
+        : '';
+
+    // If history exists but the previous snapshot date is outside this
+    // visible Monday-Sunday assignment block, use the last elapsed day.
+    if(!previousDayName){
+      const elapsedDays =
+        getElapsedMyGamesDays(
+          weekStart,
+          snapshotDate
+        );
+
+      previousDayName =
+        elapsedDays[elapsedDays.length-1] || 'Monday';
+    }
+
+    playedNow.forEach(match=>{
+      const key = getMatchStorageKey(match);
+
+      const wasPlayedAtPreviousSnapshot =
+        previousStatuses[key] === true;
+
+      if(!wasPlayedAtPreviousSnapshot){
+        // It became FT since the previous daily snapshot, therefore it
+        // belongs to the previous assignment day and must NOT occupy any
+        // quota from today onward.
+        assignment.set(match,previousDayName);
+        return;
+      }
+
+      const historicalDay =
+        previousAssignment.get(match);
+
+      if(historicalDay){
+        assignment.set(match,historicalDay);
+      }else{
+        assignment.set(match,previousDayName);
+      }
+    });
+
+  }else{
+    const historicalPlayed =
+      assignAlreadyPlayedMatchesWithoutHistory(
+        playedNow,
+        weekStart,
+        snapshotDate
+      );
+
+    historicalPlayed.forEach((dayName,match)=>{
+      assignment.set(match,dayName);
+    });
+  }
+
+  // The ONLY matches allowed to consume today's/future quotas.
+  const remainingUnplayed = weekMatches
     .filter(match=>!isPlayedMatch(match))
     .sort(compareMyGamesMatches);
 
-  const eligibleDays = getEligibleMyGamesDays(weekStart,snapshotDate);
-  const poolQuota = computeDayQuotas(pool.length, eligibleDays);
-  const poolAssignment = fillDaysInCalendarOrder(pool, eligibleDays, poolQuota);
-  poolAssignment.forEach((dayName,match)=>assignment.set(match,dayName));
+  const eligibleDays =
+    getEligibleMyGamesDays(
+      weekStart,
+      snapshotDate
+    );
 
-  if(!store.weeks[weekKey]) store.weeks[weekKey] = {snapshots:{}};
-  if(!store.weeks[weekKey].snapshots) store.weeks[weekKey].snapshots = {};
+  const remainingQuota =
+    computeDayQuotas(
+      remainingUnplayed.length,
+      eligibleDays
+    );
 
-  store.weeks[weekKey].snapshots[snapshotKey] = {
+  const futureAssignment =
+    fillDaysInCalendarOrder(
+      remainingUnplayed,
+      eligibleDays,
+      remainingQuota
+    );
+
+  futureAssignment.forEach((dayName,match)=>{
+    assignment.set(match,dayName);
+  });
+
+  weekStore.snapshots[snapshotKey] = {
     createdAt:new Date().toISOString(),
-    assignments:assignmentMapToStoredObject(assignment)
+    assignments:assignmentMapToStoredObject(assignment),
+    playedAtSnapshot:statusMapToStoredObject(weekMatches)
   };
 
-  // Keep storage compact: retain only the latest 10 daily snapshots for
-  // each week, which is more than enough for a seven-day schedule.
-  const snapshotKeys = Object.keys(store.weeks[weekKey].snapshots).sort();
-  while(snapshotKeys.length > 10){
+  const snapshotKeys =
+    Object.keys(weekStore.snapshots).sort();
+
+  while(snapshotKeys.length>10){
     const oldest = snapshotKeys.shift();
-    delete store.weeks[weekKey].snapshots[oldest];
+    delete weekStore.snapshots[oldest];
   }
 
   saveMyGamesScheduleStore(store);
+
   return assignment;
 }
 
-function buildMyGamesDayAssignment(weekMatches, weekStart, isCurrentWeek){
+function buildMyGamesDayAssignment(
+  weekMatches,
+  weekStart,
+  isCurrentWeek
+){
   if(!isCurrentWeek){
     return buildMyGamesBaselineAssignment(weekMatches);
   }
-  return buildFrozenCurrentMyGamesAssignment(weekMatches,weekStart);
+
+  return buildFrozenCurrentMyGamesAssignment(
+    weekMatches,
+    weekStart
+  );
 }
 
 function renderMyGames(){
-  const all = Array.isArray(appData?.myGames) ? appData.myGames : [];
-  const selected = parseDateOnly(selectedDateKey) || new Date();
-  const weekStart = resolveSelectedMyGamesWeekStart(selected);
+  const all =
+    Array.isArray(appData?.myGames)
+      ? appData.myGames
+      : [];
 
-  // LOCKED My Games fixture pool: Tuesday -> following Monday.
-  const matchWindowStart = addDays(weekStart,1);
-  const matchWindowEnd = addDays(weekStart,7);
+  const selected =
+    parseDateOnly(selectedDateKey) ||
+    new Date();
 
-  const currentWeekStart = getMyGamesWeekStart(new Date());
-  const isCurrentWeek = dateToKey(weekStart)===dateToKey(currentWeekStart);
+  const weekStart =
+    resolveSelectedMyGamesWeekStart(selected);
 
-  // No carry-over from any older gameweek. A match belongs to this My Games
-  // block only when its real fixture date is inside this Tuesday -> Monday pool.
-  const weekMatches = all.filter(match=>{
-    const d = parseDateOnly(match.Date);
-    if(!d) return false;
-    const cd = new Date(d.getFullYear(),d.getMonth(),d.getDate());
-    return cd>=matchWindowStart && cd<=matchWindowEnd;
-  });
+  // LOCKED fixture pool:
+  // Tuesday -> the following Monday.
+  const matchWindowStart =
+    addDays(weekStart,1);
 
-  setText('myGamesTitle', getSeasonWeekLabel(weekStart));
-  setText('myGamesSubtitle', getWeekRangeLabel(weekStart));
+  const matchWindowEnd =
+    addDays(weekStart,7);
 
-  const myGamesPlayedCount = weekMatches.filter(isPlayedMatch).length;
-  const myGamesScheduledCount = weekMatches.length - myGamesPlayedCount;
-  setText('myGamesTotalValue', weekMatches.length);
-  setText('myGamesPlayedValue', myGamesPlayedCount);
-  setText('myGamesScheduledValue', myGamesScheduledCount);
+  const currentWeekStart =
+    getMyGamesWeekStart(new Date());
+
+  const isCurrentWeek =
+    dateToKey(weekStart)===
+    dateToKey(currentWeekStart);
+
+  // NO carry-over from older fixture pools.
+  const weekMatches =
+    all.filter(match=>{
+      const d = parseDateOnly(match.Date);
+      if(!d) return false;
+
+      const calendarDate =
+        new Date(
+          d.getFullYear(),
+          d.getMonth(),
+          d.getDate()
+        );
+
+      return (
+        calendarDate>=matchWindowStart &&
+        calendarDate<=matchWindowEnd
+      );
+    });
+
+  setText(
+    'myGamesTitle',
+    getSeasonWeekLabel(weekStart)
+  );
+
+  setText(
+    'myGamesSubtitle',
+    getWeekRangeLabel(weekStart)
+  );
+
+  const playedCount =
+    weekMatches.filter(isPlayedMatch).length;
+
+  const scheduledCount =
+    weekMatches.length-playedCount;
+
+  setText(
+    'myGamesTotalValue',
+    weekMatches.length
+  );
+
+  setText(
+    'myGamesPlayedValue',
+    playedCount
+  );
+
+  setText(
+    'myGamesScheduledValue',
+    scheduledCount
+  );
 
   if(!weekMatches.length){
-    setHTML('myGamesList','<div class="empty home-empty">No My Games found for this week.</div>');
+    setHTML(
+      'myGamesList',
+      '<div class="empty home-empty">No My Games found for this week.</div>'
+    );
     return;
   }
 
-  const dayAssignment = buildMyGamesDayAssignment(weekMatches,weekStart,isCurrentWeek);
+  const dayAssignment =
+    buildMyGamesDayAssignment(
+      weekMatches,
+      weekStart,
+      isCurrentWeek
+    );
 
   const dayGroups = new Map();
-  MONDAY_TO_SUNDAY_DISPLAY_ORDER.forEach(name=>dayGroups.set(name,[]));
+
+  MONDAY_TO_SUNDAY_DISPLAY_ORDER.forEach(
+    dayName=>dayGroups.set(dayName,[])
+  );
 
   weekMatches.forEach(match=>{
-    const dayName = dayAssignment.get(match) || 'Sunday';
+    const dayName =
+      dayAssignment.get(match) ||
+      'Sunday';
+
     dayGroups.get(dayName).push(match);
   });
 
-  const html = MONDAY_TO_SUNDAY_DISPLAY_ORDER.map(dayName=>{
-    const dayDate = addDays(weekStart,WEEKDAY_OFFSET_FROM_WEEK_START[dayName]);
-    const label = `${dayName} ${formatShortDateFromDate(dayDate).replace(/\.$/,'')}`;
+  const html =
+    MONDAY_TO_SUNDAY_DISPLAY_ORDER
+      .map(dayName=>{
+        const dayDate =
+          addDays(
+            weekStart,
+            WEEKDAY_OFFSET_FROM_WEEK_START[dayName]
+          );
 
-    // Always preserve the master My Games order inside each assigned day.
-    const dayMatches = dayGroups.get(dayName).sort(compareMyGamesMatches);
-    const body = dayMatches.length
-      ? dayMatches.map(renderMatchRowFlat).join('')
-      : '<div class="empty home-empty">No games.</div>';
+        const label =
+          `${dayName} ${
+            formatShortDateFromDate(dayDate)
+              .replace(/\.$/,'')
+          }`;
 
-    return `<section class="home-time-block"><div class="home-time-heading">${escapeHTML(label)}</div>${body}</section>`;
-  }).join('');
+        const dayMatches =
+          dayGroups
+            .get(dayName)
+            .sort(compareMyGamesMatches);
+
+        const body =
+          dayMatches.length
+            ? dayMatches
+                .map(renderMatchRowFlat)
+                .join('')
+            : '<div class="empty home-empty">No games.</div>';
+
+        return `
+          <section class="home-time-block">
+            <div class="home-time-heading">
+              ${escapeHTML(label)}
+            </div>
+            ${body}
+          </section>
+        `;
+      })
+      .join('');
 
   setHTML('myGamesList',html);
 }
@@ -1617,22 +1953,54 @@ function compareCompetitionPriority(a,b){ const order=['england','italy','spain'
 function compareCompetitionNamePriority(a,b,grouped){ return compareCompetitionPriority(grouped[a][0]||{},grouped[b][0]||{})||a.localeCompare(b); }
 function compareCompetitionNamePriorityFromName(groupName,a,b){ const key={England:'england',Italy:'italy',Spain:'spain',Germany:'germany',France:'france',Europe:'europe',World:'world','National Teams':'national-teams'}[groupName]||'world'; return getCompetitionPriority(key,{'Competition Name':a})-getCompetitionPriority(key,{'Competition Name':b})||a.localeCompare(b); }
 /* =========================================================
-   MY GAMES MASTER COMPETITION PRIORITY — LOCKED
+   MY GAMES MASTER COMPETITION PRIORITY — FINAL LOCKED
 
    Global Games is intentionally untouched.
 
    1. UEFA Champions League
    2. UEFA Europa League
    3. UEFA Conference League
-   4. Domestic Cups: France -> Germany -> Spain -> Italy -> England
-   5. Domestic Leagues: France -> Germany -> Spain -> Italy -> England
-   6. Any other My Games competition comes afterwards.
+   4. Domestic Cups:
+      France -> Germany -> Spain -> Italy -> England
+   5. Domestic Leagues:
+      France -> Germany -> Spain -> Italy -> England
 
-   Within the SAME competition, real kickoff datetime is always used.
+   Inside the SAME competition, REAL kickoff datetime is absolute.
+   Canonical competition keys below make this rule survive harmless
+   naming variations such as "Champions League" vs
+   "UEFA Champions League".
 ========================================================= */
-const MY_GAMES_DOMESTIC_COUNTRY_ORDER = ['france','germany','spain','italy','england'];
-const MY_GAMES_LEAGUE_NAME_KEYWORDS = ['premier league','serie a','la liga','bundesliga','ligue 1','championship'];
-const MY_GAMES_CUP_NAME_KEYWORDS = ['cup','coppa','copa','pokal','coupe','trophee','trophée','shield','supercoppa','supercopa','supercup','super cup'];
+const MY_GAMES_DOMESTIC_COUNTRY_ORDER = [
+  'france',
+  'germany',
+  'spain',
+  'italy',
+  'england'
+];
+
+const MY_GAMES_LEAGUE_NAME_KEYWORDS = [
+  'premier league',
+  'serie a',
+  'la liga',
+  'bundesliga',
+  'ligue 1',
+  'championship'
+];
+
+const MY_GAMES_CUP_NAME_KEYWORDS = [
+  'cup',
+  'coppa',
+  'copa',
+  'pokal',
+  'coupe',
+  'trophee',
+  'trophée',
+  'shield',
+  'supercoppa',
+  'supercopa',
+  'supercup',
+  'super cup'
+];
 
 function getMyGamesCompetitionName(match){
   return normaliseCompetitionName(
@@ -1645,35 +2013,126 @@ function getMyGamesCompetitionName(match){
 
 function isMyGamesUCL(match){
   const name = getMyGamesCompetitionName(match);
-  return name.includes('uefa champions league') ||
-    (getCompetitionCategoryKey(match)==='europe' && name.includes('champions league'));
+
+  return (
+    name.includes('uefa champions league') ||
+    (
+      getCompetitionCategoryKey(match)==='europe' &&
+      name.includes('champions league')
+    )
+  );
 }
 
 function isMyGamesUEL(match){
   const name = getMyGamesCompetitionName(match);
-  if(name.includes('conference league')) return false;
-  return name.includes('uefa europa league') ||
-    (getCompetitionCategoryKey(match)==='europe' && name.includes('europa league'));
+
+  if(name.includes('conference league')){
+    return false;
+  }
+
+  return (
+    name.includes('uefa europa league') ||
+    (
+      getCompetitionCategoryKey(match)==='europe' &&
+      name.includes('europa league')
+    )
+  );
 }
 
 function isMyGamesUECL(match){
   const name = getMyGamesCompetitionName(match);
-  return name.includes('uefa conference league') ||
+
+  return (
+    name.includes('uefa conference league') ||
     name.includes('uefa europa conference league') ||
-    (getCompetitionCategoryKey(match)==='europe' && name.includes('conference league'));
+    (
+      getCompetitionCategoryKey(match)==='europe' &&
+      name.includes('conference league')
+    )
+  );
 }
 
 function isCupCompetition(match){
   const name = getMyGamesCompetitionName(match);
-  if(MY_GAMES_LEAGUE_NAME_KEYWORDS.some(keyword=>name.includes(keyword))) return false;
-  return MY_GAMES_CUP_NAME_KEYWORDS.some(keyword=>name.includes(keyword));
+
+  if(
+    MY_GAMES_LEAGUE_NAME_KEYWORDS
+      .some(keyword=>name.includes(keyword))
+  ){
+    return false;
+  }
+
+  return MY_GAMES_CUP_NAME_KEYWORDS
+    .some(keyword=>name.includes(keyword));
 }
 
 function isMyGamesDomesticLeague(match){
-  const country = getCompetitionCategoryKey(match);
-  if(!MY_GAMES_DOMESTIC_COUNTRY_ORDER.includes(country)) return false;
+  const country =
+    getCompetitionCategoryKey(match);
+
+  if(
+    !MY_GAMES_DOMESTIC_COUNTRY_ORDER
+      .includes(country)
+  ){
+    return false;
+  }
+
+  const name =
+    getMyGamesCompetitionName(match);
+
+  return MY_GAMES_LEAGUE_NAME_KEYWORDS
+    .some(keyword=>name.includes(keyword));
+}
+
+function getMyGamesCanonicalCompetitionKey(match){
   const name = getMyGamesCompetitionName(match);
-  return MY_GAMES_LEAGUE_NAME_KEYWORDS.some(keyword=>name.includes(keyword));
+  const country = getCompetitionCategoryKey(match);
+
+  if(isMyGamesUCL(match)){
+    return 'uefa-champions-league';
+  }
+
+  if(isMyGamesUEL(match)){
+    return 'uefa-europa-league';
+  }
+
+  if(isMyGamesUECL(match)){
+    return 'uefa-conference-league';
+  }
+
+  if(country==='france'){
+    if(name.includes('ligue 1')) return 'france-ligue-1';
+    if(name.includes('coupe de france')) return 'france-coupe-de-france';
+    if(name.includes('trophee') || name.includes('trophée')) return 'france-trophee-des-champions';
+  }
+
+  if(country==='germany'){
+    if(name.includes('bundesliga')) return 'germany-bundesliga';
+    if(name.includes('dfb') || name.includes('pokal')) return 'germany-dfb-pokal';
+    if(name.includes('dfl') || name.includes('supercup') || name.includes('super cup')) return 'germany-super-cup';
+  }
+
+  if(country==='spain'){
+    if(name.includes('la liga')) return 'spain-la-liga';
+    if(name.includes('copa del rey')) return 'spain-copa-del-rey';
+    if(name.includes('supercopa')) return 'spain-supercopa';
+  }
+
+  if(country==='italy'){
+    if(name.includes('serie a')) return 'italy-serie-a';
+    if(name.includes('coppa italia')) return 'italy-coppa-italia';
+    if(name.includes('supercoppa')) return 'italy-supercoppa';
+  }
+
+  if(country==='england'){
+    if(name.includes('premier league')) return 'england-premier-league';
+    if(name.includes('fa cup')) return 'england-fa-cup';
+    if(name.includes('carabao')) return 'england-carabao-cup';
+    if(name.includes('community shield')) return 'england-community-shield';
+    if(name.includes('championship')) return 'england-championship';
+  }
+
+  return `${country}|${slugify(name)}`;
 }
 
 function getMyGamesPriorityTier(match){
@@ -1681,58 +2140,91 @@ function getMyGamesPriorityTier(match){
   if(isMyGamesUEL(match)) return 1;
   if(isMyGamesUECL(match)) return 2;
 
-  const country = getCompetitionCategoryKey(match);
-  const countryIndex = MY_GAMES_DOMESTIC_COUNTRY_ORDER.indexOf(country);
+  const country =
+    getCompetitionCategoryKey(match);
 
-  if(countryIndex!==-1 && isCupCompetition(match)){
-    return 10 + countryIndex;
+  const countryIndex =
+    MY_GAMES_DOMESTIC_COUNTRY_ORDER
+      .indexOf(country);
+
+  if(
+    countryIndex!==-1 &&
+    isCupCompetition(match)
+  ){
+    return 10+countryIndex;
   }
 
-  if(countryIndex!==-1 && isMyGamesDomesticLeague(match)){
-    return 20 + countryIndex;
+  if(
+    countryIndex!==-1 &&
+    isMyGamesDomesticLeague(match)
+  ){
+    return 20+countryIndex;
   }
 
   return 100;
 }
 
-function getMyGamesGroupLabel(m){
+function getMyGamesGroupLabel(match){
   return ({
-    england:'England',italy:'Italy',spain:'Spain',germany:'Germany',france:'France',
-    europe:'Europe',world:'World','national-teams':'National Teams'
-  }[getCompetitionCategoryKey(m)]||'World');
+    england:'England',
+    italy:'Italy',
+    spain:'Spain',
+    germany:'Germany',
+    france:'France',
+    europe:'Europe',
+    world:'World',
+    'national-teams':'National Teams'
+  }[getCompetitionCategoryKey(match)] || 'World');
 }
 
 function compareMyGamesMatches(a,b){
   const aTier = getMyGamesPriorityTier(a);
   const bTier = getMyGamesPriorityTier(b);
-  if(aTier!==bTier) return aTier-bTier;
 
-  const aCompetition = getMyGamesCompetitionName(a);
-  const bCompetition = getMyGamesCompetitionName(b);
+  if(aTier!==bTier){
+    return aTier-bTier;
+  }
 
-  // Same competition: kickoff chronology is absolute.
+  const aCompetition =
+    getMyGamesCanonicalCompetitionKey(a);
+
+  const bCompetition =
+    getMyGamesCanonicalCompetitionKey(b);
+
+  // ABSOLUTE RULE:
+  // inside the same competition, ignore team names and every other
+  // secondary priority until real fixture datetime has been compared.
   if(aCompetition===bCompetition){
-    return matchDateSortValue(a)-matchDateSortValue(b) ||
-      String(a.HomeTeam||'').localeCompare(String(b.HomeTeam||''));
+    const kickoffDifference =
+      matchDateSortValue(a)-
+      matchDateSortValue(b);
+
+    if(kickoffDifference!==0){
+      return kickoffDifference;
+    }
+
+    // Only exact kickoff ties need a deterministic fallback.
+    return (
+      String(a.HomeTeam||'')
+        .localeCompare(String(b.HomeTeam||'')) ||
+      String(a.AwayTeam||'')
+        .localeCompare(String(b.AwayTeam||''))
+    );
   }
 
-  // Different competitions inside the same tier/country: keep a stable,
-  // deterministic competition order, then chronological order.
-  const aCategory = getCompetitionCategoryKey(a);
-  const bCategory = getCompetitionCategoryKey(b);
+  // Different competitions inside the same tier are kept deterministic.
+  // This never overrides chronological order INSIDE one competition.
+  const competitionOrder =
+    aCompetition.localeCompare(bCompetition);
 
-  if(aCategory===bCategory){
-    const compPriority =
-      getCompetitionPriority(aCategory,{'Competition Name':a.Competition||a.CompetitionLabel||''}) -
-      getCompetitionPriority(bCategory,{'Competition Name':b.Competition||b.CompetitionLabel||''});
-    if(compPriority!==0) return compPriority;
+  if(competitionOrder!==0){
+    return competitionOrder;
   }
 
-  const competitionNameOrder = aCompetition.localeCompare(bCompetition);
-  if(competitionNameOrder!==0) return competitionNameOrder;
-
-  return matchDateSortValue(a)-matchDateSortValue(b) ||
-    String(a.HomeTeam||'').localeCompare(String(b.HomeTeam||''));
+  return (
+    matchDateSortValue(a)-
+    matchDateSortValue(b)
+  );
 }
 
 function getRankClass(index,size,isGroup,teamRow,groupName){
@@ -2020,7 +2512,7 @@ function safeScore(v){ return v===''||v===undefined||v===null?'-':v; }
 function formatGoalDifference(v){ const n=Number(v); if(!Number.isFinite(n))return'0'; return n>0?`+${n}`:String(n); }
 function escapeHTML(v){ return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
 function escapeAttr(v){ return escapeHTML(v); }
-window.CALCIUM_SCRIPT_VERSION='7090-nations-league-fc25-format';
+window.CALCIUM_SCRIPT_VERSION='7100-my-games-perfect-v3';
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker
