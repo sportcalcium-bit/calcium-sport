@@ -1,0 +1,100 @@
+openapi: 3.1.0
+info:
+  title: Calcium Sport Engine API
+  version: 1.0.0
+  description: Persistent world-memory interface for the Calcium Sport FC25 universe.
+servers:
+  - url: https://REPLACE_WITH_ENGINE_URL
+paths:
+  /health:
+    get:
+      operationId: health
+      summary: Check engine health
+      responses:
+        '200': { description: OK }
+  /context:
+    get:
+      operationId: getContext
+      summary: Retrieve relevant persistent world context for one or more football entities
+      parameters:
+        - in: query
+          name: entities
+          required: true
+          schema: { type: string }
+          description: Comma-separated team/player/manager/competition names or IDs.
+        - in: query
+          name: limit
+          schema: { type: integer, default: 50, maximum: 200 }
+      responses:
+        '200': { description: Relevant events, storylines and relationships }
+  /events:
+    get:
+      operationId: getEvents
+      summary: Query historical world events
+      parameters:
+        - in: query
+          name: entity
+          schema: { type: string }
+        - in: query
+          name: status
+          schema: { type: string, enum: [CONFIRMED, RUMOUR, OPINION] }
+      responses:
+        '200': { description: Matching events }
+  /storylines:
+    get:
+      operationId: getStorylines
+      summary: Retrieve active/dormant/resolved storylines
+      parameters:
+        - in: query
+          name: entity
+          schema: { type: string }
+        - in: query
+          name: status
+          schema: { type: string, enum: [ACTIVE, DORMANT, RESOLVED] }
+      responses:
+        '200': { description: Matching storylines }
+  /remember:
+    post:
+      operationId: remember
+      summary: Persist important user-supplied or engine-generated universe context and link it to all relevant entities
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text, createdBy]
+              properties:
+                text: { type: string }
+                occurredAt: { type: string, format: date-time }
+                createdBy: { type: string, enum: [USER, ENGINE, MEDIA] }
+                status: { type: string, enum: [CONFIRMED, RUMOUR, OPINION] }
+                confidence: { type: integer, minimum: 0, maximum: 100 }
+                source: { type: string }
+                entityHints:
+                  type: array
+                  items: { type: string }
+      responses:
+        '200': { description: Stored event and linked entities }
+  /storylines:
+    post:
+      operationId: createStoryline
+      summary: Create a persistent storyline
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, entities]
+              properties:
+                title: { type: string }
+                summary: { type: string }
+                type: { type: string }
+                importance: { type: integer, minimum: 0, maximum: 100 }
+                momentum: { type: integer, minimum: 0, maximum: 100 }
+                entities:
+                  type: array
+                  items: { type: string }
+      responses:
+        '200': { description: Created storyline }
