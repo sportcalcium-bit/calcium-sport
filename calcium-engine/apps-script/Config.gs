@@ -2,8 +2,20 @@ const CALCIUM_ENGINE_DB_ID = '15uzus4vyP3-hzjsa2Q4eRYczAlHwWJCdNzs_Z2_ypGc';
 const CALCIUM_EXISTING_FACT_API_URL = 'https://script.google.com/macros/s/AKfycbwGK-Qg0o1UwBzU6np-y9_XA9KefEiuqGmEVax7kfT2cees6WD5zwBz4iCGHSYt5CwQ/exec';
 
 /**
- * Run this ONCE from the Apps Script editor before deployment.
- * It configures the persistent Engine DB and existing Calcium Sport Facts API.
+ * PUBLIC WRAPPERS
+ * Apps Script hides functions ending in "_" from the Run dropdown,
+ * so use these two functions from the editor.
+ */
+function configureCalciumEngine() {
+  return configureCalciumEngine_();
+}
+
+function testCalciumEngineConfig() {
+  return testCalciumEngineConfig_();
+}
+
+/**
+ * Internal configuration implementation.
  */
 function configureCalciumEngine_() {
   PropertiesService.getScriptProperties().setProperties({
@@ -24,7 +36,7 @@ function configureCalciumEngine_() {
 }
 
 /**
- * Optional quick editor test after configureCalciumEngine_().
+ * Internal quick editor test.
  */
 function testCalciumEngineConfig_() {
   const props = PropertiesService.getScriptProperties();
