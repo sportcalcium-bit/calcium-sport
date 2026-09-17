@@ -1380,7 +1380,7 @@ function renderMatchDetail(match,eventsLoading=false){
     appData?.selectedCompetition?.['Competition Name'] ||
     appData?.site?.competition ||
     '';
-  const roundLabel = String(match.R || '').trim();
+  const roundLabel = String(match.Round || '').trim();
 
   const eventContent=eventsLoading
     ? '<div class="empty">Loading goals, assists and cards...</div>'
