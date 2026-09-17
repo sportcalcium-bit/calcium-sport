@@ -1390,18 +1390,20 @@ function renderMatchDetail(match,eventsLoading=false){
     <section class="match-hero">
 
       <div class="match-date-main">
-        ${competition ? `
-  <div style="margin-top:4px;font-size:13px;font-weight:700;opacity:.72;">
-    ${escapeHTML(competition)}
-  </div>
-` : ''}
+  ${escapeHTML(formatFullDateTime(match.Date,match.Time))}
 
-${roundLabel ? `
-  <div style="font-size:13px;font-weight:700;opacity:.72;">
-    ${escapeHTML(roundLabel)}
-  </div>
-` : ''}
-      </div>
+  ${competition ? `
+    <div style="margin-top:4px;font-size:13px;font-weight:700;opacity:.72;">
+      ${escapeHTML(competition)}
+    </div>
+  ` : ''}
+
+  ${roundLabel ? `
+    <div style="font-size:13px;font-weight:700;opacity:.72;">
+      ${escapeHTML(roundLabel)}
+    </div>
+  ` : ''}
+</div>
 
       <div class="match-main-teams">
 
