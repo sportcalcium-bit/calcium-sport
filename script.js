@@ -1380,6 +1380,7 @@ function renderMatchDetail(match,eventsLoading=false){
     appData?.selectedCompetition?.['Competition Name'] ||
     appData?.site?.competition ||
     '';
+  const roundLabel = String(match.R || '').trim();
 
   const eventContent=eventsLoading
     ? '<div class="empty">Loading goals, assists and cards...</div>'
@@ -1389,12 +1390,17 @@ function renderMatchDetail(match,eventsLoading=false){
     <section class="match-hero">
 
       <div class="match-date-main">
-        ${escapeHTML(formatFullDateTime(match.Date,match.Time))}
         ${competition ? `
-          <div style="margin-top:4px;font-size:13px;font-weight:700;opacity:.72;">
-            ${escapeHTML(competition)}
-          </div>
-        ` : ''}
+  <div style="margin-top:4px;font-size:13px;font-weight:700;opacity:.72;">
+    ${escapeHTML(competition)}
+  </div>
+` : ''}
+
+${roundLabel ? `
+  <div style="font-size:13px;font-weight:700;opacity:.72;">
+    ${escapeHTML(roundLabel)}
+  </div>
+` : ''}
       </div>
 
       <div class="match-main-teams">
