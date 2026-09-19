@@ -2184,17 +2184,38 @@ function getMyGamesGroupLabel(match){
     'national-teams':'National Teams'
   }[getCompetitionCategoryKey(match)] || 'World');
 }
+function isMyGamesNationalTeamMatch(match){
+  const category = getCompetitionCategoryKey(match);
 
+  if(category === 'national-teams'){
+    return true;
+  }
+
+  const competition = normaliseCompetitionName(
+    match?.Competition ||
+    match?.CompetitionLabel ||
+    match?.['Competition Name'] ||
+    ''
+  );
+
+  return (
+    competition.includes('nations league') ||
+    competition.includes('afcon') ||
+    competition.includes('world cup qualification') ||
+    competition.includes('world cup qualifiers') ||
+    competition.includes('euro qualification') ||
+    competition.includes('euro qualifiers') ||
+    competition.includes('friendlies') ||
+    competition.includes('friendly')
+  );
+}
 function compareMyGamesMatches(a,b){
 
   // NATIONAL TEAMS ONLY:
   // Ignore competition type completely.
   // Sort every National Teams match by its real date + kickoff time.
-  const aIsNationalTeam =
-    getCompetitionCategoryKey(a) === 'national-teams';
-
-  const bIsNationalTeam =
-    getCompetitionCategoryKey(b) === 'national-teams';
+  const aIsNationalTeam = isMyGamesNationalTeamMatch(a);
+const bIsNationalTeam = isMyGamesNationalTeamMatch(b);
 
   if(aIsNationalTeam && bIsNationalTeam){
     const kickoffDifference =
