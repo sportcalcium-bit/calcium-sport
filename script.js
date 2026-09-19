@@ -2186,11 +2186,42 @@ function getMyGamesGroupLabel(match){
 }
 
 function compareMyGamesMatches(a,b){
+
+  // NATIONAL TEAMS ONLY:
+  // Ignore competition type completely.
+  // Sort every National Teams match by its real date + kickoff time.
+  const aIsNationalTeam =
+    getCompetitionCategoryKey(a) === 'national-teams';
+
+  const bIsNationalTeam =
+    getCompetitionCategoryKey(b) === 'national-teams';
+
+  if(aIsNationalTeam && bIsNationalTeam){
+    const kickoffDifference =
+      matchDateSortValue(a) -
+      matchDateSortValue(b);
+
+    if(kickoffDifference !== 0){
+      return kickoffDifference;
+    }
+
+    // Only used if two national-team matches have
+    // exactly the same date and kickoff time.
+    return (
+      String(a.HomeTeam || '')
+        .localeCompare(String(b.HomeTeam || '')) ||
+      String(a.AwayTeam || '')
+        .localeCompare(String(b.AwayTeam || ''))
+    );
+  }
+
+
+  // CLUB GAMES — EXISTING LOGIC UNCHANGED
   const aTier = getMyGamesPriorityTier(a);
   const bTier = getMyGamesPriorityTier(b);
 
-  if(aTier!==bTier){
-    return aTier-bTier;
+  if(aTier !== bTier){
+    return aTier - bTier;
   }
 
   const aCompetition =
@@ -2199,42 +2230,35 @@ function compareMyGamesMatches(a,b){
   const bCompetition =
     getMyGamesCanonicalCompetitionKey(b);
 
-  // ABSOLUTE RULE:
-  // inside the same competition, ignore team names and every other
-  // secondary priority until real fixture datetime has been compared.
-  if(aCompetition===bCompetition){
+  if(aCompetition === bCompetition){
     const kickoffDifference =
-      matchDateSortValue(a)-
+      matchDateSortValue(a) -
       matchDateSortValue(b);
 
-    if(kickoffDifference!==0){
+    if(kickoffDifference !== 0){
       return kickoffDifference;
     }
 
-    // Only exact kickoff ties need a deterministic fallback.
     return (
-      String(a.HomeTeam||'')
-        .localeCompare(String(b.HomeTeam||'')) ||
-      String(a.AwayTeam||'')
-        .localeCompare(String(b.AwayTeam||''))
+      String(a.HomeTeam || '')
+        .localeCompare(String(b.HomeTeam || '')) ||
+      String(a.AwayTeam || '')
+        .localeCompare(String(b.AwayTeam || ''))
     );
   }
 
-  // Different competitions inside the same tier are kept deterministic.
-  // This never overrides chronological order INSIDE one competition.
   const competitionOrder =
     aCompetition.localeCompare(bCompetition);
 
-  if(competitionOrder!==0){
+  if(competitionOrder !== 0){
     return competitionOrder;
   }
 
   return (
-    matchDateSortValue(a)-
+    matchDateSortValue(a) -
     matchDateSortValue(b)
   );
 }
-
 function getRankClass(index,size,isGroup,teamRow,groupName){
 
   const pos = index + 1;
