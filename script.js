@@ -145,7 +145,7 @@ function mergeNationalTeamFavouritesIntoMyGames(){
     return MY_GAMES_NATIONAL_TEAMS.has(normaliseTeamName(match.HomeTeam)) ||
       MY_GAMES_NATIONAL_TEAMS.has(normaliseTeamName(match.AwayTeam));
   });
-  appData.myGames = dedupeMatchArray(appData.myGames.concat(nationalTeamMatches));
+appData.myGames = dedupeMatchArray(nationalTeamMatches.concat(appData.myGames));
 }
 
 async function mergeMissingHomeCompetition(competitionName){
