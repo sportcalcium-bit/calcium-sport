@@ -685,9 +685,6 @@ function resolveSelectedMyGamesWeekStart(selected){
   return getWeekStart(selected);
 }
 
-  return normalStart;
-}
-
 function getMyGamesSnapshotDate(now=new Date()){
   const snapshot = new Date(now.getFullYear(),now.getMonth(),now.getDate());
 
