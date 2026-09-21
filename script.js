@@ -678,18 +678,12 @@ function fillDaysInCalendarOrder(sortedMatches,dayNames,quota){
 }
 
 function getMyGamesWeekStart(date){
-  const normalStart = getWeekStart(date);
-  return date.getDay()===1 ? addDays(normalStart,-7) : normalStart;
+  return getWeekStart(date);
 }
 
 function resolveSelectedMyGamesWeekStart(selected){
-  const normalStart = getWeekStart(selected);
-  const today = new Date();
-  today.setHours(0,0,0,0);
-
-  if(today.getDay()===1 && dateToKey(selected)===dateToKey(today)){
-    return addDays(normalStart,-7);
-  }
+  return getWeekStart(selected);
+}
 
   return normalStart;
 }
