@@ -8,6 +8,9 @@ const MY_GAMES_NATIONAL_TEAMS = new Set([
 let appData = null;
 let playerImageLookup = new Map();
 let playerTeamsLookup = new Map();
+let playerAliasLookup = new Map();
+let profileGlobalMatches = [];
+let profileMatchesPromise = null;
 let teamLogoLookup = new Map();
 let activePlayerProfileName='';
 let activePlayerSeason='';
@@ -126,6 +129,7 @@ appData.playerTeams =
 
   playerImageLookup = buildPlayerImageLookup(appData.players);
   playerTeamsLookup = buildPlayerTeamsLookup(appData.playerTeams);
+  playerAliasLookup = buildPlayerAliasLookup();
 
   const selected = appData.selectedCompetition || appData.site || {};
   currentCompetition = makeCompetitionSlug(selected);
@@ -1310,7 +1314,7 @@ function buildPlayerImageLookup(players){
   players.forEach(row=>{
     const name=String(row?.['Player Name']??row?.Player??row?.Name??row?.[0]??'').trim();
     const imageUrl=String(row?.['Player Image URL']??row?.ImageURL??row?.['Image URL']??row?.[1]??'').trim();
-    const key=normalisePlayerName(name);
+    const key=playerIdentityKey(name);
     if(key&&!lookup.has(key)) lookup.set(key,imageUrl);
   });
   return lookup;
@@ -1319,14 +1323,77 @@ function buildPlayerTeamsLookup(rows){
   const lookup=new Map();
   if(!Array.isArray(rows)) return lookup;
   rows.forEach(row=>{
-    const name=String(row?.['Player Name']??row?.Player??row?.[0]??'').trim();
-    const team=String(row?.Team??row?.[1]??'').trim();
+    const name=String(row?.['Player Name']??row?.Player??'').trim();
+    const team=String(row?.Team??'').trim();
     if(!name||!team) return;
-    const key=normalisePlayerName(name);
+    const key=playerIdentityKey(name);
     if(!lookup.has(key)) lookup.set(key,[]);
-    lookup.get(key).push({playerName:name,team,teamType:String(row?.['Team Type']??row?.TeamType??row?.[2]??'').trim(),startDate:String(row?.['Start Date']??row?.StartDate??row?.[3]??'').trim(),endDate:String(row?.['End Date']??row?.EndDate??row?.[4]??'').trim(),includeGames:String(row?.['Include Games']??row?.IncludeGames??row?.[5]??'Yes').trim()});
+    lookup.get(key).push({playerName:name,team,
+      season:normaliseProfileSeason(row.Season),
+      position:String(row.Position??'').trim(),
+      teamType:String(row['Team Type']??row.TeamType??'').trim(),
+      status:String(row.Status??'').trim()});
   });
   return lookup;
+}
+// Identity normalization is separate from the event-name cleanup below.
+function playerIdentityKey(value){
+  return String(value||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase().replace(/[.‘’']/g,'').replace(/[-–—]/g,' ').replace(/\s+/g,' ').trim();
+}
+function playerInitialSurname(value){
+  const parts=playerIdentityKey(value).split(' ');
+  return parts.length>1?`${parts[0][0]} ${parts.slice(1).join(' ')}`:'';
+}
+function buildPlayerAliasLookup(){
+  const aliases=new Map(), candidates=new Map();
+  for(const key of playerTeamsLookup.keys()){
+    aliases.set(key,key);
+    const short=playerInitialSurname(key);
+    if(short){ if(!candidates.has(short)) candidates.set(short,[]); candidates.get(short).push(key); }
+  }
+  for(const row of appData?.players||[]){
+    const key=playerIdentityKey(row['Player Name']??row.Player??row.Name??row[0]);
+    if(aliases.has(key)) continue;
+    const matches=candidates.get(playerInitialSurname(key))||[];
+    // A shared initial is insufficient for two different full first names.
+    if(matches.length===1 && (key.split(' ')[0].length===1 || matches[0].split(' ')[0].length===1)) aliases.set(key,matches[0]);
+  }
+  return aliases;
+}
+function canonicalPlayerKey(name){
+  const key=playerIdentityKey(name);
+  if(playerAliasLookup.has(key)) return playerAliasLookup.get(key);
+  const matches=[...playerTeamsLookup.keys()].filter(k=>playerInitialSurname(k) && playerInitialSurname(k)===playerInitialSurname(key));
+  return matches.length===1 && (key.split(' ')[0].length===1 || matches[0].split(' ')[0].length===1)?matches[0]:key;
+}
+function canonicalPlayerName(name){ return playerTeamsLookup.get(canonicalPlayerKey(name))?.[0]?.playerName||String(name||'').trim(); }
+function normaliseProfileSeason(value){
+  const text=String(value??'').trim(),range=text.match(/^(\d{4})\s*[-/]\s*(\d{2}|\d{4})$/);
+  return range?(range[2].length===2?String(Number(range[1].slice(0,2)+range[2])):range[2]):text;
+}
+function getProfileMatchSeason(match){
+  return normaliseProfileSeason(match.Year||match.Season||getSeasonYearForDate(match.Date));
+}
+function getPlayerSeasonRows(name,season){
+  return (playerTeamsLookup.get(canonicalPlayerKey(name))||[]).filter(row=>row.season===String(season));
+}
+function getPreferredPlayerSeason(name,requested){
+  const seasons=[...new Set((playerTeamsLookup.get(canonicalPlayerKey(name))||[]).map(r=>r.season).filter(Boolean))].sort((a,b)=>Number(b)-Number(a));
+  const preferred=normaliseProfileSeason(requested||appData?.selectedCompetition?.Year||getCurrentSeasonYear());
+  return seasons.includes(preferred)?preferred:(seasons[0]||'');
+}
+function renderPlayerSearchLabel(name){
+  const rows=getPlayerSeasonRows(name,getPreferredPlayerSeason(name));
+  const detail=[...new Set(rows.map(r=>[r.team,r.position].filter(Boolean).join(' · ')))].join(' / ');
+  return `<span><strong>${escapeHTML(name)}</strong>${detail?`<small style="display:block">${escapeHTML(detail)}</small>`:''}</span>`;
+}
+function findSearchPlayers(players,query){
+  const q=playerIdentityKey(query);
+  const matchingAliases=new Set([...playerAliasLookup].filter(([alias])=>alias.includes(q)).map(([,key])=>key));
+  const names=players.filter(n=>playerIdentityKey(n).includes(q)||matchingAliases.has(playerIdentityKey(n)));
+  const exact=names.filter(n=>playerIdentityKey(n).split(' ').includes(q)||playerIdentityKey(n)===q);
+  return (exact.length?exact:names).slice(0,8);
 }
 function normalisePlayerName(value){
   return String(value||'')
@@ -1343,7 +1410,20 @@ function normalisePlayerName(value){
     .trim()
     .toLocaleLowerCase();
 }
-function getPlayerImageUrl(playerName){ return playerImageLookup.get(normalisePlayerName(playerName))||''; }
+function getPlayerImageUrl(playerName){
+  const key=canonicalPlayerKey(playerName),name=canonicalPlayerName(playerName);
+  const exact=playerImageLookup.get(playerIdentityKey(name));
+  if(exact) return exact;
+  const images=new Set();
+  for(const row of appData?.players||[]){
+    const alias=String(row['Player Name']??row.Player??row.Name??row[0]??'');
+    if(playerAliasLookup.get(playerIdentityKey(alias))===key){
+      const url=playerImageLookup.get(playerIdentityKey(alias));
+      if(url) images.add(url);
+    }
+  }
+  return images.size===1?[...images][0]:'';
+}
 function renderPlayerImage(playerName){
   const name=String(playerName||'').trim()||'Player';
   const imageUrl=getPlayerImageUrl(name)||'player-placeholder.svg';
@@ -1355,7 +1435,7 @@ function renderPlayerLink(playerName,nameClass=''){
   return `<button class="player-link ${escapeAttr(nameClass)}" type="button" onclick="openPlayerProfile('${escapeAttr(name)}',event)" title="Open ${escapeAttr(name)} profile">${renderPlayerImage(name)}<span>${escapeHTML(name)}</span></button>`;
 }
 async function openMatchDetail(matchId){
-  const unique=dedupeMatchArray(getGlobalMatches().concat(getCompetitionMatches()).concat(Array.isArray(appData?.myGames)?appData.myGames:[]));
+  const unique=getProfileMatches();
   const match=unique.find(m=>m.MatchID===matchId||m.ID===matchId);
   if(!match) return;
   const modal=$('matchModal'),content=$('matchDetailContent');
@@ -1503,9 +1583,10 @@ function getMatchMOTM(match){ if(match.MOTM) return match.MOTM; const matchId=ma
 function renderHighlights(url){ const cleanUrl=String(url||'').trim(); if(!cleanUrl) return ''; const id=getYouTubeId(cleanUrl); if(!id) return `<section class="highlights-card"><div class="highlights-header"><span>📺 Highlights</span><a href="${escapeAttr(cleanUrl)}" target="_blank" rel="noopener noreferrer">Open video</a></div></section>`; return `<section class="highlights-card"><div class="highlights-header"><span>📺 Highlights</span><a href="${escapeAttr(cleanUrl)}" target="_blank" rel="noopener noreferrer">Open on YouTube</a></div><a class="youtube-preview" href="${escapeAttr(cleanUrl)}" target="_blank" rel="noopener noreferrer"><img src="https://img.youtube.com/vi/${escapeAttr(id)}/maxresdefault.jpg" alt="YouTube highlights thumbnail" onerror="this.src='https://img.youtube.com/vi/${escapeAttr(id)}/hqdefault.jpg'"><span class="youtube-play">▶</span></a></section>`; }
 function getYouTubeId(url){ const text=String(url||'').trim(); const patterns=[/youtube\.com\/watch\?v=([^&]+)/i,/youtu\.be\/([^?&]+)/i,/youtube\.com\/shorts\/([^?&]+)/i,/youtube\.com\/embed\/([^?&]+)/i]; for(const p of patterns){ const m=text.match(p); if(m?.[1]) return m[1]; } return ''; }
 
-function openPlayerProfile(playerName,event){
-  event?.stopPropagation?.(); activePlayerProfileName=String(playerName||'').trim(); activePlayerSeason=String(getCurrentSeasonYear());
+function openPlayerProfile(playerName,event,season){
+  event?.stopPropagation?.(); activePlayerProfileName=canonicalPlayerName(playerName); activePlayerSeason=getPreferredPlayerSeason(activePlayerProfileName,season);
   renderActivePlayerProfile(); $('playerModal')?.classList.remove('hidden'); document.body.classList.add('modal-open');
+  ensureProfileMatches().then(()=>{if(!$('playerModal')?.classList.contains('hidden')) renderActivePlayerProfile();});
 }
 window.openPlayerProfile=openPlayerProfile;
 function closePlayerProfile(){ $('playerModal')?.classList.add('hidden'); if($('matchModal')?.classList.contains('hidden')&&$('teamModal')?.classList.contains('hidden')) document.body.classList.remove('modal-open'); }
@@ -1522,43 +1603,68 @@ function isPlayedMatch(match){
   return /^\d+$/.test(home) && /^\d+$/.test(away);
 }
 function renderPlayerProfile(playerName,seasonYear=getCurrentSeasonYear()){
-  const name=String(playerName||'').trim(),assignments=playerTeamsLookup.get(normalisePlayerName(name))||[],allMatches=getPlayerMatches(assignments,name);
-  const current=String(getCurrentSeasonYear()),seasons=[...new Set(allMatches.map(x=>String(getSeasonYearForDate(x.match.Date))).filter(Boolean))];
-  if(!seasons.includes(current)) seasons.push(current); seasons.sort((a,b)=>Number(b)-Number(a));
-  const selected=seasons.includes(String(seasonYear))?String(seasonYear):current,matches=allMatches.filter(x=>String(getSeasonYearForDate(x.match.Date))===selected);
-  const totals=matches.reduce((s,x)=>{s.goals+=x.stats.goals;s.assists+=x.stats.assists;s.yellow+=x.stats.yellow;s.red+=x.stats.red;return s},{goals:0,assists:0,yellow:0,red:0});
-  const national=assignments.find(x=>normaliseText(x.teamType)==='national team'),clubs=assignments.filter(x=>normaliseText(x.teamType)==='club');
+  const name=canonicalPlayerName(playerName),allAssignments=playerTeamsLookup.get(canonicalPlayerKey(name))||[];
+  const seasons=[...new Set(allAssignments.map(x=>x.season).filter(Boolean))].sort((a,b)=>Number(b)-Number(a));
+  const selected=getPreferredPlayerSeason(name,seasonYear),assignments=getPlayerSeasonRows(name,selected);
+  const matches=getPlayerMatches(assignments,name);
   const teams=assignments.length?assignments.map(renderPlayerTeamAssignment).join(''):'<div class="empty">Team information has not been added yet.</div>';
   const rows=matches.length?matches.map(renderPlayerMatchRow).join(''):'<div class="empty">No played games are available for this player in this season.</div>';
   const options=seasons.map(y=>`<option value="${escapeAttr(y)}" ${y===selected?'selected':''}>${escapeHTML(y)}</option>`).join('');
-  return `<section class="player-profile-hero"><div class="player-profile-photo">${renderPlayerImage(name)}</div><div class="player-profile-copy"><div class="eyebrow">Player profile</div><h2>${escapeHTML(name)}</h2>${national?`<p>🌍 ${escapeHTML(national.team)}</p>`:''}${clubs.length?`<p>${clubs.map(x=>escapeHTML(x.team)).join(' · ')}</p>`:''}</div><label class="profile-season-select"><span>Season</span><select onchange="changePlayerSeason(this.value)">${options}</select></label></section><section class="player-summary-grid"><div><strong>${matches.length}</strong><span>Games</span></div><div><strong>${totals.goals}</strong><span>Goals</span></div><div><strong>${totals.assists}</strong><span>Assists</span></div><div><strong>${totals.yellow}</strong><span>Yellow</span></div><div><strong>${totals.red}</strong><span>Red</span></div></section><section class="player-teams-section"><h3>Teams</h3>${teams}</section><section class="player-matches-section"><h3>Played games · ${escapeHTML(selected)}</h3>${rows}</section>`;
+  const description=[...new Set(assignments.map(x=>[x.team,x.position].filter(Boolean).join(' · ')))].join(' / ');
+  return `<section class="player-profile-hero"><div class="player-profile-photo">${renderPlayerImage(name)}</div><div class="player-profile-copy"><div class="eyebrow">Player profile</div><h2>${escapeHTML(name)}</h2><p>${escapeHTML(description)}</p></div>${seasons.length?`<label class="profile-season-select"><span>Season</span><select onchange="changePlayerSeason(this.value)">${options}</select></label>`:''}</section><section class="player-teams-section"><h3>Teams</h3>${teams}</section><section class="player-matches-section"><h3>Played games${selected?' · '+escapeHTML(selected):''}</h3>${rows}</section>`;
 }
 function renderPlayerTeamAssignment(item){
-  const dates=item.startDate||item.endDate?`${item.startDate||'Beginning'} → ${item.endDate||'Present'}`:'Dates not restricted';
-  return `<div class="player-team-row">${renderTeamLogo(findTeamLogo(item.team),item.team)}<span><strong>${escapeHTML(item.team)}</strong><small>${escapeHTML(item.teamType||'Team')} · ${escapeHTML(dates)}</small></span></div>`;
+  const detail=[item.teamType,item.position,item.status].filter(Boolean).join(' · ');
+  return `<div class="player-team-row">${renderTeamLogo(findTeamLogo(item.team),item.team)}<span><strong>${escapeHTML(item.team)}</strong><small>${escapeHTML(detail)}</small></span></div>`;
+}
+// Competition pages only load their own fixtures. Fetch the existing home data
+// on profile demand without touching the homepage or My Games scheduling arrays.
+async function ensureProfileMatches(){
+  if(appData?.allMatches?.length || profileGlobalMatches.length) return;
+  if(!profileMatchesPromise){
+    profileMatchesPromise=fetch(`${API_URL}?action=home&v=${Date.now()}`,{cache:'no-store'})
+      .then(response=>{if(!response.ok) throw new Error('Could not load profile games'); return response.json();})
+      .then(data=>{if(data.error) throw new Error(data.error); profileGlobalMatches=(data.allGames||[]).map(mapApiMatchToPascal);})
+      .catch(error=>console.warn('Could not load all profile games.',error))
+      .finally(()=>{profileMatchesPromise=null;});
+  }
+  return profileMatchesPromise;
+}
+function getProfileMatches(){
+  const competition=appData?.selectedCompetition;
+  const local=getCompetitionMatches().map(match=>({...match,
+    Year:match.Year||competition?.Year||'',
+    Competition:match.Competition||competition?.['Competition Name']||''}));
+  return dedupeMatchArray(getGlobalMatches().concat(profileGlobalMatches,local,appData?.myGames||[]));
 }
 function getPlayerMatches(assignments,playerName){
   if(!assignments.length) return [];
-  const matches=dedupeMatchArray(getGlobalMatches().concat(getCompetitionMatches()).concat(Array.isArray(appData?.myGames)?appData.myGames:[]));
-  return matches.filter(match=>isPlayedMatch(match)&&assignments.some(item=>assignmentIncludesMatch(item,match))).map(match=>({match,stats:getPlayerMatchStats(match,playerName)})).sort((a,b)=>matchDateSortValue(b.match)-matchDateSortValue(a.match));
+  const matches=getProfileMatches();
+  return matches.filter(match=>String(match.Status||'').trim().toUpperCase()==='FT'&&assignments.some(item=>assignmentIncludesMatch(item,match))).map(match=>({match,stats:getPlayerMatchStats(match,playerName)})).sort((a,b)=>matchDateSortValue(b.match)-matchDateSortValue(a.match));
 }
 function assignmentIncludesMatch(item,match){
-  if(normaliseText(item.includeGames)==='no') return false;
-  const team=normaliseTeamName(item.team);
-  if(team!==normaliseTeamName(match.HomeTeam)&&team!==normaliseTeamName(match.AwayTeam)) return false;
-  const date=getDateKey(match.Date);
-  if(item.startDate&&date<getDateKey(item.startDate)) return false;
-  if(item.endDate&&date>getDateKey(item.endDate)) return false;
-  return true;
+  return item.season===getProfileMatchSeason(match) && (sameTeam(item.team,match.HomeTeam)||sameTeam(item.team,match.AwayTeam));
+}
+function getTeamSquad(teamName,season){
+  const squad=[];
+  for(const rows of playerTeamsLookup.values()){
+    const row=rows.find(r=>sameTeam(r.team,teamName)&&r.season===String(season));
+    if(row) squad.push(row);
+  }
+  return squad.sort((a,b)=>a.playerName.localeCompare(b.playerName));
+}
+function renderTeamSquad(teamName,season){
+  const squad=getTeamSquad(teamName,season);
+  return squad.length?squad.map(row=>`<button class="team-squad-player" type="button" onclick="closeTeamProfile();openPlayerProfile(${escapeAttr(JSON.stringify(row.playerName))},null,${escapeAttr(JSON.stringify(String(season)))})">${renderPlayerImage(row.playerName)}<span><strong>${escapeHTML(row.playerName)}</strong><small style="display:block">${escapeHTML(row.position)}</small></span></button>`).join(''):'<div class="empty">No squad players found for this season.</div>';
 }
 function getPlayerMatchStats(match,playerName){
-  const key=normalisePlayerName(playerName);
+  const key=canonicalPlayerKey(playerName);
   const totals={goals:0,assists:0,yellow:0,red:0};
   getMatchEvents(match.MatchID||match.ID).forEach(event=>{
-    const type=normaliseText(event.Event),player=normalisePlayerName(event.Player);
+    const type=normaliseText(event.Event),player=canonicalPlayerKey(normalisePlayerName(event.Player));
     if(player===key){ if(type==='goal') totals.goals++; if(type==='yellow card') totals.yellow++; if(type==='red card') totals.red++; }
     const assist=String(event.Detail||'').match(/(?:^|,\s*)Assist:\s*(.+)$/i)?.[1]?.trim();
-    if(assist&&normalisePlayerName(assist)===key) totals.assists++;
+    if(assist&&canonicalPlayerKey(assist)===key) totals.assists++;
   });
   return totals;
 }
@@ -1570,9 +1676,8 @@ function renderPlayerMatchRow(item){
 
 function getMasterSearchItems(){
  const players=[],seenP=new Set(),teams=[],seenT=new Set();
- const addP=n=>{n=String(n||'').trim();const k=normalisePlayerName(n);if(n&&!seenP.has(k)){seenP.add(k);players.push(n)}};
+ const addP=n=>{n=String(n||'').trim();const k=playerIdentityKey(n);if(n&&!seenP.has(k)){seenP.add(k);players.push(n)}};
  const addT=n=>{n=String(n||'').trim();const k=normaliseTeamName(n);if(n&&!seenT.has(k)){seenT.add(k);teams.push(n)}};
- (appData?.players||[]).forEach(r=>addP(r?.['Player Name']??r?.Player??r?.Name??r?.[0]));
  (appData?.playerTeams||[]).forEach(r=>{addP(r?.['Player Name']??r?.Player??r?.[0]);addT(r?.Team??r?.[1])});
  getGlobalMatches().concat(getCompetitionMatches()).concat(appData?.myGames||[]).forEach(m=>{addT(m.HomeTeam);addT(m.AwayTeam)});
  return {players,teams};
@@ -1580,8 +1685,8 @@ function getMasterSearchItems(){
 function renderMasterSearchResults(value){
  const box=$('masterSearchResults'),q=normaliseText(value); $('masterSearchClear')?.classList.toggle('hidden',!q);
  if(!box)return;if(!q){box.classList.add('hidden');box.innerHTML='';return}
- const data=getMasterSearchItems(),players=data.players.filter(n=>normaliseText(n).includes(q)).slice(0,8),teams=data.teams.filter(n=>normaliseText(n).includes(q)).slice(0,8);
- box.innerHTML=(players.length?`<div class="master-search-label">Players</div>${players.map(n=>`<button class="master-search-result" onclick="selectMasterPlayer('${escapeAttr(n)}')">${renderPlayerImage(n)}<strong>${escapeHTML(n)}</strong></button>`).join('')}`:'')+(teams.length?`<div class="master-search-label">Teams</div>${teams.map(n=>`<button class="master-search-result" onclick="selectMasterTeam('${escapeAttr(n)}')">${renderTeamLogo(findTeamLogo(n),n)}<strong>${escapeHTML(n)}</strong></button>`).join('')}`:'')+(!players.length&&!teams.length?'<div class="empty">No players or teams found.</div>':''); box.classList.remove('hidden');
+ const data=getMasterSearchItems(),players=findSearchPlayers(data.players,q),teams=data.teams.filter(n=>normaliseText(n).includes(q)).slice(0,8);
+ box.innerHTML=(players.length?`<div class="master-search-label">Players</div>${players.map(n=>`<button class="master-search-result" onclick="selectMasterPlayer(${escapeAttr(JSON.stringify(n))})">${renderPlayerImage(n)}${renderPlayerSearchLabel(n)}</button>`).join('')}`:'')+(teams.length?`<div class="master-search-label">Teams</div>${teams.map(n=>`<button class="master-search-result" onclick="selectMasterTeam(${escapeAttr(JSON.stringify(n))})">${renderTeamLogo(findTeamLogo(n),n)}<strong>${escapeHTML(n)}</strong></button>`).join('')}`:'')+(!players.length&&!teams.length?'<div class="empty">No players or teams found.</div>':''); box.classList.remove('hidden');
 }
 function clearMasterSearch(){if($('masterSearchInput'))$('masterSearchInput').value='';$('masterSearchResults')?.classList.add('hidden');$('masterSearchClear')?.classList.add('hidden')}
 window.clearMasterSearch=clearMasterSearch;
