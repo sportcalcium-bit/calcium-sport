@@ -84,6 +84,7 @@ function scheduleMyGamesDailyRefresh(){
 ========================================================= */
 
 let hubDataCache = null;
+let playerDatabaseCache = null;
 let competitionsListCache = null;
 
 async function loadCompetition(competitionParam){
@@ -103,7 +104,20 @@ async function loadCompetition(competitionParam){
 
   appData.players = (hubData && hubData.players) || [];
   teamLogoLookup = buildTeamLogoLookup((hubData && hubData.logos) || []);
+if(!playerDatabaseCache){
+  const playerDatabaseResponse = await fetch(
+    `${API_URL}?action=playerDatabase&v=${Date.now()}`,
+    { cache:'no-store' }
+  ).catch(()=>null);
 
+  playerDatabaseCache =
+    (playerDatabaseResponse && playerDatabaseResponse.ok)
+      ? await playerDatabaseResponse.json().catch(()=>null)
+      : null;
+}
+
+appData.playerTeams =
+  (playerDatabaseCache && playerDatabaseCache.playerTeams) || [];
   if(!competitionParam){
     await loadHomeData();
   } else {
