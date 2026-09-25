@@ -1,4 +1,5 @@
 const API_URL = 'https://script.google.com/macros/s/AKfycbwGK-Qg0o1UwBzU6np-y9_XA9KefEiuqGmEVax7kfT2cees6WD5zwBz4iCGHSYt5CwQ/exec';
+const FIFA_RANKING_API_URL = 'https://script.google.com/macros/s/AKfycbxjq0izXvO8WSl969SpQI705fNJ5UqQsT8z8TGUWo2CxIZC5uflMaZQtM71M2feqdhSSA/exec';
 const HUB_SPREADSHEET_ID = '1XpJYhVzkPLqj_xFBpUGYzY4Jn8hTmGvbFbTGJCEOKw0';
 const MY_GAMES_NATIONAL_TEAMS = new Set([
   'Portugal','Spain','France','England','Italy','Netherlands',
