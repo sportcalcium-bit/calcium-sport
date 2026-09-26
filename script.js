@@ -3015,3 +3015,4 @@ function closeFifaRankingView(){
     'statsSection'
   ].forEach(id => $(id)?.classList.remove('hidden'));
 }
+}
