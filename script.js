@@ -2924,3 +2924,20 @@ async function openFifaRanking(){
 }
 
 window.openFifaRanking = openFifaRanking;
+function closeFifaRankingView(){
+  document.body.classList.remove('is-fifa-ranking-page');
+
+  $('fifaRankingSection')?.classList.add('hidden');
+
+  document.querySelector('.hero-card')?.classList.remove('hidden');
+  document.querySelector('.filters-card')?.classList.remove('hidden');
+
+  [
+    'homeSection',
+    'nextUpSection',
+    'resultsSection',
+    'fixturesSection',
+    'standingsSection',
+    'statsSection'
+  ].forEach(id => $(id)?.classList.remove('hidden'));
+}
