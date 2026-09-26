@@ -559,77 +559,33 @@ function renderDateTabs(){
   const picked = selectedDateKey || getTodayKey();
 
   container.innerHTML = `
-  <section class="table-card fifa-ranking-card">
-
-    <div class="standings-table-wrap">
-      <table class="standings-table fifa-ranking-table">
-
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Team</th>
-            <th>Points</th>
-            <th>Movement</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          ${data.ranking.map(team => {
-            const movement = Number(team.movement || 0);
-
-            const movementText =
-              movement > 0 ? `▲ ${movement}` :
-              movement < 0 ? `▼ ${Math.abs(movement)}` :
-              '—';
-
-            const movementClass =
-              movement > 0 ? 'is-up' :
-              movement < 0 ? 'is-down' :
-              'is-same';
-
-            return `
-              <tr class="standing-row fifa-ranking-row">
-
-                <td>
-                  <span class="rank-badge fifa-rank-badge">
-                    ${team.rank}
-                  </span>
-                </td>
-
-                <td class="team-cell">
-                  <button
-                    type="button"
-                    class="standing-team-content fifa-ranking-team"
-                    onclick="openTeamProfile('${escapeAttr(team.team)}')"
-                  >
-                    ${renderTeamLogo(findTeamLogo(team.team), team.team)}
-                    <span class="standing-team-name">
-                      ${escapeHTML(team.team)}
-                    </span>
-                  </button>
-                </td>
-
-                <td class="standings-points fifa-ranking-points">
-                  <strong>${Number(team.points).toFixed(2)}</strong>
-                </td>
-
-                <td>
-                  <span class="fifa-ranking-movement ${movementClass}">
-                    ${movementText}
-                  </span>
-                </td>
-
-              </tr>
-            `;
-          }).join('')}
-        </tbody>
-
-      </table>
+    ${buttons}
+    <div class="date-picker-button ${isCustomWeek?'active':''}" id="datePickerButton">
+      <span>📅</span>
+      <span>Pick a week</span>
+      <input id="homeDatePicker" type="date" value="${escapeAttr(picked)}">
     </div>
+  `;
 
-  </section>
-`;
+  const pickerButton = $('datePickerButton');
+  const input = $('homeDatePicker');
 
+  if(input){
+    input.addEventListener('change', e => {
+      pickHomeDate(e.target.value);
+    });
+  }
+
+  if(pickerButton && input){
+    pickerButton.addEventListener('click', () => {
+      if(typeof input.showPicker === 'function'){
+        input.showPicker();
+      } else {
+        input.click();
+      }
+    });
+  }
+}
 function selectDateTab(key){
   if(!key) return;
 
