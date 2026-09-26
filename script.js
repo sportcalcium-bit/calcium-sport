@@ -140,7 +140,29 @@ appData.playerTeams =
   populateFilters();
   renderAll();
 }
+async function loadFifaRankingData(){
+  try{
+    const response = await fetch(
+      `${FIFA_RANKING_API_URL}?action=fifaRanking&v=${Date.now()}`,
+      { cache:'no-store' }
+    );
 
+    if(!response.ok){
+      throw new Error(`FIFA Ranking API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    if(!data || data.success !== true){
+      throw new Error('Invalid FIFA Ranking response');
+    }
+
+    return data;
+  } catch(error){
+    console.error('Could not load FIFA Ranking.', error);
+    return null;
+  }
+}
 async function loadHomeData(){
   const response = await fetch(`${API_URL}?action=home&v=${Date.now()}`, { cache:'no-store' });
   if(!response.ok) throw new Error(`Backend error: ${response.status}`);
