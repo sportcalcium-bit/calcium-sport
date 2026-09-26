@@ -25,6 +25,15 @@ let currentHomeTab = 'allGames';
 let expandedStats = { topScorers:false, topAssists:false, cleanSheets:false, yellowCards:false, redCards:false };
 let myGamesDailyRefreshTimer = null;
 const $ = id => document.getElementById(id);
+function setText(id,value){
+  const el = $(id);
+  if(el) el.textContent = value;
+}
+
+function setHTML(id,value){
+  const el = $(id);
+  if(el) el.innerHTML = value;
+}
 
 document.addEventListener('DOMContentLoaded', init);
 
