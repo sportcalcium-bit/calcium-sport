@@ -757,3 +757,36 @@
     padding: 0 6px;
   }
 }
+/* FIFA Ranking — centred column layout */
+.fifa-ranking-table {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.fifa-ranking-table th:nth-child(1),
+.fifa-ranking-table td:nth-child(1) {
+  width: 15%;
+  text-align: center;
+}
+
+.fifa-ranking-table th:nth-child(2),
+.fifa-ranking-table td:nth-child(2) {
+  width: 20%;
+  text-align: center;
+}
+
+.fifa-ranking-table th:nth-child(3),
+.fifa-ranking-table td:nth-child(3) {
+  width: 45%;
+  text-align: left;
+}
+
+.fifa-ranking-table th:nth-child(4),
+.fifa-ranking-table td:nth-child(4) {
+  width: 20%;
+  text-align: center;
+}
+
+.fifa-ranking-table .fifa-ranking-team {
+  justify-content: flex-start;
+}
