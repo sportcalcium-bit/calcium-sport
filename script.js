@@ -3015,28 +3015,3 @@ function closeFifaRankingView(){
     'statsSection'
   ].forEach(id => $(id)?.classList.remove('hidden'));
 }
-  .fifa-ranking-table th:nth-child(1),
-  .fifa-ranking-table td:nth-child(1) {
-    width: 60px;
-  }
-
-  .fifa-ranking-table th:nth-child(3),
-  .fifa-ranking-table td:nth-child(3) {
-    width: 100px;
-  }
-
-  .fifa-ranking-table th:nth-child(4),
-  .fifa-ranking-table td:nth-child(4) {
-    width: 90px;
-  }
-
-  .fifa-ranking-points strong {
-    min-width: 0;
-    padding: 0 8px;
-  }
-
-  .fifa-ranking-movement {
-    min-width: 0;
-    padding: 0 6px;
-  }
-}
