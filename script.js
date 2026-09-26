@@ -2073,7 +2073,94 @@ function getHeadToHeadWinner(a,b){
 
   return '';
 }
-function renderCompetitionCategoryNav(){ const nav=$('competitionCategoryNav'); if(!nav||!appData?.competitions) return; const home=`<div class="competition-category ${isHomePage()?'is-active':''}"><button type="button" class="category-button" onclick="goHomePage()"><span class="category-icon">🏠</span><span class="category-name">Home</span></button></div>`; nav.innerHTML=home+getCompetitionCategories().map(cat=>{ const comps=getUniqueCompetitionsForCategory(cat.key); const active=!isHomePage()&&comps.some(c=>normaliseCompetitionName(c['Competition Name'])===normaliseCompetitionName(appData.selectedCompetition?.['Competition Name'])&&getCompetitionCategoryKey(c)===getCompetitionCategoryKey(appData.selectedCompetition||{})); const items=comps.length?comps.map(comp=>{ const latest=getLatestSeasonForCompetition(comp); const slug=makeCompetitionSlug(latest); const isActive=!isHomePage()&&normaliseCompetitionName(comp['Competition Name'])===normaliseCompetitionName(appData.selectedCompetition?.['Competition Name'])&&getCompetitionCategoryKey(comp)===getCompetitionCategoryKey(appData.selectedCompetition||{}); return `<button type="button" class="category-menu-item ${isActive?'active-item':''}" onclick="selectCompetitionFromCategory('${escapeAttr(slug)}')"><span>${escapeHTML(comp['Competition Name']||'Competition')}</span>${isActive?'<strong>Current</strong>':''}</button>`; }).join(''):`<div class="category-empty">No competitions yet</div>`; return `<div class="competition-category ${active?'is-active':''} ${comps.length?'':'is-empty'}"><button type="button" class="category-button" onclick="toggleCompetitionCategory('${escapeAttr(cat.key)}')"><span class="category-icon">${cat.icon}</span><span class="category-name">${escapeHTML(cat.label)}</span><span class="category-arrow">⌄</span></button><div class="category-menu" data-category-menu="${escapeAttr(cat.key)}"><div class="category-menu-title"><span>${cat.icon}</span><strong>${escapeHTML(cat.label)}</strong></div>${items}</div></div>`; }).join(''); }
+function renderCompetitionCategoryNav(){
+  const nav = $('competitionCategoryNav');
+  if(!nav || !appData?.competitions) return;
+
+  const home = `
+    <div class="competition-category ${isHomePage()?'is-active':''}">
+      <button type="button" class="category-button" onclick="goHomePage()">
+        <span class="category-icon">🏠</span>
+        <span class="category-name">Home</span>
+      </button>
+    </div>
+  `;
+
+  const categories = getCompetitionCategories().map(cat => {
+    const comps = getUniqueCompetitionsForCategory(cat.key);
+
+    const active =
+      !isHomePage() &&
+      comps.some(c =>
+        normaliseCompetitionName(c['Competition Name']) ===
+          normaliseCompetitionName(appData.selectedCompetition?.['Competition Name']) &&
+        getCompetitionCategoryKey(c) ===
+          getCompetitionCategoryKey(appData.selectedCompetition || {})
+      );
+
+    const items = comps.length
+      ? comps.map(comp => {
+          const latest = getLatestSeasonForCompetition(comp);
+          const slug = makeCompetitionSlug(latest);
+
+          const isActive =
+            !isHomePage() &&
+            normaliseCompetitionName(comp['Competition Name']) ===
+              normaliseCompetitionName(appData.selectedCompetition?.['Competition Name']) &&
+            getCompetitionCategoryKey(comp) ===
+              getCompetitionCategoryKey(appData.selectedCompetition || {});
+
+          return `
+            <button
+              type="button"
+              class="category-menu-item ${isActive?'active-item':''}"
+              onclick="selectCompetitionFromCategory('${escapeAttr(slug)}')"
+            >
+              <span>${escapeHTML(comp['Competition Name'] || 'Competition')}</span>
+              ${isActive ? '<strong>Current</strong>' : ''}
+            </button>
+          `;
+        }).join('')
+      : `<div class="category-empty">No competitions yet</div>`;
+
+    return `
+      <div class="competition-category ${active?'is-active':''} ${comps.length?'':'is-empty'}">
+        <button
+          type="button"
+          class="category-button"
+          onclick="toggleCompetitionCategory('${escapeAttr(cat.key)}')"
+        >
+          <span class="category-icon">${cat.icon}</span>
+          <span class="category-name">${escapeHTML(cat.label)}</span>
+          <span class="category-arrow">⌄</span>
+        </button>
+
+        <div class="category-menu" data-category-menu="${escapeAttr(cat.key)}">
+          <div class="category-menu-title">
+            <span>${cat.icon}</span>
+            <strong>${escapeHTML(cat.label)}</strong>
+          </div>
+          ${items}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  const fifaRanking = `
+    <div class="competition-category">
+      <button
+        type="button"
+        class="category-button"
+        onclick="openFifaRanking()"
+      >
+        <span class="category-icon">🌐</span>
+        <span class="category-name">FIFA Ranking</span>
+      </button>
+    </div>
+  `;
+
+  nav.innerHTML = home + categories + fifaRanking;
+}
 function getCompetitionCategories(){ return [{key:'england',label:'England',icon:'🏴󠁧󠁢󠁥󠁮󠁧󠁿'},{key:'italy',label:'Italy',icon:'🇮🇹'},{key:'spain',label:'Spain',icon:'🇪🇸'},{key:'germany',label:'Germany',icon:'🇩🇪'},{key:'france',label:'France',icon:'🇫🇷'},{key:'europe',label:'Europe',icon:'🇪🇺'},{key:'world',label:'World',icon:'🌍'},{key:'national-teams',label:'National Teams',icon:'🏆'}]; }
 function getUniqueCompetitionsForCategory(key){ const map=new Map(); (appData.competitions||[]).filter(c=>getCompetitionCategoryKey(c)===key).forEach(c=>{ const k=`${key}|${normaliseCompetitionName(c['Competition Name'])}`; if(!map.has(k)||compareSeasonsDesc(c.Year,map.get(k).Year)<0) map.set(k,c); }); return Array.from(map.values()).sort((a,b)=>getCompetitionPriority(key,a)-getCompetitionPriority(key,b)||String(a['Competition Name']||'').localeCompare(String(b['Competition Name']||''))); }
 function getLatestSeasonForCompetition(comp){ const key=getCompetitionCategoryKey(comp), name=normaliseCompetitionName(comp['Competition Name']); return (appData.competitions||[]).filter(c=>getCompetitionCategoryKey(c)===key&&normaliseCompetitionName(c['Competition Name'])===name).sort((a,b)=>compareSeasonsDesc(a.Year,b.Year))[0]||comp; }
