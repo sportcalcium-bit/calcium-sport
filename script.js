@@ -2,9 +2,9 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbwGK-Qg0o1UwBzU6np-y9_X
 const FIFA_RANKING_API_URL = 'https://script.google.com/macros/s/AKfycbxjq0izXvO8WSl969SpQI705fNJ5UqQsT8z8TGUWo2CxIZC5uflMaZQtM71M2feqdhSSA/exec';
 const HUB_SPREADSHEET_ID = '1XpJYhVzkPLqj_xFBpUGYzY4Jn8hTmGvbFbTGJCEOKw0';
 const MY_GAMES_NATIONAL_TEAMS = new Set([
-  'Portugal','Spain','France','England','Italy','Netherlands',
-  'Germany','Morocco','Brazil','Argentina'
-].map(normaliseTeamName));
+  'portugal','spain','france','england','italy','netherlands',
+  'germany','morocco','brazil','argentina'
+]);
 
 let appData = null;
 let playerImageLookup = new Map();
