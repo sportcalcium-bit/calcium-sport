@@ -2886,3 +2886,41 @@ async function renderFifaRanking(){
     </div>
   `;
 }
+async function openFifaRanking(){
+  // Close any open competition dropdown.
+  $('competitionCategoryNav')
+    ?.querySelectorAll('.category-menu')
+    .forEach(menu => menu.classList.remove('open'));
+
+  // Hide the normal homepage / competition-page content.
+  [
+    'homeSection',
+    'nextUpSection',
+    'resultsSection',
+    'fixturesSection',
+    'standingsSection',
+    'statsSection'
+  ].forEach(id => $(id)?.classList.add('hidden'));
+
+  document.querySelector('.hero-card')?.classList.add('hidden');
+  document.querySelector('.filters-card')?.classList.add('hidden');
+
+  // Show the FIFA Ranking.
+  const rankingSection = $('fifaRankingSection');
+  rankingSection?.classList.remove('hidden');
+
+  document.body.classList.remove('is-home-page');
+  document.body.classList.remove('is-competition-page');
+  document.body.classList.add('is-fifa-ranking-page');
+
+  setText('siteSubtitle', 'FIFA World Ranking');
+
+  await renderFifaRanking();
+
+  window.scrollTo({
+    top: 0,
+    behavior: 'smooth'
+  });
+}
+
+window.openFifaRanking = openFifaRanking;
