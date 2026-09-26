@@ -2166,9 +2166,40 @@ function getUniqueCompetitionsForCategory(key){ const map=new Map(); (appData.co
 function getLatestSeasonForCompetition(comp){ const key=getCompetitionCategoryKey(comp), name=normaliseCompetitionName(comp['Competition Name']); return (appData.competitions||[]).filter(c=>getCompetitionCategoryKey(c)===key&&normaliseCompetitionName(c['Competition Name'])===name).sort((a,b)=>compareSeasonsDesc(a.Year,b.Year))[0]||comp; }
 function toggleCompetitionCategory(key){ const nav=$('competitionCategoryNav'); if(!nav) return; const menu=nav.querySelector(`[data-category-menu="${key}"]`); nav.querySelectorAll('.category-menu').forEach(m=>{ if(m!==menu)m.classList.remove('open'); }); menu?.classList.toggle('open'); }
 window.toggleCompetitionCategory=toggleCompetitionCategory;
-async function selectCompetitionFromCategory(slug){ $('competitionCategoryNav')?.querySelectorAll('.category-menu').forEach(m=>m.classList.remove('open')); resetFilters(); updateUrlCompetition(slug); await loadCompetition(slug); setActiveTab('nextUp'); window.scrollTo({top:0,behavior:'smooth'}); }
+async function selectCompetitionFromCategory(slug){
+  closeFifaRankingView();
+
+  $('competitionCategoryNav')
+    ?.querySelectorAll('.category-menu')
+    .forEach(m => m.classList.remove('open'));
+
+  resetFilters();
+  updateUrlCompetition(slug);
+  await loadCompetition(slug);
+  setActiveTab('nextUp');
+
+  window.scrollTo({
+    top: 0,
+    behavior: 'smooth'
+  });
+}
 window.selectCompetitionFromCategory=selectCompetitionFromCategory;
-async function goHomePage(){ $('competitionCategoryNav')?.querySelectorAll('.category-menu').forEach(m=>m.classList.remove('open')); resetFilters(); updateUrlCompetition(''); await loadCompetition(''); window.scrollTo({top:0,behavior:'smooth'}); }
+async function goHomePage(){
+  closeFifaRankingView();
+
+  $('competitionCategoryNav')
+    ?.querySelectorAll('.category-menu')
+    .forEach(m => m.classList.remove('open'));
+
+  resetFilters();
+  updateUrlCompetition('');
+  await loadCompetition('');
+
+  window.scrollTo({
+    top: 0,
+    behavior: 'smooth'
+  });
+}
 window.goHomePage=goHomePage;
 function resetFilters(){ currentSearch=''; currentGroup=''; currentRound=''; if($('searchInput')) $('searchInput').value=''; if($('groupFilter')) $('groupFilter').value=''; if($('roundFilter')) $('roundFilter').value=''; }
 function jumpToSection(section){ if(section==='myGames'&&isHomePage()){ currentHomeTab='myGames'; renderHomeTab(); $('homeSection')?.scrollIntoView({behavior:'smooth',block:'start'}); return; } if(isHomePage()){ currentHomeTab='allGames'; renderHomeTab(); window.scrollTo({top:0,behavior:'smooth'}); return; } const map={home:'homeSection',nextUp:'nextUpSection',myGames:'homeSection',results:'resultsSection',fixtures:'fixturesSection',standings:'standingsSection',stats:'statsSection'}; $(map[section]||section)?.scrollIntoView({behavior:'smooth',block:'start'}); }
