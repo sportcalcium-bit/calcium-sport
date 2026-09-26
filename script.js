@@ -2711,3 +2711,91 @@ if ("serviceWorker" in navigator) {
       });
   });
 }
+/* =========================================================
+   FIFA RANKING
+========================================================= */
+
+let fifaRankingCache = null;
+
+async function renderFifaRanking(){
+  const section = $('fifaRankingSection');
+  const container = $('fifaRankingContainer');
+
+  if(!section || !container) return;
+
+  section.classList.remove('hidden');
+  container.innerHTML = '<div class="empty">Loading FIFA Ranking...</div>';
+
+  if(!fifaRankingCache){
+    fifaRankingCache = await loadFifaRankingData();
+  }
+
+  const data = fifaRankingCache;
+
+  if(!data || !Array.isArray(data.ranking)){
+    container.innerHTML =
+      '<div class="empty">FIFA Ranking could not be loaded.</div>';
+    return;
+  }
+
+  setText(
+    'fifaRankingEdition',
+    `Ranking #${data.edition} · ${data.totalTeams} teams`
+  );
+
+  const formatRankingDate = value => {
+    const parts = String(value || '').split('-');
+    if(parts.length !== 3) return value || '';
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  };
+
+  setText(
+    'fifaRankingLastUpdated',
+    `Last updated: ${formatRankingDate(data.lastUpdated)} · Next update: ${formatRankingDate(data.nextUpdate)}`
+  );
+
+  container.innerHTML = `
+    <div class="fifa-ranking-table">
+      <div class="fifa-ranking-row fifa-ranking-head">
+        <span>Rank</span>
+        <span>Movement</span>
+        <span>Team</span>
+        <span>Points</span>
+      </div>
+
+      ${data.ranking.map(team => {
+        const movement = Number(team.movement || 0);
+
+        const movementText =
+          movement > 0 ? `▲ ${movement}` :
+          movement < 0 ? `▼ ${Math.abs(movement)}` :
+          '—';
+
+        return `
+          <div class="fifa-ranking-row">
+            <strong class="fifa-ranking-position">${team.rank}</strong>
+
+            <span class="fifa-ranking-movement ${
+              movement > 0 ? 'is-up' :
+              movement < 0 ? 'is-down' :
+              'is-same'
+            }">${movementText}</span>
+
+            <button
+              type="button"
+              class="fifa-ranking-team"
+              onclick="openTeamProfile('${escapeAttr(team.team)}')"
+            >
+              ${renderTeamLogo(findTeamLogo(team.team), team.team)}
+              <strong>${escapeHTML(team.team)}</strong>
+            </button>
+
+            <strong class="fifa-ranking-points">
+              ${Number(team.points).toFixed(2)}
+            </strong>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
