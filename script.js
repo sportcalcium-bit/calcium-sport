@@ -2881,48 +2881,71 @@ async function renderFifaRanking(){
   );
 
   container.innerHTML = `
-    <div class="fifa-ranking-table">
-      <div class="fifa-ranking-row fifa-ranking-head">
-        <span>Rank</span>
-        <span>Movement</span>
-        <span>Team</span>
-        <span>Points</span>
+    <section class="table-card fifa-ranking-card">
+      <div class="standings-table-wrap">
+        <table class="standings-table fifa-ranking-table">
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Movement</th>
+              <th>Team</th>
+              <th>Points</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            ${data.ranking.map(team => {
+              const movement = Number(team.movement || 0);
+
+              const movementText =
+                movement > 0 ? `▲ ${movement}` :
+                movement < 0 ? `▼ ${Math.abs(movement)}` :
+                '—';
+
+              const movementClass =
+                movement > 0 ? 'is-up' :
+                movement < 0 ? 'is-down' :
+                'is-same';
+
+              return `
+                <tr class="standing-row fifa-ranking-row">
+
+                  <td>
+                    <span class="rank-badge fifa-rank-badge">
+                      ${team.rank}
+                    </span>
+                  </td>
+
+                  <td>
+                    <span class="fifa-ranking-movement ${movementClass}">
+                      ${movementText}
+                    </span>
+                  </td>
+
+                  <td class="team-cell">
+                    <button
+                      type="button"
+                      class="standing-team-content fifa-ranking-team"
+                      onclick="openTeamProfile('${escapeAttr(team.team)}')"
+                    >
+                      ${renderTeamLogo(findTeamLogo(team.team), team.team)}
+                      <span class="standing-team-name">
+                        ${escapeHTML(team.team)}
+                      </span>
+                    </button>
+                  </td>
+
+                  <td class="standings-points fifa-ranking-points">
+                    <strong>${Number(team.points).toFixed(2)}</strong>
+                  </td>
+
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
       </div>
-
-      ${data.ranking.map(team => {
-        const movement = Number(team.movement || 0);
-
-        const movementText =
-          movement > 0 ? `▲ ${movement}` :
-          movement < 0 ? `▼ ${Math.abs(movement)}` :
-          '—';
-
-        return `
-          <div class="fifa-ranking-row">
-            <strong class="fifa-ranking-position">${team.rank}</strong>
-
-            <span class="fifa-ranking-movement ${
-              movement > 0 ? 'is-up' :
-              movement < 0 ? 'is-down' :
-              'is-same'
-            }">${movementText}</span>
-
-            <button
-              type="button"
-              class="fifa-ranking-team"
-              onclick="openTeamProfile('${escapeAttr(team.team)}')"
-            >
-              ${renderTeamLogo(findTeamLogo(team.team), team.team)}
-              <strong>${escapeHTML(team.team)}</strong>
-            </button>
-
-            <strong class="fifa-ranking-points">
-              ${Number(team.points).toFixed(2)}
-            </strong>
-          </div>
-        `;
-      }).join('')}
-    </div>
+    </section>
   `;
 }
 async function openFifaRanking(){
