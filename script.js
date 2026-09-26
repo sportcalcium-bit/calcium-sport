@@ -3015,3 +3015,139 @@ function closeFifaRankingView(){
     'statsSection'
   ].forEach(id => $(id)?.classList.remove('hidden'));
 }
+/* =========================================================
+   FIFA RANKING
+========================================================= */
+
+#fifaRankingSection {
+  max-width: 1180px;
+  margin: 24px auto 48px;
+}
+
+#fifaRankingSection .panel-header {
+  margin-bottom: 18px;
+}
+
+.fifa-ranking-card {
+  margin: 0;
+}
+
+.fifa-ranking-table {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.fifa-ranking-table th:nth-child(1),
+.fifa-ranking-table td:nth-child(1) {
+  width: 90px;
+  text-align: center;
+}
+
+.fifa-ranking-table th:nth-child(2),
+.fifa-ranking-table td:nth-child(2) {
+  width: auto;
+  text-align: left;
+}
+
+.fifa-ranking-table th:nth-child(3),
+.fifa-ranking-table td:nth-child(3) {
+  width: 150px;
+  text-align: center;
+}
+
+.fifa-ranking-table th:nth-child(4),
+.fifa-ranking-table td:nth-child(4) {
+  width: 150px;
+  text-align: center;
+}
+
+.fifa-ranking-row .fifa-rank-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 38px;
+  height: 38px;
+  padding: 0 10px;
+  border-radius: 9px;
+  font-weight: 800;
+}
+
+.fifa-ranking-team {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  width: 100%;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.fifa-ranking-team:hover .standing-team-name {
+  text-decoration: underline;
+}
+
+.fifa-ranking-points strong {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 82px;
+  min-height: 38px;
+  padding: 0 12px;
+  border-radius: 8px;
+}
+
+.fifa-ranking-movement {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 58px;
+  min-height: 34px;
+  padding: 0 10px;
+  border-radius: 8px;
+  font-weight: 800;
+}
+
+.fifa-ranking-movement.is-up {
+  color: #22c55e;
+}
+
+.fifa-ranking-movement.is-down {
+  color: #ef4444;
+}
+
+.fifa-ranking-movement.is-same {
+  color: #94a3b8;
+}
+
+@media (max-width: 700px) {
+  #fifaRankingSection {
+    margin-top: 16px;
+  }
+
+  .fifa-ranking-table th:nth-child(1),
+  .fifa-ranking-table td:nth-child(1) {
+    width: 60px;
+  }
+
+  .fifa-ranking-table th:nth-child(3),
+  .fifa-ranking-table td:nth-child(3) {
+    width: 100px;
+  }
+
+  .fifa-ranking-table th:nth-child(4),
+  .fifa-ranking-table td:nth-child(4) {
+    width: 90px;
+  }
+
+  .fifa-ranking-points strong {
+    min-width: 0;
+    padding: 0 8px;
+  }
+
+  .fifa-ranking-movement {
+    min-width: 0;
+    padding: 0 6px;
+  }
+}
