@@ -1678,15 +1678,99 @@ function assignmentIncludesMatch(item,match){
 }
 function getTeamSquad(teamName,season){
   const squad=[];
+
   for(const rows of playerTeamsLookup.values()){
     const row=rows.find(r=>sameTeam(r.team,teamName)&&r.season===String(season));
     if(row) squad.push(row);
   }
-  return squad.sort((a,b)=>a.playerName.localeCompare(b.playerName));
+
+  const positionOrder={
+    GK:1,
+
+    CB:10,
+    RB:11,
+    LB:12,
+
+    CDM:20,
+    CM:21,
+    RM:22,
+    LM:23,
+    CAM:24,
+
+    RW:30,
+    LW:31,
+    ST:32
+  };
+
+  return squad.sort((a,b)=>{
+    const posA=String(a.position||'').trim().toUpperCase();
+    const posB=String(b.position||'').trim().toUpperCase();
+
+    const orderA=positionOrder[posA]??999;
+    const orderB=positionOrder[posB]??999;
+
+    if(orderA!==orderB) return orderA-orderB;
+
+    return a.playerName.localeCompare(b.playerName);
+  });
 }
+
 function renderTeamSquad(teamName,season){
   const squad=getTeamSquad(teamName,season);
-  return squad.length?squad.map(row=>`<button class="team-squad-player" type="button" onclick="closeTeamProfile();openPlayerProfile(${escapeAttr(JSON.stringify(row.playerName))},null,${escapeAttr(JSON.stringify(String(season)))})">${renderPlayerImage(row.playerName)}<span><strong>${escapeHTML(row.playerName)}</strong><small style="display:block">${escapeHTML(row.position)}</small></span></button>`).join(''):'<div class="empty">No squad players found for this season.</div>';
+
+  if(!squad.length){
+    return '<div class="empty">No squad players found for this season.</div>';
+  }
+
+  const groups=[
+    {
+      title:'Goalkeepers',
+      positions:['GK']
+    },
+    {
+      title:'Defenders',
+      positions:['CB','RB','LB']
+    },
+    {
+      title:'Midfielders',
+      positions:['CDM','CM','RM','LM','CAM']
+    },
+    {
+      title:'Forwards',
+      positions:['RW','LW','ST']
+    }
+  ];
+
+  const renderPlayer=row=>`
+    <button
+      class="team-squad-player"
+      type="button"
+      onclick="closeTeamProfile();openPlayerProfile(${escapeAttr(JSON.stringify(row.playerName))},null,${escapeAttr(JSON.stringify(String(season)))})"
+    >
+      ${renderPlayerImage(row.playerName)}
+      <span>
+        <strong>${escapeHTML(row.playerName)}</strong>
+        <small style="display:block">${escapeHTML(row.position)}</small>
+      </span>
+    </button>
+  `;
+
+  return groups.map(group=>{
+    const players=squad.filter(row=>
+      group.positions.includes(String(row.position||'').trim().toUpperCase())
+    );
+
+    if(!players.length) return '';
+
+    return `
+      <div class="team-squad-group">
+        <h4>${group.title}</h4>
+        <div class="team-squad-grid">
+          ${players.map(renderPlayer).join('')}
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 function getPlayerMatchStats(match,playerName){
   const key=canonicalPlayerKey(playerName);
