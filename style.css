@@ -790,3 +790,94 @@
 .fifa-ranking-table .fifa-ranking-team {
   justify-content: flex-start;
 }
+/* =========================================================
+   TEAM PROFILE — SQUAD POSITION GROUPS
+========================================================= */
+
+.team-squad-group {
+  margin-bottom: 30px;
+}
+
+.team-squad-group:last-child {
+  margin-bottom: 0;
+}
+
+.team-squad-group h4 {
+  margin: 0 0 14px;
+  font-size: 22px;
+  font-weight: 950;
+  color: var(--text);
+}
+
+/* Each position group takes the full available width */
+.team-squad-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+}
+
+/* Player card */
+.team-squad-player {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: rgba(255,255,255,.025);
+  color: var(--text);
+  padding: 10px;
+  text-align: left;
+  transition: background .15s ease, border-color .15s ease;
+}
+
+.team-squad-player:hover {
+  background: rgba(255,255,255,.055);
+  border-color: rgba(89,220,235,.25);
+}
+
+/* Player picture */
+.team-squad-player .player-photo {
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  min-height: 42px;
+}
+
+/* Name + position */
+.team-squad-player > span {
+  display: block;
+  min-width: 0;
+}
+
+.team-squad-player strong {
+  display: block;
+  font-size: 16px;
+  line-height: 1.15;
+  font-weight: 950;
+}
+
+.team-squad-player small {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.1;
+  font-weight: 850;
+}
+
+/* Mobile */
+@media (max-width: 700px) {
+  .team-squad-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .team-squad-group {
+    margin-bottom: 26px;
+  }
+
+  .team-squad-group h4 {
+    font-size: 20px;
+  }
+}
