@@ -881,3 +881,59 @@
     font-size: 20px;
   }
 }
+/* =========================================================
+   TEAM PROFILE — FINAL SQUAD LAYOUT
+   One position group per row, 4 players per row
+========================================================= */
+
+/* The container holding all position groups */
+.team-profile-section > div:has(.team-squad-group) {
+  display: block !important;
+}
+
+/* Every category occupies the full width */
+.team-squad-group {
+  display: block !important;
+  width: 100% !important;
+  margin: 0 0 30px !important;
+}
+
+.team-squad-group:last-child {
+  margin-bottom: 0 !important;
+}
+
+.team-squad-group h4 {
+  display: block !important;
+  width: 100% !important;
+  margin: 0 0 14px !important;
+  font-size: 22px !important;
+  font-weight: 950 !important;
+}
+
+/* Four players per row */
+.team-squad-group .team-squad-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+  width: 100% !important;
+}
+
+/* Player card */
+.team-squad-group .team-squad-player {
+  width: 100% !important;
+  min-width: 0 !important;
+}
+
+/* Tablet: 2 per row */
+@media (max-width: 900px) {
+  .team-squad-group .team-squad-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+/* Mobile: 1 per row */
+@media (max-width: 600px) {
+  .team-squad-group .team-squad-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
