@@ -97,6 +97,7 @@ function scheduleMyGamesDailyRefresh(){
 ========================================================= */
 
 let hubDataCache = null;
+let playersMasterCache = null;
 let playerDatabaseCache = null;
 let competitionsListCache = null;
 
@@ -115,8 +116,22 @@ async function loadCompetition(competitionParam){
   }
   const hubData = hubDataCache;
 
-  appData.players = (hubData && hubData.players) || [];
   teamLogoLookup = buildTeamLogoLookup((hubData && hubData.logos) || []);
+
+if(!playersMasterCache){
+  const playersMasterResponse = await fetch(
+    `${API_URL}?action=playersMaster&v=${Date.now()}`,
+    { cache:'no-store' }
+  ).catch(()=>null);
+
+  playersMasterCache =
+    (playersMasterResponse && playersMasterResponse.ok)
+      ? await playersMasterResponse.json().catch(()=>null)
+      : null;
+}
+
+appData.players =
+  (playersMasterCache && playersMasterCache.players) || [];
 if(!playerDatabaseCache){
   const playerDatabaseResponse = await fetch(
     `${API_URL}?action=playerDatabase&v=${Date.now()}`,
