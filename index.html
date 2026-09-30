@@ -356,10 +356,13 @@
           </div>
           <div class="team-profile-manager">
   <span>Manager</span>
-  <div class="team-profile-manager-profile">
-    ${managerLoaded && managerName ? renderPlayerImage(managerName) : ''}
-    <strong>${escapeHTML(managerLabel)}</strong>
-  </div>
+  <div
+  class="team-profile-manager-profile"
+  ${managerLoaded && managerName ? `onclick="openPlayerProfile('${escapeAttr(managerName)}')" style="cursor:pointer;"` : ''}
+>
+  ${managerLoaded && managerName ? renderPlayerImage(managerName) : ''}
+  <strong>${escapeHTML(managerLabel)}</strong>
+</div>
 </div>
         </section>
         <section class="team-profile-controls">
