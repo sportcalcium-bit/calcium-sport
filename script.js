@@ -1703,8 +1703,35 @@ function assignmentIncludesMatch(item,match){
 function getTeamSquad(teamName,season){
   const squad=[];
 
+  const seasonEndYear=Number(season);
+  const seasonStart=new Date(seasonEndYear-1,7,1); // 1 Aug previous year
+  const seasonEnd=new Date(seasonEndYear,6,31,23,59,59); // 31 Jul season year
+
+  function parseSquadDate(value){
+    const parts=String(value||'').trim().split('/');
+    if(parts.length!==3) return null;
+
+    const day=Number(parts[0]);
+    const month=Number(parts[1]);
+    const year=Number(parts[2]);
+
+    if(!day||!month||!year) return null;
+
+    return new Date(year,month-1,day);
+  }
+
   for(const rows of playerTeamsLookup.values()){
-    const row=rows.find(r=>sameTeam(r.team,teamName)&&r.season===String(season));
+    const row=rows.find(r=>{
+      if(!sameTeam(r.team,teamName)) return false;
+
+      const start=parseSquadDate(r.startDate);
+      const end=parseSquadDate(r.endDate);
+
+      if(!start) return false;
+
+      return start<=seasonEnd && (!end || end>=seasonStart);
+    });
+
     if(row) squad.push(row);
   }
 
