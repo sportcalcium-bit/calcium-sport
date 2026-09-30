@@ -1357,12 +1357,17 @@ function renderTeamLogo(url,teamName){ if(!url) return '<span class="team-logo t
 function buildPlayerImageLookup(players){
   const lookup=new Map();
   if(!Array.isArray(players)) return lookup;
+
   players.forEach(row=>{
-    const name=String(row?.['Player Name']??row?.Player??row?.Name??row?.[0]??'').trim();
-    const imageUrl=String(row?.['Player Image URL']??row?.ImageURL??row?.['Image URL']??row?.[1]??'').trim();
+    const name=String(row?.playerName??'').trim();
+    const imageUrl=String(row?.imageUrl??'').trim();
     const key=playerIdentityKey(name);
-    if(key&&!lookup.has(key)) lookup.set(key,imageUrl);
+
+    if(key && imageUrl && !lookup.has(key)){
+      lookup.set(key,imageUrl);
+    }
   });
+
   return lookup;
 }
 function buildPlayerTeamsLookup(rows){
