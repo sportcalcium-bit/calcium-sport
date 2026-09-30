@@ -1379,12 +1379,15 @@ function buildPlayerTeamsLookup(rows){
     if(!name||!team) return;
     const key=playerIdentityKey(name);
     if(!lookup.has(key)) lookup.set(key,[]);
-    lookup.get(key).push({playerName:name,team,
-      season:normaliseProfileSeason(row.Season),
-      position:String(row.Position??'').trim(),
-      teamType:String(row['Team Type']??row.TeamType??'').trim(),
-      status:String(row.Status??'').trim()});
-  });
+    lookup.get(key).push({
+  playerName:name,
+  team,
+  startDate:String(row['Start Date']??'').trim(),
+  endDate:String(row['End Date']??'').trim(),
+  position:String(row.Position??'').trim(),
+  teamType:String(row['Team Type']??row.TeamType??'').trim(),
+  status:String(row.Status??'').trim()
+});
   return lookup;
 }
 // Identity normalization is separate from the event-name cleanup below.
