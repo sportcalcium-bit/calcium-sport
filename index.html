@@ -355,9 +355,12 @@
             <div><div class="eyebrow">Team profile</div><h2>${escapeHTML(name)}</h2></div>
           </div>
           <div class="team-profile-manager">
-            <span>Manager</span>
-            <strong>${escapeHTML(managerLabel)}</strong>
-          </div>
+  <span>Manager</span>
+  <div class="team-profile-manager-profile">
+    ${managerLoaded && managerName ? renderPlayerImage(managerName) : ''}
+    <strong>${escapeHTML(managerLabel)}</strong>
+  </div>
+</div>
         </section>
         <section class="team-profile-controls">
           <label><span>Season</span>
