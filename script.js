@@ -1388,8 +1388,9 @@ function buildPlayerTeamsLookup(rows){
   teamType:String(row['Team Type']??row.TeamType??'').trim(),
   status:String(row.Status??'').trim()
 });
+  });
   return lookup;
-});
+}
 // Identity normalization is separate from the event-name cleanup below.
 function playerIdentityKey(value){
   return String(value||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'')
