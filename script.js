@@ -1431,7 +1431,33 @@ function getProfileMatchSeason(match){
   return normaliseProfileSeason(match.Year||match.Season||getSeasonYearForDate(match.Date));
 }
 function getPlayerSeasonRows(name,season){
-  return (playerTeamsLookup.get(canonicalPlayerKey(name))||[]).filter(row=>row.season===String(season));
+  const seasonEndYear=Number(season);
+  if(!seasonEndYear) return [];
+
+  const seasonStart=new Date(seasonEndYear-1,7,1);
+  const seasonEnd=new Date(seasonEndYear,6,31,23,59,59);
+
+  function parseTenureDate(value){
+    const parts=String(value||'').trim().split('/');
+    if(parts.length!==3) return null;
+
+    const day=Number(parts[0]);
+    const month=Number(parts[1]);
+    const year=Number(parts[2]);
+
+    if(!day||!month||!year) return null;
+
+    return new Date(year,month-1,day);
+  }
+
+  return (playerTeamsLookup.get(canonicalPlayerKey(name))||[]).filter(row=>{
+    const start=parseTenureDate(row.startDate);
+    const end=parseTenureDate(row.endDate);
+
+    if(!start) return false;
+
+    return start<=seasonEnd && (!end || end>=seasonStart);
+  });
 }
 function getPreferredPlayerSeason(name,requested){
   const seasons=[...new Set((playerTeamsLookup.get(canonicalPlayerKey(name))||[]).map(r=>r.season).filter(Boolean))].sort((a,b)=>Number(b)-Number(a));
