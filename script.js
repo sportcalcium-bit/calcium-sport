@@ -1714,7 +1714,8 @@ function openPlayerProfileFromTeam(playerName,teamName){
   }
 }
 window.openPlayerProfileFromTeam=openPlayerProfileFromTeam;
-function openPlayerProfile(playerName,event,season){
+function openPlayerProfile(playerName,event,season,backTeam=''){
+  playerProfileBackTeam=String(backTeam||'').trim();
   event?.stopPropagation?.();
 
   activePlayerProfileName=canonicalPlayerName(playerName);
@@ -1734,16 +1735,24 @@ window.openPlayerProfile=openPlayerProfile;
 function closePlayerProfile(){ $('playerModal')?.classList.add('hidden'); if($('matchModal')?.classList.contains('hidden')&&$('teamModal')?.classList.contains('hidden')) document.body.classList.remove('modal-open'); }
 window.closePlayerProfile=closePlayerProfile;
 function backFromPlayerProfile(){
-  if(!playerProfileBackTeam) return;
-
   const team=playerProfileBackTeam;
+  if(!team) return;
+
   playerProfileBackTeam='';
 
   closePlayerProfile();
   openTeamProfile(team);
 }
 window.backFromPlayerProfile=backFromPlayerProfile;
-function renderActivePlayerProfile(){ if($('playerDetailContent')) $('playerDetailContent').innerHTML=renderPlayerProfile(activePlayerProfileName,activePlayerSeason); }
+function renderActivePlayerProfile(){
+  if(!$('playerDetailContent')) return;
+
+  $('playerDetailContent').innerHTML=
+    `${playerProfileBackTeam
+      ? `<button type="button" class="player-profile-back" onclick="backFromPlayerProfile()">← Back</button>`
+      : ''
+    }${renderPlayerProfile(activePlayerProfileName,activePlayerSeason)}`;
+}
 function changePlayerSeason(value){ activePlayerSeason=String(value); renderActivePlayerProfile(); }
 window.changePlayerSeason=changePlayerSeason;
 function getCurrentSeasonYear(date=new Date()){ return date.getMonth()>=7?date.getFullYear()+1:date.getFullYear(); }
@@ -1970,8 +1979,7 @@ function renderTeamSquad(teamName,season){
     <button
       class="team-squad-player"
       type="button"
-      onclick="closeTeamProfile();openPlayerProfile(${escapeAttr(JSON.stringify(row.playerName))},null,${escapeAttr(JSON.stringify(String(season)))})"
-    >
+      onclick="closeTeamProfile();openPlayerProfile(${escapeAttr(JSON.stringify(row.playerName))},null,${escapeAttr(JSON.stringify(String(season)))},${escapeAttr(JSON.stringify(teamName))})" >
       ${renderPlayerImage(row.playerName)}
       <span>
         <strong>${escapeHTML(row.playerName)}</strong>
