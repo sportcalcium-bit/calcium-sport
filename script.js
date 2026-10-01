@@ -1693,6 +1693,12 @@ function getMatchMOTM(match){ if(match.MOTM) return match.MOTM; const matchId=ma
 function renderHighlights(url){ const cleanUrl=String(url||'').trim(); if(!cleanUrl) return ''; const id=getYouTubeId(cleanUrl); if(!id) return `<section class="highlights-card"><div class="highlights-header"><span>📺 Highlights</span><a href="${escapeAttr(cleanUrl)}" target="_blank" rel="noopener noreferrer">Open video</a></div></section>`; return `<section class="highlights-card"><div class="highlights-header"><span>📺 Highlights</span><a href="${escapeAttr(cleanUrl)}" target="_blank" rel="noopener noreferrer">Open on YouTube</a></div><a class="youtube-preview" href="${escapeAttr(cleanUrl)}" target="_blank" rel="noopener noreferrer"><img src="https://img.youtube.com/vi/${escapeAttr(id)}/maxresdefault.jpg" alt="YouTube highlights thumbnail" onerror="this.src='https://img.youtube.com/vi/${escapeAttr(id)}/hqdefault.jpg'"><span class="youtube-play">▶</span></a></section>`; }
 function getYouTubeId(url){ const text=String(url||'').trim(); const patterns=[/youtube\.com\/watch\?v=([^&]+)/i,/youtu\.be\/([^?&]+)/i,/youtube\.com\/shorts\/([^?&]+)/i,/youtube\.com\/embed\/([^?&]+)/i]; for(const p of patterns){ const m=text.match(p); if(m?.[1]) return m[1]; } return ''; }
 let playerProfileBackTeam='';
+function openPlayerProfileFromTeam(playerName,teamName){
+  playerProfileBackTeam=String(teamName||'').trim();
+  closeTeamProfile();
+  openPlayerProfile(playerName);
+}
+window.openPlayerProfileFromTeam=openPlayerProfileFromTeam;
 function openPlayerProfile(playerName,event,season){
   event?.stopPropagation?.();
 
