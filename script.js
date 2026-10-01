@@ -2027,7 +2027,6 @@ function getMasterSearchItems(){
  const addP=n=>{n=String(n||'').trim();const k=playerIdentityKey(n);if(n&&!seenP.has(k)){seenP.add(k);players.push(n)}};
  const addT=n=>{n=String(n||'').trim();const k=normaliseTeamName(n);if(n&&!seenT.has(k)){seenT.add(k);teams.push(n)}};
  (appData?.playerTeams||[]).forEach(r=>{addP(r?.['Player Name']??r?.Player??r?.[0]);addT(r?.Team??r?.[1])});
- getGlobalMatches().concat(getCompetitionMatches()).concat(appData?.myGames||[]).forEach(m=>{addT(m.HomeTeam);addT(m.AwayTeam)});
  return {players,teams};
 }
 function renderMasterSearchResults(value){
