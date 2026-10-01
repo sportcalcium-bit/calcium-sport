@@ -1693,10 +1693,25 @@ function getMatchMOTM(match){ if(match.MOTM) return match.MOTM; const matchId=ma
 function renderHighlights(url){ const cleanUrl=String(url||'').trim(); if(!cleanUrl) return ''; const id=getYouTubeId(cleanUrl); if(!id) return `<section class="highlights-card"><div class="highlights-header"><span>📺 Highlights</span><a href="${escapeAttr(cleanUrl)}" target="_blank" rel="noopener noreferrer">Open video</a></div></section>`; return `<section class="highlights-card"><div class="highlights-header"><span>📺 Highlights</span><a href="${escapeAttr(cleanUrl)}" target="_blank" rel="noopener noreferrer">Open on YouTube</a></div><a class="youtube-preview" href="${escapeAttr(cleanUrl)}" target="_blank" rel="noopener noreferrer"><img src="https://img.youtube.com/vi/${escapeAttr(id)}/maxresdefault.jpg" alt="YouTube highlights thumbnail" onerror="this.src='https://img.youtube.com/vi/${escapeAttr(id)}/hqdefault.jpg'"><span class="youtube-play">▶</span></a></section>`; }
 function getYouTubeId(url){ const text=String(url||'').trim(); const patterns=[/youtube\.com\/watch\?v=([^&]+)/i,/youtu\.be\/([^?&]+)/i,/youtube\.com\/shorts\/([^?&]+)/i,/youtube\.com\/embed\/([^?&]+)/i]; for(const p of patterns){ const m=text.match(p); if(m?.[1]) return m[1]; } return ''; }
 let playerProfileBackTeam='';
+
 function openPlayerProfileFromTeam(playerName,teamName){
   playerProfileBackTeam=String(teamName||'').trim();
+
   closeTeamProfile();
   openPlayerProfile(playerName);
+
+  const content=$('playerDetailContent');
+
+  if(content && playerProfileBackTeam){
+    content.insertAdjacentHTML(
+      'afterbegin',
+      `<button type="button"
+        onclick="backFromPlayerProfile()"
+        style="margin:0 0 16px 0;padding:9px 14px;border-radius:8px;cursor:pointer;font-weight:700;">
+        ← Back
+      </button>`
+    );
+  }
 }
 window.openPlayerProfileFromTeam=openPlayerProfileFromTeam;
 function openPlayerProfile(playerName,event,season){
@@ -1798,7 +1813,7 @@ function renderPlayerProfile(playerName,seasonYear=getCurrentSeasonYear()){
     )
   ].join(' / ');
 
-  return `${playerProfileBackTeam?`<button type="button" class="player-profile-back" onclick="backFromPlayerProfile()">← Back</button>`:''}<section class="player-profile-hero"><div class="player-profile-photo">${renderPlayerImage(name)}</div><div class="player-profile-copy"><div class="eyebrow">Player profile</div><h2>${escapeHTML(name)}</h2><p>${escapeHTML(description)}</p></div>${availableSeasons.length?`<label class="profile-season-select"><span>Season</span><select onchange="changePlayerSeason(this.value)">${options}</select></label>`:''}</section><section class="player-teams-section"><h3>Teams</h3>${teams}</section><section class="player-matches-section"><h3>Played games${selected?' · '+escapeHTML(selected):''}</h3>${rows}</section>`;
+  return `<section class="player-profile-hero"><div class="player-profile-photo">${renderPlayerImage(name)}</div><div class="player-profile-copy"><div class="eyebrow">Player profile</div><h2>${escapeHTML(name)}</h2><p>${escapeHTML(description)}</p></div>${availableSeasons.length?`<label class="profile-season-select"><span>Season</span><select onchange="changePlayerSeason(this.value)">${options}</select></label>`:''}</section><section class="player-teams-section"><h3>Teams</h3>${teams}</section><section class="player-matches-section"><h3>Played games${selected?' · '+escapeHTML(selected):''}</h3>${rows}</section>`;
 }
 function renderPlayerTeamAssignment(item){
   const detail=[item.teamType,item.position,item.status].filter(Boolean).join(' · ');
