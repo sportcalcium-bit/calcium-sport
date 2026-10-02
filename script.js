@@ -1374,75 +1374,70 @@ function renderStandings(){
 
   if(standingsCompactView){
 
-    const compactGroups=orderedGroups.map(groupName=>{
+  const compactGroups=orderedGroups.map(groupName=>{
 
-      const rows=[...groups[groupName]].sort(compareStandingRows);
-      const legend=getCompetitionLegend(isGroupStage);
+    const rows=[...groups[groupName]].sort(compareStandingRows);
+    const showGroupName=orderedGroups.length>1;
 
-      const compactRows=rows.map((team,i)=>{
+    const compactRows=rows.map((team,i)=>{
 
-  const zone=getRankClass(
-    i,
-    rows.length,
-    isGroupStage,
-    team,
-    groupName
-  );
+      const zone=getRankClass(
+        i,
+        rows.length,
+        isGroupStage,
+        team,
+        groupName
+      );
 
-  return `
-    <div class="compact-standing-row standing-row-${zone.replace('rank-','')}">
+      return `
+        <div class="compact-standing-row standing-row-${zone.replace('rank-','')}">
 
-      <span class="rank-badge ${zone}">
-        ${i+1}
-      </span>
+          <span class="rank-badge ${zone}">
+            ${i+1}
+          </span>
 
-      <div class="compact-standing-team">
-        ${renderTeamLogo(getStandingTeamLogo(team),team.Team)}
-        <span>${escapeHTML(team.Team)}</span>
-      </div>
+          <div class="compact-standing-team">
+            ${renderTeamLogo(getStandingTeamLogo(team),team.Team)}
+            <span>${escapeHTML(team.Team)}</span>
+          </div>
 
-      <strong class="compact-games-played">
-        ${safeNumber(team.Played)}
-      </strong>
+          <strong class="compact-games-played">
+            ${safeNumber(team.Played)}
+          </strong>
 
-      <strong class="compact-points-box">
-        ${safeNumber(team.Points)}
-      </strong>
+          <strong class="compact-points-box">
+            ${safeNumber(team.Points)}
+          </strong>
 
-    </div>
-  `;
-}).join('');
-
-      const showGroupName=orderedGroups.length>1;
-
-return `
-  <section class="table-card compact-table-card">
-
-    ${showGroupName ? `
-      <div class="compact-group-title">
-        ${escapeHTML(groupName)}
-      </div>
-    ` : ''}
-
-    <div
-      class="compact-standings-list"
-      data-team-count="${rows.length}"
-    >
-      ${compactRows}
-    </div>
-
-  </section>
-`;
-`;
+        </div>
+      `;
     }).join('');
 
-    setHTML(
-  'standingsContainer',
-  viewToggle + '<div class="compact-standings-groups">' + compactGroups + '</div>'
-);
+    return `
+      <section class="table-card compact-table-card">
 
-    return;
-  }
+        ${showGroupName ? `
+          <div class="compact-group-title">
+            ${escapeHTML(groupName)}
+          </div>
+        ` : ''}
+
+        <div class="compact-standings-list" data-team-count="${rows.length}">
+          ${compactRows}
+        </div>
+
+      </section>
+    `;
+
+  }).join('');
+
+  setHTML(
+    'standingsContainer',
+    viewToggle + '<div class="compact-standings-groups">' + compactGroups + '</div>'
+  );
+
+  return;
+}
 
   /* =========================
      EXISTING DETAILED TABLE
