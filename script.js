@@ -1326,7 +1326,7 @@ function renderScoreboardRow(match){ const p=formatScoreboardDateParts(match.Dat
 function renderResults(){ const results=getFilteredMatches().filter(m=>m.Status==='FT').sort((a,b)=>matchDateSortValue(a)-matchDateSortValue(b)); setHTML('resultsList',results.length?renderGroupedScoreboard(results):'<div class="empty">No results found.</div>'); setText('resultsCount',`${results.length} matches`); }
 function renderFixtures(){ const fixtures=getFilteredMatches().filter(m=>m.Status!=='FT').sort((a,b)=>matchDateSortValue(a)-matchDateSortValue(b)); setHTML('fixturesList',fixtures.length?renderGroupedScoreboard(fixtures):'<div class="empty">No scheduled games found.</div>'); setText('fixturesCount',`${fixtures.length} matches`); }
 function renderGroupedScoreboard(matches){ const grouped=groupBy(matches,m=>formatRoundLabel(m.Round)); return Object.keys(grouped).map(round=>`<section class="round-block"><div class="round-heading">${escapeHTML(round)}</div>${grouped[round].map(renderScoreboardRow).join('')}</section>`).join(''); }
-let standingsCompactView=false;
+let standingsCompactView=true;
 
 function toggleStandingsView(){
   standingsCompactView=!standingsCompactView;
