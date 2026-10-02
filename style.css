@@ -959,19 +959,18 @@
   cursor:pointer;
 }
 
-/* All compact competition/group cards */
+/* GROUP CONTAINER */
 .compact-standings-groups{
   display:grid;
   grid-template-columns:repeat(2,minmax(0,1fr));
   gap:16px;
 }
 
-/* A normal league has one card across the full width */
 .compact-standings-groups > .compact-table-card:only-child{
   grid-column:1 / -1;
 }
 
-/* 20-team league = 1-10 left / 11-20 right */
+/* NORMAL LEAGUE: 1-10 LEFT / 11-20 RIGHT */
 .compact-table-card:only-child .compact-standings-list{
   display:grid !important;
   grid-template-columns:repeat(2,minmax(0,1fr)) !important;
@@ -980,7 +979,7 @@
   gap:6px 12px !important;
 }
 
-/* Multiple group-stage cards */
+/* GROUP STAGES */
 .compact-standings-groups > .compact-table-card:not(:only-child)
 .compact-standings-list{
   display:flex !important;
@@ -988,7 +987,7 @@
   gap:6px !important;
 }
 
-/* ONE TEAM ROW */
+/* TEAM ROW */
 .compact-standing-row{
   box-sizing:border-box !important;
   width:100% !important;
@@ -1007,7 +1006,7 @@
   border-radius:9px;
 }
 
-/* Rank */
+/* POSITION */
 .compact-standing-row .rank-badge{
   width:30px !important;
   min-width:30px !important;
@@ -1021,20 +1020,16 @@
   padding:0 !important;
 }
 
-/* Team */
+/* TEAM */
 .compact-standing-team{
   min-width:0 !important;
-
   display:flex !important;
   flex-direction:row !important;
   align-items:center !important;
   gap:8px !important;
-
   font-weight:800;
 }
 
-/* Force whatever logo wrapper renderTeamLogo() produces
-   to remain small inside compact standings */
 .compact-standing-team > *:first-child{
   flex:0 0 30px !important;
   width:30px !important;
@@ -1059,51 +1054,39 @@
   text-overflow:ellipsis;
 }
 
-/* P + points */
-.compact-standing-stat{
+/* GAMES PLAYED */
+.compact-games-played{
+  display:block !important;
+  text-align:center !important;
+  font-size:14px;
+  font-weight:800;
+  color:#fff;
+}
+
+/* POINTS */
+.compact-points-box{
+  justify-self:center;
+
   display:flex !important;
-  flex-direction:row !important;
   align-items:center !important;
   justify-content:center !important;
-  gap:3px !important;
 
-  white-space:nowrap;
-}
+  min-width:38px;
+  height:30px;
+  padding:0 8px;
 
-.compact-standing-stat small{
-  font-size:10px;
-  font-weight:800;
-  opacity:.65;
-}
+  box-sizing:border-box;
 
-.compact-standing-points{
+  background:#fff;
+  color:#08252b;
+
+  border-radius:6px;
+
+  font-size:15px;
   font-weight:900;
 }
 
-/* Keep existing qualification colouring visible */
-.compact-standing-row.standing-row-ucl{
-  background:rgba(20,100,180,.30);
-}
-
-.compact-standing-row.standing-row-uel{
-  background:rgba(160,105,10,.22);
-}
-
-.compact-standing-row.standing-row-uecl,
-.compact-standing-row.standing-row-qualified{
-  background:rgba(0,135,85,.24);
-}
-
-.compact-standing-row.standing-row-playout{
-  background:rgba(185,105,20,.22);
-}
-
-.compact-standing-row.standing-row-relegation,
-.compact-standing-row.standing-row-eliminated{
-  background:rgba(155,35,45,.25);
-}
-
-/* Narrow screens */
+/* MOBILE */
 @media (max-width:800px){
 
   .compact-standings-groups{
@@ -1119,38 +1102,4 @@
   .compact-standing-row{
     grid-template-columns:34px minmax(0,1fr) 40px 54px !important;
   }
-}
-.compact-standing-points strong{
-  display:flex;
-  align-items:center;
-  justify-content:center;
-
-  min-width:38px;
-  height:30px;
-  padding:0 8px;
-
-  background:#fff;
-  color:#08252b;
-
-  border-radius:6px;
-
-  font-size:15px;
-  font-weight:900;
-}
-/* Prevent detailed-table generated labels leaking into compact view */
-.compact-standing-row::before,
-.compact-standing-row::after,
-.compact-standing-points::before,
-.compact-standing-points::after,
-.compact-standing-points strong::before,
-.compact-standing-points strong::after{
-  content:none !important;
-  display:none !important;
-}
-.compact-standing-row{
-  position:relative;
-}
-
-.compact-standing-points{
-  position:static !important;
 }
