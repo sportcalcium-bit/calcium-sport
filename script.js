@@ -1413,14 +1413,26 @@ function renderStandings(){
   `;
 }).join('');
 
-      return `
+      const showGroupName=orderedGroups.length>1;
+
+return `
   <section class="table-card compact-table-card">
 
-    <div class="compact-standings-list">
+    ${showGroupName ? `
+      <div class="compact-group-title">
+        ${escapeHTML(groupName)}
+      </div>
+    ` : ''}
+
+    <div
+      class="compact-standings-list"
+      data-team-count="${rows.length}"
+    >
       ${compactRows}
     </div>
 
   </section>
+`;
 `;
     }).join('');
 
