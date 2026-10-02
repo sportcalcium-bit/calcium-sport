@@ -1103,3 +1103,25 @@
     grid-template-columns:34px minmax(0,1fr) 40px 54px !important;
   }
 }
+/* Full-row qualification colours — COMPACT VIEW ONLY */
+.compact-standing-row.standing-row-ucl{
+  background:rgba(20,100,180,.30);
+}
+
+.compact-standing-row.standing-row-uel{
+  background:rgba(160,105,10,.22);
+}
+
+.compact-standing-row.standing-row-uecl,
+.compact-standing-row.standing-row-qualified{
+  background:rgba(0,135,85,.24);
+}
+
+.compact-standing-row.standing-row-playout{
+  background:rgba(185,105,20,.22);
+}
+
+.compact-standing-row.standing-row-relegation,
+.compact-standing-row.standing-row-eliminated{
+  background:rgba(155,35,45,.25);
+}
