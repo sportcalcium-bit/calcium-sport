@@ -1335,40 +1335,204 @@ function toggleStandingsView(){
 
 window.toggleStandingsView=toggleStandingsView;
 function renderStandings(){
-  const standings=getFilteredStandings(); 
+  const standings=getFilteredStandings();
+
   if(!standings.length){
-    setHTML('standingsContainer','<div class="empty">No standings found.</div>'); 
-    return; 
+    setHTML('standingsContainer','<div class="empty">No standings found.</div>');
+    return;
   }
 
   const groups=groupBy(standings,getStandingGroupKey);
 
-  const orderedGroups = Object.keys(groups).sort((a, b) =>
-  a.localeCompare(b, undefined, { numeric: true })
-);
+  const orderedGroups=Object.keys(groups).sort((a,b)=>
+    a.localeCompare(b,undefined,{numeric:true})
+  );
 
-const viewToggle=`
-  <div class="standings-view-controls">
-    <button
-      type="button"
-      class="standings-view-toggle"
-      onclick="toggleStandingsView()"
-    >
-      ${standingsCompactView ? '▤ Detailed Table' : '▦ Full Table'}
-    </button>
-  </div>
-`;
+  const isGroupStage=isGroupStageCompetition();
 
-const html = viewToggle + orderedGroups.map(groupName => {
-  const rows=[...groups[groupName]].sort(compareStandingRows); 
-    const isGroupStage=isGroupStageCompetition();
+  const viewToggle=`
+    <div class="standings-view-controls">
+      <button
+        type="button"
+        class="standings-view-toggle"
+        onclick="toggleStandingsView()"
+      >
+        ${standingsCompactView ? '▤ Detailed Table' : '▦ Full Table'}
+      </button>
+    </div>
+  `;
 
-    const legend = getCompetitionLegend(isGroupStage);
+  /* =========================
+     COMPACT FULL TABLE
+     ========================= */
 
-    return `<section class="table-card"><div class="table-card-header"><h3>${escapeHTML(groupName)}</h3><span>${rows.length} teams</span></div><div class="standings-table-wrap"><table class="standings-table"><thead><tr><th>#</th><th>Team</th><th>PT</th><th>GW</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th></tr></thead><tbody>${rows.map((team,i)=>{const zone=getRankClass(i,rows.length,isGroupStage,team,groupName);return `<tr class="standing-row standing-row-${zone.replace('rank-','')}"><td><span class="rank-badge ${zone}">${i+1}</span></td><td class="team-cell"><div class="standing-team-content">${renderTeamLogo(getStandingTeamLogo(team),team.Team)}<span class="standing-team-name">${escapeHTML(team.Team)}</span></div></td><td class="standings-points"><strong>${safeNumber(team.Points)}</strong></td><td>${safeNumber(team.Played)}</td><td>${safeNumber(team.Won)}</td><td>${safeNumber(team.Drawn)}</td><td>${safeNumber(team.Lost)}</td><td>${safeNumber(team.GoalsFor)}</td><td>${safeNumber(team.GoalsAgainst)}</td><td>${formatGoalDifference(team.GoalDifference)}</td></tr>`;}).join('')}</tbody></table></div>${legend}</section>`;
+  if(standingsCompactView){
+
+    const compactGroups=orderedGroups.map(groupName=>{
+
+      const rows=[...groups[groupName]].sort(compareStandingRows);
+      const legend=getCompetitionLegend(isGroupStage);
+
+      const compactRows=rows.map((team,i)=>{
+
+        const zone=getRankClass(
+          i,
+          rows.length,
+          isGroupStage,
+          team,
+          groupName
+        );
+
+        return `
+          <div class="compact-standing-row standing-row-${zone.replace('rank-','')}">
+
+            <span class="rank-badge ${zone}">
+              ${i+1}
+            </span>
+
+            <div class="compact-standing-team">
+              ${renderTeamLogo(getStandingTeamLogo(team),team.Team)}
+              <span>${escapeHTML(team.Team)}</span>
+            </div>
+
+            <div class="compact-standing-stat">
+              <small>P</small>
+              <strong>${safeNumber(team.Played)}</strong>
+            </div>
+
+            <div class="compact-standing-stat compact-standing-points">
+              <strong>${safeNumber(team.Points)}</strong>
+              <small>pts</small>
+            </div>
+
+          </div>
+        `;
+      }).join('');
+
+      return `
+        <section class="table-card compact-table-card">
+
+          <div class="table-card-header">
+            <h3>${escapeHTML(groupName)}</h3>
+            <span>${rows.length} teams</span>
+          </div>
+
+          <div class="compact-standings-list">
+            ${compactRows}
+          </div>
+
+          ${legend}
+
+        </section>
+      `;
+    }).join('');
+
+    setHTML(
+      'standingsContainer',
+      `${viewToggle}<div class="compact-standings-groups">${compactGroups}</div>`
+    );
+
+    return;
+  }
+
+  /* =========================
+     EXISTING DETAILED TABLE
+     ========================= */
+
+  const detailedTables=orderedGroups.map(groupName=>{
+
+    const rows=[...groups[groupName]].sort(compareStandingRows);
+    const legend=getCompetitionLegend(isGroupStage);
+
+    return `
+      <section class="table-card">
+
+        <div class="table-card-header">
+          <h3>${escapeHTML(groupName)}</h3>
+          <span>${rows.length} teams</span>
+        </div>
+
+        <div class="standings-table-wrap">
+
+          <table class="standings-table">
+
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Team</th>
+                <th>PT</th>
+                <th>GW</th>
+                <th>W</th>
+                <th>D</th>
+                <th>L</th>
+                <th>GF</th>
+                <th>GA</th>
+                <th>GD</th>
+              </tr>
+            </thead>
+
+            <tbody>
+
+              ${rows.map((team,i)=>{
+
+                const zone=getRankClass(
+                  i,
+                  rows.length,
+                  isGroupStage,
+                  team,
+                  groupName
+                );
+
+                return `
+                  <tr class="standing-row standing-row-${zone.replace('rank-','')}">
+
+                    <td>
+                      <span class="rank-badge ${zone}">
+                        ${i+1}
+                      </span>
+                    </td>
+
+                    <td class="team-cell">
+                      <div class="standing-team-content">
+                        ${renderTeamLogo(getStandingTeamLogo(team),team.Team)}
+                        <span class="standing-team-name">
+                          ${escapeHTML(team.Team)}
+                        </span>
+                      </div>
+                    </td>
+
+                    <td class="standings-points">
+                      <strong>${safeNumber(team.Points)}</strong>
+                    </td>
+
+                    <td>${safeNumber(team.Played)}</td>
+                    <td>${safeNumber(team.Won)}</td>
+                    <td>${safeNumber(team.Drawn)}</td>
+                    <td>${safeNumber(team.Lost)}</td>
+                    <td>${safeNumber(team.GoalsFor)}</td>
+                    <td>${safeNumber(team.GoalsAgainst)}</td>
+                    <td>${formatGoalDifference(team.GoalDifference)}</td>
+
+                  </tr>
+                `;
+              }).join('')}
+
+            </tbody>
+
+          </table>
+
+        </div>
+
+        ${legend}
+
+      </section>
+    `;
   }).join('');
 
-  setHTML('standingsContainer',html);
+  setHTML(
+    'standingsContainer',
+    `${viewToggle}${detailedTables}`
+  );
 }
 function renderStats(){ const stats=getFilteredStats(); renderStatList('topScorers',stats,'Goals','topScorers'); renderStatList('topAssists',stats,'Assists','topAssists'); renderStatList('cleanSheets',stats,'CleanSheets','cleanSheets'); renderStatList('yellowCards',stats,'YellowCards','yellowCards'); renderStatList('redCards',stats,'RedCards','redCards'); }
 function renderStatList(id,stats,key,expandKey){ const all=stats.filter(r=>Number(r[key])>0).sort((a,b)=>Number(b[key])-Number(a[key])||String(a.Player||'').localeCompare(String(b.Player||''))); if(!all.length){ setHTML(id,'<div class="empty">No data yet.</div>'); return; } const visible=expandedStats[expandKey]?all:all.slice(0,3); const rows=visible.map((r,i)=>`<div class="stat-row"><span class="stat-rank">${i+1}</span><span class="stat-player">${renderTeamLogo(r.Logo,r.Team)}${renderPlayerLink(r.Player,'stat-player-name')}</span><strong class="stat-value">${safeNumber(r[key])}</strong></div>`).join(''); const btn=all.length>3?`<button class="stat-toggle" type="button" onclick="toggleStatList('${expandKey}')">${expandedStats[expandKey]?'Show less':`See more (${all.length})`}</button>`:''; setHTML(id,rows+btn); }
