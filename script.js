@@ -1326,6 +1326,14 @@ function renderScoreboardRow(match){ const p=formatScoreboardDateParts(match.Dat
 function renderResults(){ const results=getFilteredMatches().filter(m=>m.Status==='FT').sort((a,b)=>matchDateSortValue(a)-matchDateSortValue(b)); setHTML('resultsList',results.length?renderGroupedScoreboard(results):'<div class="empty">No results found.</div>'); setText('resultsCount',`${results.length} matches`); }
 function renderFixtures(){ const fixtures=getFilteredMatches().filter(m=>m.Status!=='FT').sort((a,b)=>matchDateSortValue(a)-matchDateSortValue(b)); setHTML('fixturesList',fixtures.length?renderGroupedScoreboard(fixtures):'<div class="empty">No scheduled games found.</div>'); setText('fixturesCount',`${fixtures.length} matches`); }
 function renderGroupedScoreboard(matches){ const grouped=groupBy(matches,m=>formatRoundLabel(m.Round)); return Object.keys(grouped).map(round=>`<section class="round-block"><div class="round-heading">${escapeHTML(round)}</div>${grouped[round].map(renderScoreboardRow).join('')}</section>`).join(''); }
+let standingsCompactView=false;
+
+function toggleStandingsView(){
+  standingsCompactView=!standingsCompactView;
+  renderStandings();
+}
+
+window.toggleStandingsView=toggleStandingsView;
 function renderStandings(){
   const standings=getFilteredStandings(); 
   if(!standings.length){
@@ -1339,8 +1347,20 @@ function renderStandings(){
   a.localeCompare(b, undefined, { numeric: true })
 );
 
-const html = orderedGroups.map(groupName => {
-    const rows=[...groups[groupName]].sort(compareStandingRows); 
+const viewToggle=`
+  <div class="standings-view-controls">
+    <button
+      type="button"
+      class="standings-view-toggle"
+      onclick="toggleStandingsView()"
+    >
+      ${standingsCompactView ? '▤ Detailed Table' : '▦ Full Table'}
+    </button>
+  </div>
+`;
+
+const html = viewToggle + orderedGroups.map(groupName => {
+  const rows=[...groups[groupName]].sort(compareStandingRows); 
     const isGroupStage=isGroupStageCompetition();
 
     const legend = getCompetitionLegend(isGroupStage);
