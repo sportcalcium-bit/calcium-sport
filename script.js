@@ -1375,41 +1375,37 @@ function renderStandings(){
 
       const compactRows=rows.map((team,i)=>{
 
-        const zone=getRankClass(
-          i,
-          rows.length,
-          isGroupStage,
-          team,
-          groupName
-        );
+  const zone=getRankClass(
+    i,
+    rows.length,
+    isGroupStage,
+    team,
+    groupName
+  );
 
-        return `
-          <div class="compact-standing-row standing-row-${zone.replace('rank-','')}">
+  return `
+    <div class="compact-standing-row standing-row-${zone.replace('rank-','')}">
 
-            <span class="rank-badge ${zone}">
-              ${i+1}
-            </span>
+      <span class="rank-badge ${zone}">
+        ${i+1}
+      </span>
 
-            <div class="compact-standing-team">
-              ${renderTeamLogo(getStandingTeamLogo(team),team.Team)}
-              <span>${escapeHTML(team.Team)}</span>
-            </div>
+      <div class="compact-standing-team">
+        ${renderTeamLogo(getStandingTeamLogo(team),team.Team)}
+        <span>${escapeHTML(team.Team)}</span>
+      </div>
 
-            <div class="compact-standing-stat">
-  <strong>${safeNumber(team.Played)}</strong>
-</div>
+      <strong class="compact-games-played">
+        ${safeNumber(team.Played)}
+      </strong>
 
-<div class="compact-standing-stat compact-standing-points">
-  <strong>${safeNumber(team.Points)}</strong>
-</div>
+      <strong class="compact-points-box">
+        ${safeNumber(team.Points)}
+      </strong>
 
-            <div class="compact-standing-stat compact-standing-points">
-              <strong>${safeNumber(team.Points)}</strong>
-            </div>
-
-          </div>
-        `;
-      }).join('');
+    </div>
+  `;
+}).join('');
 
       return `
         <section class="table-card compact-table-card">
