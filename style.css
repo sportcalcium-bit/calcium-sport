@@ -1137,3 +1137,20 @@
   font-size:15px;
   font-weight:900;
 }
+/* Prevent detailed-table generated labels leaking into compact view */
+.compact-standing-row::before,
+.compact-standing-row::after,
+.compact-standing-points::before,
+.compact-standing-points::after,
+.compact-standing-points strong::before,
+.compact-standing-points strong::after{
+  content:none !important;
+  display:none !important;
+}
+.compact-standing-row{
+  position:relative;
+}
+
+.compact-standing-points{
+  position:static !important;
+}
