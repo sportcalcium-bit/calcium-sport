@@ -971,12 +971,32 @@
 }
 
 /* NORMAL LEAGUE: 1-10 LEFT / 11-20 RIGHT */
+/* Single-table competitions */
 .compact-table-card:only-child .compact-standings-list{
   display:grid !important;
-  grid-template-columns:repeat(2,minmax(0,1fr)) !important;
-  grid-template-rows:repeat(10,48px) !important;
   grid-auto-flow:column !important;
   gap:6px 12px !important;
+}
+
+/* 20 teams = 10 + 10 */
+.compact-table-card:only-child
+.compact-standings-list[data-team-count="20"]{
+  grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  grid-template-rows:repeat(10,48px) !important;
+}
+
+/* 18 teams = 9 + 9 */
+.compact-table-card:only-child
+.compact-standings-list[data-team-count="18"]{
+  grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  grid-template-rows:repeat(9,48px) !important;
+}
+
+/* 36 teams = 12 + 12 + 12 */
+.compact-table-card:only-child
+.compact-standings-list[data-team-count="36"]{
+  grid-template-columns:repeat(3,minmax(0,1fr)) !important;
+  grid-template-rows:repeat(12,48px) !important;
 }
 
 /* GROUP STAGES */
@@ -1085,7 +1105,13 @@
   font-size:15px;
   font-weight:900;
 }
-
+/* Group name for multi-group competitions */
+.compact-group-title{
+  margin:0 0 10px;
+  font-size:15px;
+  font-weight:900;
+  color:#fff;
+}
 /* MOBILE */
 @media (max-width:800px){
 
