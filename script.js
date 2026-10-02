@@ -1396,9 +1396,12 @@ function renderStandings(){
             </div>
 
             <div class="compact-standing-stat">
-              <small>P</small>
-              <strong>${safeNumber(team.Played)}</strong>
-            </div>
+  <strong>${safeNumber(team.Played)}</strong>
+</div>
+
+<div class="compact-standing-stat compact-standing-points">
+  <strong>${safeNumber(team.Points)}</strong>
+</div>
 
             <div class="compact-standing-stat compact-standing-points">
               <strong>${safeNumber(team.Points)}</strong>
