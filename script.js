@@ -1335,6 +1335,12 @@ function toggleStandingsView(){
 
 window.toggleStandingsView=toggleStandingsView;
 function renderStandings(){
+
+  const liveLabel=$('standingsLiveLabel');
+  if(liveLabel){
+    liveLabel.style.display=standingsCompactView ? 'none' : '';
+  }
+
   const standings=getFilteredStandings();
 
   if(!standings.length){
