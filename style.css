@@ -1125,3 +1125,7 @@
 .compact-standing-row.standing-row-eliminated{
   background:rgba(155,35,45,.25);
 }
+.compact-table-card{
+  padding-top:16px;
+  padding-bottom:16px;
+}
