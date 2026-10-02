@@ -1437,9 +1437,9 @@ return `
     }).join('');
 
     setHTML(
-      'standingsContainer',
-      `${viewToggle}<div class="compact-standings-groups">${compactGroups}</div>`
-    );
+  'standingsContainer',
+  viewToggle + '<div class="compact-standings-groups">' + compactGroups + '</div>'
+);
 
     return;
   }
