@@ -1411,9 +1411,8 @@ function renderStandings(){
         <section class="table-card compact-table-card">
 
           <div class="table-card-header">
-            <h3>${escapeHTML(groupName)}</h3>
-            <span>${rows.length} teams</span>
-          </div>
+  <h3>${escapeHTML(groupName)}</h3>
+</div>
 
           <div class="compact-standings-list">
             ${compactRows}
