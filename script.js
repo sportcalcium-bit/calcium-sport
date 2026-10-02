@@ -1405,7 +1405,6 @@ function renderStandings(){
 
             <div class="compact-standing-stat compact-standing-points">
               <strong>${safeNumber(team.Points)}</strong>
-              <small>pts</small>
             </div>
 
           </div>
