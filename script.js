@@ -1414,20 +1414,14 @@ function renderStandings(){
 }).join('');
 
       return `
-        <section class="table-card compact-table-card">
+  <section class="table-card compact-table-card">
 
-          <div class="table-card-header">
-  <h3>${escapeHTML(groupName)}</h3>
-</div>
+    <div class="compact-standings-list">
+      ${compactRows}
+    </div>
 
-          <div class="compact-standings-list">
-            ${compactRows}
-          </div>
-
-          ${legend}
-
-        </section>
-      `;
+  </section>
+`;
     }).join('');
 
     setHTML(
