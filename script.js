@@ -2341,9 +2341,78 @@ function getPlayerMatchStats(match,playerName){
   return totals;
 }
 function renderPlayerMatchRow(item){
-  const match=item.match,s=item.stats,click=match.MatchID?`onclick="closePlayerProfile();openMatchDetail('${escapeAttr(match.MatchID)}')"`:'';
-  const badges=[s.goals?`⚽ ${s.goals}`:'',s.assists?`A ${s.assists}`:'',s.yellow?`🟨 ${s.yellow}`:'',s.red?`🟥 ${s.red}`:''].filter(Boolean).join(' ');
-  return `<button class="player-match-row" type="button" ${click}><span class="player-match-date">${escapeHTML(formatScoreboardDateParts(match.Date,match.Time).date)}</span><span class="player-match-teams"><strong>${escapeHTML(match.HomeTeam)} ${escapeHTML(renderScoreText(match))} ${escapeHTML(match.AwayTeam)}</strong><small>${escapeHTML(match.Competition||match['Competition Name']||match.Round||'')}</small></span><span class="player-match-events">${badges||'—'}</span></button>`;
+  const match=item.match;
+  const s=item.stats;
+
+  const click=match.MatchID
+    ? `onclick="closePlayerProfile();openMatchDetail('${escapeAttr(match.MatchID)}')"`
+    : '';
+
+  const badges=[
+    s.goals ? `⚽ ${s.goals}` : '',
+    s.assists ? `A ${s.assists}` : '',
+    s.yellow ? `🟨 ${s.yellow}` : '',
+    s.red ? `🟥 ${s.red}` : ''
+  ].filter(Boolean).join(' ');
+
+  const assignments=
+    playerTeamsLookup.get(
+      canonicalPlayerKey(activePlayerProfileName)
+    ) || [];
+
+  const assignment=assignments.find(a=>
+    assignmentIncludesMatch(a,match)
+  );
+
+  let result='';
+  let resultClass='';
+
+  if(assignment){
+    const homeScore=Number(match.HomeScore);
+    const awayScore=Number(match.AwayScore);
+
+    if(Number.isFinite(homeScore) && Number.isFinite(awayScore)){
+      const isHome=sameTeam(assignment.team,match.HomeTeam);
+
+      const teamScore=isHome ? homeScore : awayScore;
+      const opponentScore=isHome ? awayScore : homeScore;
+
+      if(teamScore>opponentScore){
+        result='W';
+        resultClass='win';
+      }else if(teamScore<opponentScore){
+        result='L';
+        resultClass='loss';
+      }else{
+        result='D';
+        resultClass='draw';
+      }
+    }
+  }
+
+  return `
+    <button class="player-match-row" type="button" ${click}>
+      <span class="player-match-date">
+        ${escapeHTML(formatScoreboardDateParts(match.Date,match.Time).date)}
+      </span>
+
+      <span class="player-match-teams">
+        <strong>
+          ${escapeHTML(match.HomeTeam)}
+          ${escapeHTML(renderScoreText(match))}
+          ${escapeHTML(match.AwayTeam)}
+        </strong>
+        <small>
+          ${escapeHTML(match.Competition||match['Competition Name']||match.Round||'')}
+        </small>
+      </span>
+
+      <span class="player-match-events">
+        ${badges || ''}
+        ${result ? `<span class="player-result-badge ${resultClass}">${result}</span>` : ''}
+      </span>
+    </button>
+  `;
 }
 
 function getMasterSearchItems(){
