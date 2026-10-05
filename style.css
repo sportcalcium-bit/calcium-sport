@@ -1178,3 +1178,159 @@
 .player-result-badge.loss{
   background:#dc2626;
 }
+/* =========================================================
+   KNOCKOUT CUP — TOURNAMENT VIEW
+========================================================= */
+
+.knockout-standings{
+  display:flex;
+  flex-direction:column;
+  gap:28px;
+  margin-top:8px;
+}
+
+/* ROUND / STAGE */
+.knockout-stage{
+  display:block;
+  width:100%;
+}
+
+.knockout-stage-title{
+  margin:0 0 12px;
+  padding-bottom:8px;
+  border-bottom:1px solid rgba(255,255,255,.10);
+  color:#fff;
+  font-size:16px;
+  font-weight:950;
+  letter-spacing:.04em;
+}
+
+/* MATCHES */
+.knockout-stage-matches{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:10px;
+}
+
+/* INDIVIDUAL MATCH */
+.knockout-match{
+  min-width:0;
+  overflow:hidden;
+
+  background:#03242b;
+  border:1px solid rgba(89,220,235,.18);
+  border-radius:11px;
+
+  box-shadow:0 4px 14px rgba(0,0,0,.16);
+}
+
+/* TEAM ROW */
+.knockout-team{
+  display:grid;
+  grid-template-columns:34px minmax(0,1fr) auto;
+  align-items:center;
+  gap:8px;
+
+  min-height:43px;
+  padding:5px 10px;
+}
+
+.knockout-team + .knockout-team{
+  border-top:1px solid rgba(255,255,255,.08);
+}
+
+/* TEAM LOGO */
+.knockout-team .team-logo{
+  width:30px;
+  height:30px;
+  min-width:30px;
+  min-height:30px;
+  padding:4px;
+}
+
+/* TEAM NAME */
+.knockout-team-name{
+  min-width:0;
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+
+  color:#dcebef;
+  font-size:14px;
+  font-weight:750;
+}
+
+/* SCORE */
+.knockout-team-score{
+  min-width:22px;
+  text-align:right;
+
+  color:#fff;
+  font-size:16px;
+  font-weight:950;
+}
+
+/* WINNER */
+.knockout-team.is-winner{
+  background:rgba(22,199,93,.08);
+}
+
+.knockout-team.is-winner .knockout-team-name,
+.knockout-team.is-winner .knockout-team-score{
+  color:#fff;
+  font-weight:950;
+}
+
+/* PENALTY SCORE */
+.knockout-penalty{
+  margin-left:3px;
+  color:var(--muted);
+  font-size:11px;
+  font-weight:850;
+}
+
+/* EMPTY / FUTURE TEAM */
+.knockout-team.is-tbd{
+  opacity:.55;
+}
+
+/* Large rounds such as FA Cup Round 1 / Round 2 */
+.knockout-stage.is-large .knockout-stage-matches{
+  grid-template-columns:repeat(6,minmax(0,1fr));
+}
+
+@media(max-width:1100px){
+
+  .knockout-stage-matches,
+  .knockout-stage.is-large .knockout-stage-matches{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+  }
+}
+
+@media(max-width:800px){
+
+  .knockout-standings{
+    gap:24px;
+  }
+
+  .knockout-stage-matches,
+  .knockout-stage.is-large .knockout-stage-matches{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
+
+@media(max-width:520px){
+
+  .knockout-stage-matches,
+  .knockout-stage.is-large .knockout-stage-matches{
+    grid-template-columns:1fr;
+  }
+
+  .knockout-team{
+    min-height:46px;
+  }
+
+  .knockout-team-name{
+    font-size:14px;
+  }
+}
