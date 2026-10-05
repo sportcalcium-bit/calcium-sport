@@ -1343,10 +1343,25 @@ function renderStandings(){
 
   const standings=getFilteredStandings();
 
-  if(!standings.length){
-    setHTML('standingsContainer','<div class="empty">No standings found.</div>');
+ if(!standings.length){
+
+  const knockoutMatches=getCompetitionMatches();
+
+  if(knockoutMatches.length){
+    setHTML(
+      'standingsContainer',
+      renderKnockoutBracket(knockoutMatches)
+    );
     return;
   }
+
+  setHTML(
+    'standingsContainer',
+    '<div class="empty">No standings found.</div>'
+  );
+
+  return;
+}
 
   const groups=groupBy(standings,getStandingGroupKey);
 
@@ -1537,6 +1552,210 @@ function renderStandings(){
     'standingsContainer',
     `${viewToggle}${detailedTables}`
   );
+}
+function renderKnockoutBracket(matches){
+
+  const stageDefinitions=[
+    {
+      key:'1/64-finals',
+      label:'1/64-Finals',
+      patterns:['1/64-final','1/64 final','round of 128']
+    },
+    {
+      key:'1/32-finals',
+      label:'1/32-Finals',
+      patterns:['1/32-final','1/32 final','round of 64']
+    },
+    {
+      key:'1/16-finals',
+      label:'1/16-Finals',
+      patterns:['1/16-final','1/16 final','round of 32']
+    },
+    {
+      key:'1/8-finals',
+      label:'1/8-Finals',
+      patterns:['1/8-final','1/8 final','round of 16']
+    },
+    {
+      key:'1/4-finals',
+      label:'1/4-Finals',
+      patterns:['1/4-final','1/4 final','quarter-final','quarter final']
+    },
+    {
+      key:'1/2-finals',
+      label:'1/2-Finals',
+      patterns:['1/2-final','1/2 final','semi-final','semi final']
+    },
+    {
+      key:'final',
+      label:'Final',
+      patterns:['final']
+    }
+  ];
+
+  function getBracketStage(match){
+
+    const round=normaliseText(match.Round||'');
+
+    // Final must not capture semi-final / quarter-final etc.
+    for(const stage of stageDefinitions){
+
+      if(stage.key==='final'){
+        if(round==='final'){
+          return stage;
+        }
+        continue;
+      }
+
+      if(stage.patterns.some(pattern=>round.includes(pattern))){
+        return stage;
+      }
+    }
+
+    return null;
+  }
+
+  const stages=stageDefinitions
+    .map(stage=>({
+      ...stage,
+      matches:matches
+        .filter(match=>{
+          const detected=getBracketStage(match);
+          return detected?.key===stage.key;
+        })
+        .sort((a,b)=>matchDateSortValue(a)-matchDateSortValue(b))
+    }))
+    .filter(stage=>stage.matches.length);
+
+  if(!stages.length){
+    return '<div class="empty">No standings found.</div>';
+  }
+
+  return `
+    <div class="knockout-bracket">
+
+      <div class="knockout-bracket-scroll">
+
+        ${stages.map(stage=>`
+          <section class="knockout-stage">
+
+            <h3 class="knockout-stage-title">
+              ${escapeHTML(stage.label)}
+            </h3>
+
+            <div class="knockout-stage-matches">
+
+              ${stage.matches.map(match=>
+                renderKnockoutBracketMatch(match)
+              ).join('')}
+
+            </div>
+
+          </section>
+        `).join('')}
+
+      </div>
+
+    </div>
+  `;
+}
+
+
+function renderKnockoutBracketMatch(match){
+
+  const played=isPlayedMatch(match);
+
+  const homeScore=safeNumber(match.HomeScore);
+  const awayScore=safeNumber(match.AwayScore);
+
+  const homePens=Number(match.HomePens);
+  const awayPens=Number(match.AwayPens);
+
+  let homeWinner=false;
+  let awayWinner=false;
+
+  if(played){
+
+    if(homeScore>awayScore){
+      homeWinner=true;
+    }
+
+    else if(awayScore>homeScore){
+      awayWinner=true;
+    }
+
+    else if(
+      Number.isFinite(homePens) &&
+      Number.isFinite(awayPens)
+    ){
+      homeWinner=homePens>awayPens;
+      awayWinner=awayPens>homePens;
+    }
+  }
+
+  const click=match.MatchID
+    ? `onclick="openMatchDetail('${escapeAttr(match.MatchID)}')"`
+    : '';
+
+  const renderScore=(score,pens)=>{
+
+    if(!played){
+      return '';
+    }
+
+    const penalty=
+      Number.isFinite(Number(pens)) &&
+      String(pens??'').trim()!==''
+        ? `<small>(${escapeHTML(pens)})</small>`
+        : '';
+
+    return `
+      <strong class="knockout-team-score">
+        ${escapeHTML(score)}
+        ${penalty}
+      </strong>
+    `;
+  };
+
+  return `
+    <button
+      type="button"
+      class="knockout-match-card ${match.MatchID?'is-clickable':''}"
+      ${click}
+    >
+
+      <div class="knockout-team ${homeWinner?'is-winner':''}">
+
+        ${renderTeamLogo(
+          match.HomeLogo || findTeamLogo(match.HomeTeam),
+          match.HomeTeam
+        )}
+
+        <span>
+          ${escapeHTML(match.HomeTeam)}
+        </span>
+
+        ${renderScore(match.HomeScore,match.HomePens)}
+
+      </div>
+
+      <div class="knockout-team ${awayWinner?'is-winner':''}">
+
+        ${renderTeamLogo(
+          match.AwayLogo || findTeamLogo(match.AwayTeam),
+          match.AwayTeam
+        )}
+
+        <span>
+          ${escapeHTML(match.AwayTeam)}
+        </span>
+
+        ${renderScore(match.AwayScore,match.AwayPens)}
+
+      </div>
+
+    </button>
+  `;
 }
 function renderStats(){ const stats=getFilteredStats(); renderStatList('topScorers',stats,'Goals','topScorers'); renderStatList('topAssists',stats,'Assists','topAssists'); renderStatList('cleanSheets',stats,'CleanSheets','cleanSheets'); renderStatList('yellowCards',stats,'YellowCards','yellowCards'); renderStatList('redCards',stats,'RedCards','redCards'); }
 function renderStatList(id,stats,key,expandKey){ const all=stats.filter(r=>Number(r[key])>0).sort((a,b)=>Number(b[key])-Number(a[key])||String(a.Player||'').localeCompare(String(b.Player||''))); if(!all.length){ setHTML(id,'<div class="empty">No data yet.</div>'); return; } const visible=expandedStats[expandKey]?all:all.slice(0,3); const rows=visible.map((r,i)=>`<div class="stat-row"><span class="stat-rank">${i+1}</span><span class="stat-player">${renderTeamLogo(r.Logo,r.Team)}${renderPlayerLink(r.Player,'stat-player-name')}</span><strong class="stat-value">${safeNumber(r[key])}</strong></div>`).join(''); const btn=all.length>3?`<button class="stat-toggle" type="button" onclick="toggleStatList('${expandKey}')">${expandedStats[expandKey]?'Show less':`See more (${all.length})`}</button>`:''; setHTML(id,rows+btn); }
