@@ -2016,24 +2016,6 @@ function renderPlayerProfile(playerName,seasonYear=getCurrentSeasonYear()){
      CURRENT LIVE TEAM
      ===================================================== */
 
-  const currentAssignment=allAssignments.find(row=>{
-    const endDate=String(row.endDate||'').trim();
-    const status=String(row.status||'').trim().toLowerCase();
-
-    return !endDate && status==='active';
-  });
-
-  /*
-    Keep the player's/manager's position even when they
-    currently have no team.
-  */
-
-  const position=
-    currentAssignment?.position ||
-    assignments[0]?.position ||
-    allAssignments[0]?.position ||
-    '';
-
   /*
     Profile header shows CURRENT situation only.
 
