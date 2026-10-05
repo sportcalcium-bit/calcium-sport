@@ -1553,6 +1553,8 @@ function renderStandings(){
     `${viewToggle}${detailedTables}`
   );
 }
+let knockoutStageWindowStart = 0;
+
 function renderKnockoutBracket(matches){
 
   const knockoutMatches=(matches||[])
@@ -1575,6 +1577,7 @@ function renderKnockoutBracket(matches){
       )
     }))
     .sort((a,b)=>{
+
       const firstA=a.matches[0];
       const firstB=b.matches[0];
 
@@ -1593,17 +1596,66 @@ function renderKnockoutBracket(matches){
     return '<div class="empty">No standings found.</div>';
   }
 
+  const visibleCount=3;
+  const maxStart=Math.max(0,stages.length-visibleCount);
+
+  knockoutStageWindowStart=Math.max(
+    0,
+    Math.min(knockoutStageWindowStart,maxStart)
+  );
+
+  const visibleStages=stages.slice(
+    knockoutStageWindowStart,
+    knockoutStageWindowStart+visibleCount
+  );
+
+  const canPrevious=knockoutStageWindowStart>0;
+  const canNext=knockoutStageWindowStart<maxStart;
+
   return `
     <div class="knockout-bracket">
 
+      <div class="knockout-stage-navigation">
+
+        <button
+          type="button"
+          class="knockout-stage-nav-button"
+          onclick="changeKnockoutStageWindow(-1)"
+          ${canPrevious?'':'disabled'}
+        >
+          <span class="knockout-nav-arrow">‹</span>
+          Previous Stage
+        </button>
+
+        <button
+          type="button"
+          class="knockout-stage-nav-button"
+          onclick="changeKnockoutStageWindow(1)"
+          ${canNext?'':'disabled'}
+        >
+          Next Stage
+          <span class="knockout-nav-arrow">›</span>
+        </button>
+
+      </div>
+
+      <div class="knockout-stage-headings">
+
+        ${visibleStages.map(stage=>`
+          <div class="knockout-stage-heading">
+            ${escapeHTML(stage.label)}
+          </div>
+        `).join('')}
+
+      </div>
+
       <div class="knockout-bracket-scroll">
 
-        ${stages.map(stage=>`
-          <section class="knockout-stage">
-
-            <h3 class="knockout-stage-title">
-              ${escapeHTML(stage.label)}
-            </h3>
+        ${visibleStages.map((stage,index)=>`
+          <section
+            class="knockout-stage"
+            data-stage-index="${index}"
+          >
 
             <div class="knockout-stage-matches">
 
@@ -1621,6 +1673,17 @@ function renderKnockoutBracket(matches){
     </div>
   `;
 }
+
+
+function changeKnockoutStageWindow(direction){
+
+  knockoutStageWindowStart+=direction;
+
+  renderStandings();
+}
+
+window.changeKnockoutStageWindow=
+  changeKnockoutStageWindow;
 
 
 function renderKnockoutBracketMatch(match){
@@ -1693,7 +1756,7 @@ function renderKnockoutBracketMatch(match){
           match.HomeTeam
         )}
 
-        <span>
+        <span class="knockout-team-name">
           ${escapeHTML(match.HomeTeam)}
         </span>
 
@@ -1708,7 +1771,7 @@ function renderKnockoutBracketMatch(match){
           match.AwayTeam
         )}
 
-        <span>
+        <span class="knockout-team-name">
           ${escapeHTML(match.AwayTeam)}
         </span>
 
