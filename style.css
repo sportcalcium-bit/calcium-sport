@@ -1334,3 +1334,93 @@
     font-size:14px;
   }
 }
+/* =========================================================
+   KNOCKOUT CUP — DARK CALCIUM SPORT POLISH
+========================================================= */
+
+.knockout-standings{
+  gap:34px;
+}
+
+.knockout-stage{
+  margin:0;
+}
+
+.knockout-stage-title{
+  margin:0 0 14px;
+  padding:0 0 10px;
+
+  border-bottom:1px solid rgba(89,220,235,.18);
+
+  color:#f3fbff;
+  font-size:17px;
+  font-weight:950;
+}
+
+/* Match card */
+.knockout-match{
+  background:#021b22;
+  border:1px solid rgba(89,220,235,.20);
+  border-radius:10px;
+  overflow:hidden;
+
+  box-shadow:0 5px 16px rgba(0,0,0,.20);
+}
+
+/* Team rows */
+.knockout-team{
+  min-height:44px;
+  padding:6px 10px;
+
+  background:rgba(255,255,255,.018);
+}
+
+.knockout-team + .knockout-team{
+  border-top:1px solid rgba(255,255,255,.07);
+}
+
+/* Winner */
+.knockout-team.is-winner{
+  background:rgba(22,199,93,.13);
+}
+
+.knockout-team.is-winner .knockout-team-name{
+  color:#fff;
+  font-weight:950;
+}
+
+.knockout-team.is-winner .knockout-team-score{
+  color:#43df7c;
+}
+
+/* Loser */
+.knockout-team:not(.is-winner) .knockout-team-name{
+  color:#b7c9cf;
+}
+
+.knockout-team:not(.is-winner) .knockout-team-score{
+  color:#9bafb6;
+}
+
+/* Logos */
+.knockout-team .team-logo{
+  width:31px;
+  height:31px;
+  min-width:31px;
+  min-height:31px;
+
+  background:#fff;
+  box-shadow:0 2px 8px rgba(0,0,0,.30);
+}
+
+/* Names */
+.knockout-team-name{
+  font-size:14px;
+}
+
+/* Scores */
+.knockout-team-score{
+  min-width:25px;
+  font-size:16px;
+  font-weight:950;
+}
