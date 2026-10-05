@@ -2355,24 +2355,27 @@ function renderPlayerMatchRow(item){
     s.red ? `🟥 ${s.red}` : ''
   ].filter(Boolean).join(' ');
 
-  const assignments=
+  const profileAssignments=
     playerTeamsLookup.get(
       canonicalPlayerKey(activePlayerProfileName)
     ) || [];
 
-  const assignment=assignments.find(a=>
+  const matchAssignment=profileAssignments.find(a=>
     assignmentIncludesMatch(a,match)
   );
 
   let result='';
   let resultClass='';
 
-  if(assignment){
+  if(matchAssignment){
     const homeScore=Number(match.HomeScore);
     const awayScore=Number(match.AwayScore);
 
     if(Number.isFinite(homeScore) && Number.isFinite(awayScore)){
-      const isHome=sameTeam(assignment.team,match.HomeTeam);
+      const isHome=sameTeam(
+        matchAssignment.team,
+        match.HomeTeam
+      );
 
       const teamScore=isHome ? homeScore : awayScore;
       const opponentScore=isHome ? awayScore : homeScore;
@@ -2403,13 +2406,21 @@ function renderPlayerMatchRow(item){
           ${escapeHTML(match.AwayTeam)}
         </strong>
         <small>
-          ${escapeHTML(match.Competition||match['Competition Name']||match.Round||'')}
+          ${escapeHTML(
+            match.Competition ||
+            match['Competition Name'] ||
+            match.Round ||
+            ''
+          )}
         </small>
       </span>
 
       <span class="player-match-events">
         ${badges || ''}
-        ${result ? `<span class="player-result-badge ${resultClass}">${result}</span>` : ''}
+        ${result
+          ? `<span class="player-result-badge ${resultClass}">${result}</span>`
+          : ''
+        }
       </span>
     </button>
   `;
