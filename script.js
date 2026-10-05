@@ -1555,77 +1555,39 @@ function renderStandings(){
 }
 function renderKnockoutBracket(matches){
 
-  const stageDefinitions=[
-    {
-      key:'1/64-finals',
-      label:'1/64-Finals',
-      patterns:['1/64-final','1/64 final','round of 128']
-    },
-    {
-      key:'1/32-finals',
-      label:'1/32-Finals',
-      patterns:['1/32-final','1/32 final','round of 64']
-    },
-    {
-      key:'1/16-finals',
-      label:'1/16-Finals',
-      patterns:['1/16-final','1/16 final','round of 32']
-    },
-    {
-      key:'1/8-finals',
-      label:'1/8-Finals',
-      patterns:['1/8-final','1/8 final','round of 16']
-    },
-    {
-      key:'1/4-finals',
-      label:'1/4-Finals',
-      patterns:['1/4-final','1/4 final','quarter-final','quarter final']
-    },
-    {
-      key:'1/2-finals',
-      label:'1/2-Finals',
-      patterns:['1/2-final','1/2 final','semi-final','semi final']
-    },
-    {
-      key:'final',
-      label:'Final',
-      patterns:['final']
-    }
-  ];
+  const knockoutMatches=(matches||[])
+    .filter(match=>String(match.Round||'').trim());
 
-  function getBracketStage(match){
-
-    const round=normaliseText(match.Round||'');
-
-    // Final must not capture semi-final / quarter-final etc.
-    for(const stage of stageDefinitions){
-
-      if(stage.key==='final'){
-        if(round==='final'){
-          return stage;
-        }
-        continue;
-      }
-
-      if(stage.patterns.some(pattern=>round.includes(pattern))){
-        return stage;
-      }
-    }
-
-    return null;
+  if(!knockoutMatches.length){
+    return '<div class="empty">No standings found.</div>';
   }
 
-  const stages=stageDefinitions
-    .map(stage=>({
-      ...stage,
-      matches:matches
-        .filter(match=>{
-          const detected=getBracketStage(match);
-          return detected?.key===stage.key;
-        })
-        .sort((a,b)=>matchDateSortValue(a)-matchDateSortValue(b))
+  const grouped=groupBy(
+    knockoutMatches,
+    match=>String(match.Round||'').trim()
+  );
+
+  const stages=Object.keys(grouped)
+    .map(round=>({
+      label:round,
+      matches:[...grouped[round]].sort(
+        (a,b)=>matchDateSortValue(a)-matchDateSortValue(b)
+      )
     }))
-    .filter(stage=>stage.matches.length);
+    .sort((a,b)=>{
+      const firstA=a.matches[0];
+      const firstB=b.matches[0];
+
+      const dateDifference=
+        matchDateSortValue(firstA)-
+        matchDateSortValue(firstB);
+
+      if(dateDifference!==0){
+        return dateDifference;
+      }
+
+      return roundSortValue(a.label)-roundSortValue(b.label);
+    });
 
   if(!stages.length){
     return '<div class="empty">No standings found.</div>';
