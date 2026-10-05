@@ -1155,3 +1155,26 @@
   padding-top:16px;
   padding-bottom:16px;
 }
+.player-result-badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:32px;
+  height:32px;
+  border-radius:8px;
+  font-weight:900;
+  font-size:15px;
+  color:#fff;
+}
+
+.player-result-badge.win{
+  background:#16a34a;
+}
+
+.player-result-badge.draw{
+  background:#6b7280;
+}
+
+.player-result-badge.loss{
+  background:#dc2626;
+}
