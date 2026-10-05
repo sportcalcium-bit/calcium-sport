@@ -1424,3 +1424,244 @@
   font-size:16px;
   font-weight:950;
 }
+/* =========================================================
+   KNOCKOUT BRACKET — 3 STAGE VIEW
+========================================================= */
+
+.knockout-bracket{
+  width:100%;
+  margin-top:12px;
+}
+
+/* Navigation */
+.knockout-stage-navigation{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:14px 16px;
+  margin-bottom:0;
+
+  background:#03242b;
+  border-radius:10px 10px 0 0;
+  border-bottom:1px solid rgba(255,255,255,.07);
+}
+
+.knockout-stage-nav-button{
+  display:flex;
+  align-items:center;
+  gap:10px;
+
+  padding:10px 16px;
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:10px;
+
+  background:#00151b;
+  color:#f3fbff;
+
+  font-size:14px;
+  font-weight:900;
+  text-transform:uppercase;
+  letter-spacing:.03em;
+
+  cursor:pointer;
+}
+
+.knockout-stage-nav-button:hover:not(:disabled){
+  background:#062f38;
+}
+
+.knockout-stage-nav-button:disabled{
+  opacity:.28;
+  cursor:default;
+}
+
+.knockout-nav-arrow{
+  font-size:27px;
+  line-height:15px;
+  font-weight:400;
+}
+
+/* Round titles */
+.knockout-stage-headings{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+
+  background:#03242b;
+  border-radius:0 0 8px 8px;
+}
+
+.knockout-stage-heading{
+  padding:14px 10px;
+
+  color:#c8d6da;
+  text-align:center;
+
+  font-size:15px;
+  font-weight:900;
+  text-transform:uppercase;
+  letter-spacing:.02em;
+}
+
+/* Three bracket columns */
+.knockout-bracket-scroll{
+  display:grid !important;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:28px;
+
+  width:100%;
+  min-width:0 !important;
+
+  padding:28px 16px 34px;
+  overflow:visible !important;
+}
+
+/* Stage */
+.knockout-stage{
+  min-width:0 !important;
+  margin:0 !important;
+  display:flex;
+}
+
+.knockout-stage-title{
+  display:none !important;
+}
+
+.knockout-stage-matches{
+  width:100%;
+
+  display:flex;
+  flex-direction:column;
+  justify-content:space-around;
+
+  gap:18px;
+}
+
+/* Match */
+.knockout-match-card{
+  position:relative;
+
+  width:100%;
+  min-height:74px;
+
+  padding:8px 10px;
+
+  background:#021b22 !important;
+  border:1px solid rgba(89,220,235,.18) !important;
+  border-radius:10px !important;
+
+  box-shadow:none !important;
+
+  color:#f3fbff;
+  text-align:left;
+
+  overflow:visible;
+}
+
+/* Teams — SAME base colour */
+.knockout-team{
+  display:grid;
+  grid-template-columns:28px minmax(0,1fr) auto;
+  align-items:center;
+  gap:9px;
+
+  min-height:28px;
+  padding:3px 5px !important;
+
+  background:transparent !important;
+  border:0 !important;
+}
+
+/* Only subtle winner emphasis */
+.knockout-team.is-winner{
+  background:rgba(89,220,235,.055) !important;
+  border-radius:5px;
+}
+
+.knockout-team-name,
+.knockout-team > span:not(.knockout-team-score){
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+
+  color:#d7e3e6 !important;
+  font-size:14px;
+  font-weight:600;
+}
+
+.knockout-team.is-winner .knockout-team-name,
+.knockout-team.is-winner > span{
+  color:#fff !important;
+  font-weight:900;
+}
+
+/* Logo */
+.knockout-team .team-logo{
+  width:25px !important;
+  height:25px !important;
+  min-width:25px !important;
+  min-height:25px !important;
+
+  background:transparent !important;
+  border:0 !important;
+  box-shadow:none !important;
+}
+
+/* Score */
+.knockout-team-score{
+  min-width:25px;
+
+  color:#c3d1d5 !important;
+  font-size:15px !important;
+  font-weight:800 !important;
+  text-align:right;
+}
+
+.knockout-team.is-winner .knockout-team-score{
+  color:#fff !important;
+  font-weight:950 !important;
+}
+
+.knockout-team-score small{
+  margin-left:1px;
+  font-size:10px;
+}
+
+/* Basic progression connectors */
+.knockout-stage:not(:last-child) .knockout-match-card::after{
+  content:"";
+  position:absolute;
+
+  top:50%;
+  right:-29px;
+
+  width:29px;
+  height:1px;
+
+  background:rgba(89,220,235,.20);
+}
+
+/* Mobile */
+@media(max-width:800px){
+
+  .knockout-stage-navigation{
+    padding:10px;
+  }
+
+  .knockout-stage-nav-button{
+    padding:9px 11px;
+    font-size:11px;
+  }
+
+  .knockout-stage-headings,
+  .knockout-bracket-scroll{
+    grid-template-columns:repeat(3,260px);
+  }
+
+  .knockout-bracket{
+    overflow-x:auto;
+  }
+
+  .knockout-bracket-scroll{
+    width:max-content;
+  }
+}
