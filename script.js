@@ -1553,7 +1553,7 @@ function renderStandings(){
     `${viewToggle}${detailedTables}`
   );
 }
-let knockoutStageWindowStart = 0;
+let activeKnockoutRound='';
 
 function renderKnockoutBracket(matches){
 
@@ -1578,12 +1578,9 @@ function renderKnockoutBracket(matches){
     }))
     .sort((a,b)=>{
 
-      const firstA=a.matches[0];
-      const firstB=b.matches[0];
-
       const dateDifference=
-        matchDateSortValue(firstA)-
-        matchDateSortValue(firstB);
+        matchDateSortValue(a.matches[0])-
+        matchDateSortValue(b.matches[0]);
 
       if(dateDifference!==0){
         return dateDifference;
@@ -1596,77 +1593,54 @@ function renderKnockoutBracket(matches){
     return '<div class="empty">No standings found.</div>';
   }
 
-  const visibleCount=3;
-  const maxStart=Math.max(0,stages.length-visibleCount);
-
-  knockoutStageWindowStart=Math.max(
-    0,
-    Math.min(knockoutStageWindowStart,maxStart)
+  /* Default = latest available round */
+  const activeExists=stages.some(
+    stage=>stage.label===activeKnockoutRound
   );
 
-  const visibleStages=stages.slice(
-    knockoutStageWindowStart,
-    knockoutStageWindowStart+visibleCount
-  );
+  if(!activeExists){
+    activeKnockoutRound=stages[stages.length-1].label;
+  }
 
-  const canPrevious=knockoutStageWindowStart>0;
-  const canNext=knockoutStageWindowStart<maxStart;
+  const activeStage=
+    stages.find(stage=>stage.label===activeKnockoutRound)
+    || stages[stages.length-1];
 
   return `
-    <div class="knockout-bracket">
+    <div class="knockout-round-view">
 
-      <div class="knockout-stage-navigation">
+      <div class="knockout-round-tabs">
 
-        <button
-          type="button"
-          class="knockout-stage-nav-button"
-          onclick="changeKnockoutStageWindow(-1)"
-          ${canPrevious?'':'disabled'}
-        >
-          <span class="knockout-nav-arrow">‹</span>
-          Previous Stage
-        </button>
-
-        <button
-          type="button"
-          class="knockout-stage-nav-button"
-          onclick="changeKnockoutStageWindow(1)"
-          ${canNext?'':'disabled'}
-        >
-          Next Stage
-          <span class="knockout-nav-arrow">›</span>
-        </button>
-
-      </div>
-
-      <div class="knockout-stage-headings">
-
-        ${visibleStages.map(stage=>`
-          <div class="knockout-stage-heading">
-            ${escapeHTML(stage.label)}
-          </div>
-        `).join('')}
-
-      </div>
-
-      <div class="knockout-bracket-scroll">
-
-        ${visibleStages.map((stage,index)=>`
-          <section
-            class="knockout-stage"
-            data-stage-index="${index}"
+        ${stages.map(stage=>`
+          <button
+            type="button"
+            class="knockout-round-tab ${
+              stage.label===activeStage.label ? 'is-active' : ''
+            }"
+            onclick="selectKnockoutRound(
+              ${escapeAttr(JSON.stringify(stage.label))}
+            )"
           >
-
-            <div class="knockout-stage-matches">
-
-              ${stage.matches.map(match=>
-                renderKnockoutBracketMatch(match)
-              ).join('')}
-
-            </div>
-
-          </section>
+            ${escapeHTML(stage.label)}
+          </button>
         `).join('')}
+
+      </div>
+
+      <div class="knockout-selected-round">
+
+        <div class="knockout-selected-round-header">
+          <h3>${escapeHTML(activeStage.label)}</h3>
+          <span>${activeStage.matches.length} matches</span>
+        </div>
+
+        <div class="knockout-selected-round-grid">
+
+          ${activeStage.matches.map(match=>
+            renderKnockoutBracketMatch(match)
+          ).join('')}
+
+        </div>
 
       </div>
 
@@ -1675,16 +1649,14 @@ function renderKnockoutBracket(matches){
 }
 
 
-function changeKnockoutStageWindow(direction){
+function selectKnockoutRound(round){
 
-  knockoutStageWindowStart+=direction;
+  activeKnockoutRound=String(round||'').trim();
 
   renderStandings();
 }
 
-window.changeKnockoutStageWindow=
-  changeKnockoutStageWindow;
-
+window.selectKnockoutRound=selectKnockoutRound;
 
 function renderKnockoutBracketMatch(match){
 
