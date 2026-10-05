@@ -1986,7 +1986,8 @@ function renderPlayerProfile(playerName,seasonYear=getCurrentSeasonYear()){
     }
   });
 
-  const availableSeasons=[...seasons].sort((a,b)=>Number(b)-Number(a));
+  const availableSeasons=[...seasons]
+    .sort((a,b)=>Number(b)-Number(a));
 
   const selected=getPreferredPlayerSeason(name,seasonYear);
   const assignments=getPlayerSeasonRows(name,selected);
@@ -2001,16 +2002,111 @@ function renderPlayerProfile(playerName,seasonYear=getCurrentSeasonYear()){
     : '<div class="empty">No played games are available for this player in this season.</div>';
 
   const options=availableSeasons
-    .map(y=>`<option value="${escapeAttr(y)}" ${y===selected?'selected':''}>${escapeHTML(y)}</option>`)
+    .map(y=>`
+      <option
+        value="${escapeAttr(y)}"
+        ${y===selected?'selected':''}
+      >
+        ${escapeHTML(y)}
+      </option>
+    `)
     .join('');
 
-  const description=[
-    ...new Set(
-      assignments.map(x=>[x.team,x.position].filter(Boolean).join(' · '))
-    )
-  ].join(' / ');
+  /* =====================================================
+     CURRENT LIVE TEAM
+     ===================================================== */
 
-  return `<section class="player-profile-hero"><div class="player-profile-photo">${renderPlayerImage(name)}</div><div class="player-profile-copy"><div class="eyebrow">Player profile</div><h2>${escapeHTML(name)}</h2><p>${escapeHTML(description)}</p></div>${availableSeasons.length?`<label class="profile-season-select"><span>Season</span><select onchange="changePlayerSeason(this.value)">${options}</select></label>`:''}</section><section class="player-teams-section"><h3>Teams</h3>${teams}</section><section class="player-matches-section"><h3>Played games${selected?' · '+escapeHTML(selected):''}</h3>${rows}</section>`;
+  const currentAssignment=allAssignments.find(row=>{
+    const endDate=String(row.endDate||'').trim();
+    const status=String(row.status||'').trim().toLowerCase();
+
+    return !endDate && status==='active';
+  });
+
+  /*
+    Keep the player's/manager's position even when they
+    currently have no team.
+  */
+
+  const position=
+    currentAssignment?.position ||
+    assignments[0]?.position ||
+    allAssignments[0]?.position ||
+    '';
+
+  /*
+    Profile header shows CURRENT situation only.
+
+    Active:
+    Spain · Manager
+
+    No active assignment:
+    No Current Team · Manager
+  */
+
+  const description=currentAssignment
+    ? [currentAssignment.team,position]
+        .filter(Boolean)
+        .join(' · ')
+    : ['No Current Team',position]
+        .filter(Boolean)
+        .join(' · ');
+
+  return `
+    <section class="player-profile-hero">
+
+      <div class="player-profile-photo">
+        ${renderPlayerImage(name)}
+      </div>
+
+      <div class="player-profile-copy">
+
+        <div class="eyebrow">
+          Player profile
+        </div>
+
+        <h2>
+          ${escapeHTML(name)}
+        </h2>
+
+        <p>
+          ${escapeHTML(description)}
+        </p>
+
+      </div>
+
+      ${availableSeasons.length ? `
+        <label class="profile-season-select">
+
+          <span>Season</span>
+
+          <select onchange="changePlayerSeason(this.value)">
+            ${options}
+          </select>
+
+        </label>
+      ` : ''}
+
+    </section>
+
+    <section class="player-teams-section">
+
+      <h3>Teams</h3>
+
+      ${teams}
+
+    </section>
+
+    <section class="player-matches-section">
+
+      <h3>
+        Played games${selected ? ' · '+escapeHTML(selected) : ''}
+      </h3>
+
+      ${rows}
+
+    </section>
+  `;
 }
 function renderPlayerTeamAssignment(item){
   const detail=[item.teamType,item.position,item.status].filter(Boolean).join(' · ');
