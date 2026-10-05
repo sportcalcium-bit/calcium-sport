@@ -2109,8 +2109,42 @@ function renderPlayerProfile(playerName,seasonYear=getCurrentSeasonYear()){
   `;
 }
 function renderPlayerTeamAssignment(item){
-  const detail=[item.teamType,item.position,item.status].filter(Boolean).join(' · ');
-  return `<div class="player-team-row">${renderTeamLogo(findTeamLogo(item.team),item.team)}<span><strong>${escapeHTML(item.team)}</strong><small>${escapeHTML(detail)}</small></span></div>`;
+
+  const startDate=String(item.startDate||'').trim();
+  const endDate=String(item.endDate||'').trim();
+
+  const isCurrent=
+    !endDate &&
+    String(item.status||'').trim().toLowerCase()==='active';
+
+  const tenure=isCurrent
+    ? (startDate ? `Since ${startDate}` : 'Current')
+    : (
+        startDate && endDate
+          ? `${startDate} – ${endDate}`
+          : endDate
+            ? `Until ${endDate}`
+            : 'Previous team'
+      );
+
+  const detail=[
+    item.teamType,
+    item.position,
+    tenure
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
+  return `
+    <div class="player-team-row">
+      ${renderTeamLogo(findTeamLogo(item.team),item.team)}
+
+      <span>
+        <strong>${escapeHTML(item.team)}</strong>
+        <small>${escapeHTML(detail)}</small>
+      </span>
+    </div>
+  `;
 }
 // Competition pages only load their own fixtures. Fetch the existing home data
 // on profile demand without touching the homepage or My Games scheduling arrays.
