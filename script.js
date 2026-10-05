@@ -2044,13 +2044,19 @@ function renderPlayerProfile(playerName,seasonYear=getCurrentSeasonYear()){
     No Current Team · Manager
   */
 
-  const description=currentAssignment
-    ? [currentAssignment.team,position]
-        .filter(Boolean)
-        .join(' · ')
-    : ['No Current Team',position]
-        .filter(Boolean)
-        .join(' · ');
+  const currentAssignment=allAssignments.find(x=>
+  String(x.status||'').trim().toLowerCase()==='active' &&
+  !String(x.endDate||'').trim()
+);
+
+const latestPosition=
+  currentAssignment?.position ||
+  allAssignments[allAssignments.length-1]?.position ||
+  '';
+
+const description=currentAssignment
+  ? [currentAssignment.team,currentAssignment.position].filter(Boolean).join(' · ')
+  : ['No Current Team',latestPosition].filter(Boolean).join(' · ');
 
   return `
     <section class="player-profile-hero">
