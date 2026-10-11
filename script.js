@@ -100,6 +100,8 @@ let hubDataCache = null;
 let playersMasterCache = null;
 let playerDatabaseCache = null;
 let competitionsListCache = null;
+let defaultLineupsCache = null;
+let defaultLineupsPromise = null;
 
 async function loadCompetition(competitionParam){
 
@@ -2641,17 +2643,69 @@ function clearMasterSearch(){if($('masterSearchInput'))$('masterSearchInput').va
 window.clearMasterSearch=clearMasterSearch;
 function selectMasterPlayer(n){clearMasterSearch();openPlayerProfile(n)} window.selectMasterPlayer=selectMasterPlayer;
 function selectMasterTeam(n){clearMasterSearch();openTeamProfile(n)} window.selectMasterTeam=selectMasterTeam;
-function openTeamProfile(teamName){if(!$('teamModal')||!$('teamDetailContent'))return;$('teamDetailContent').innerHTML=renderTeamProfile(teamName);$('teamModal').classList.remove('hidden');document.body.classList.add('modal-open')}
+function openTeamProfile(teamName){
+  if(!$('teamModal')||!$('teamDetailContent'))return;
+  $('teamDetailContent').innerHTML=renderTeamProfile(teamName);
+  $('teamModal').classList.remove('hidden');
+  document.body.classList.add('modal-open');
+  loadDefaultLineups().then(()=>{
+    if(!$('teamModal')?.classList.contains('hidden') && $('teamDetailContent')?.dataset.teamName===String(teamName)){
+      $('teamDetailContent').innerHTML=renderTeamProfile(teamName);
+    }
+  });
+}
 window.openTeamProfile=openTeamProfile;
 function closeTeamProfile(){$('teamModal')?.classList.add('hidden');if($('matchModal')?.classList.contains('hidden')&&$('playerModal')?.classList.contains('hidden'))document.body.classList.remove('modal-open')}
 window.closeTeamProfile=closeTeamProfile;
+async function loadDefaultLineups(){
+  if(defaultLineupsCache) return defaultLineupsCache;
+  if(!defaultLineupsPromise){
+    defaultLineupsPromise=fetch(`${API_URL}?action=defaultLineups&v=${Date.now()}`,{cache:'no-store'})
+      .then(r=>{if(!r.ok)throw new Error('Lineup API HTTP '+r.status);return r.json()})
+      .then(data=>{if(!data.success||!Array.isArray(data.lineups))throw new Error('Invalid lineup API response');return (defaultLineupsCache=data.lineups)})
+      .catch(err=>{console.warn('Default lineups unavailable:',err);defaultLineupsCache=[];return null})
+      .finally(()=>{defaultLineupsPromise=null});
+  }
+  return defaultLineupsPromise;
+}
+function lineupPlayerButton(playerName,teamName,season,extraClass=''){
+  if(!playerName)return '<span class="lineup-empty">—</span>';
+  const jsName=escapeAttr(JSON.stringify(playerName));
+  const jsTeam=escapeAttr(JSON.stringify(teamName));
+  const jsSeason=escapeAttr(JSON.stringify(String(season)));
+  return `<button type="button" class="lineup-player ${extraClass}" onclick="closeTeamProfile();openPlayerProfile(${jsName},null,${jsSeason},${jsTeam})">${renderPlayerImage(playerName)}<span>${escapeHTML(playerName)}</span></button>`;
+}
+function renderDefaultTeamLineup(teamName){
+  if(!defaultLineupsCache)return defaultLineupsPromise?'<div class="lineup-loading">Loading 2027 lineup…</div>':'';
+  const rows=defaultLineupsCache.filter(r=>sameTeam(r.team,teamName)&&String(r.season).trim()==='2027');
+  if(!rows.length)return '';
+  const slots=new Map(rows.map(r=>[String(r.slot).toUpperCase().trim(),String(r.playerName||'').trim()]));
+  const formation=String(rows[0].formation||'4-3-3').trim();
+  const lines=formation.split('-').map(Number);
+  if(lines.some(n=>!Number.isInteger(n)||n<1)||lines.reduce((a,b)=>a+b,0)!==10)return '<div class="empty">Invalid formation data.</div>';
+  let index=2;
+  const outfield=lines.map(count=>{
+    const group=Array.from({length:count},()=>slots.get('XI'+index++)||'');
+    return `<div class="lineup-pitch-row">${group.map(name=>lineupPlayerButton(name,teamName,'2027')).join('')}</div>`;
+  });
+  const bench=Array.from({length:9},(_,i)=>slots.get('BENCH'+(i+1))||'');
+  const excluded=Array.from({length:10},(_,i)=>slots.get('OUT'+(i+1))||'');
+  const renderList=(players)=>`<div class="lineup-list">${players.map((name,i)=>`<div class="lineup-list-item"><span class="lineup-number">${i+1}</span>${lineupPlayerButton(name,teamName,'2027')}</div>`).join('')}</div>`;
+  return `<section class="team-profile-section default-lineup-section"><h3>2027 Default Lineup <small>${escapeHTML(formation)}</small></h3>
+    <div class="lineup-pitch"><div class="lineup-pitch-markings"></div>
+      <div class="lineup-pitch-row lineup-goalkeeper">${lineupPlayerButton(slots.get('XI1'),teamName,'2027')}</div>
+      ${outfield.join('')}</div>
+    <div class="lineup-lists"><div><h4>Substitutes (9)</h4>${renderList(bench)}</div><div><h4>Not Called Up (10)</h4>${renderList(excluded)}</div></div>
+  </section>`;
+}
 function renderTeamProfile(teamName){
  const name=String(teamName||'').trim(),key=normaliseTeamName(name);
+ const detail=$('teamDetailContent');if(detail)detail.dataset.teamName=name;
  const matches=dedupeMatchArray(getGlobalMatches().concat(getCompetitionMatches()).concat(appData?.myGames||[])).filter(m=>isPlayedMatch(m)&&(normaliseTeamName(m.HomeTeam)===key||normaliseTeamName(m.AwayTeam)===key)).sort((a,b)=>matchDateSortValue(b)-matchDateSortValue(a));
  const seen=new Set(),squad=[];(appData?.playerTeams||[]).forEach(r=>{const t=String(r?.Team??r?.[1]??''),p=String(r?.['Player Name']??r?.Player??r?.[0]??'').trim(),pk=normalisePlayerName(p);if(p&&normaliseTeamName(t)===key&&!seen.has(pk)){seen.add(pk);squad.push(p)}});
- const sq=squad.length?squad.sort().map(p=>`<button class="team-squad-player" onclick="openPlayerProfileFromTeam('${escapeAttr(p)}','${escapeAttr(name)}')">${renderPlayerImage(p)}<strong>${escapeHTML(p)}</strong></button>`).join(''):'<div class="empty">No squad players found.</div>';
+ const sq=squad.length?squad.sort().map(p=>`<button class="team-squad-player" onclick="openPlayerProfileFromTeam(${escapeAttr(JSON.stringify(p))},${escapeAttr(JSON.stringify(name))})">${renderPlayerImage(p)}<strong>${escapeHTML(p)}</strong></button>`).join(''):'<div class="empty">No squad players found.</div>';
  const games=matches.length?matches.map(m=>`<button class="team-profile-match" ${m.MatchID?`onclick="closeTeamProfile();openMatchDetail('${escapeAttr(m.MatchID)}')"`:''}><span>${escapeHTML(formatScoreboardDateParts(m.Date,m.Time).date)}</span><span><strong>${escapeHTML(m.HomeTeam)} ${escapeHTML(renderScoreText(m))} ${escapeHTML(m.AwayTeam)}</strong><small>${escapeHTML(m.Competition||m['Competition Name']||'Competition')}</small></span></button>`).join(''):'<div class="empty">No played games found.</div>';
- return `<section class="team-profile-hero">${renderTeamLogo(findTeamLogo(name),name)}<div><div class="eyebrow">Team profile</div><h2>${escapeHTML(name)}</h2></div></section><section class="team-profile-section"><h3>Squad</h3><div class="team-squad-grid">${sq}</div></section><section class="team-profile-section"><h3>All played games</h3>${games}</section>`;
+ return `<section class="team-profile-hero">${renderTeamLogo(findTeamLogo(name),name)}<div><div class="eyebrow">Team profile</div><h2>${escapeHTML(name)}</h2></div></section>${renderDefaultTeamLineup(name)}<section class="team-profile-section"><h3>Squad</h3><div class="team-squad-grid">${sq}</div></section><section class="team-profile-section"><h3>All played games</h3>${games}</section>`;
 }
 
 function getCompetitionMatches(){ return dedupeMatchArray((Array.isArray(appData?.matches)?appData.matches:[]).concat(Array.isArray(appData?.playoffs)?appData.playoffs:[])); }
