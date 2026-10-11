@@ -346,7 +346,7 @@
   cursor:pointer;
 }
 
-/* Player faces from Website Hub → Players. */
+/* Player faces from Website Hub â†’ Players. */
 .player-photo {
   width: 42px;
   height: 42px;
@@ -757,7 +757,7 @@
     padding: 0 6px;
   }
 }
-/* FIFA Ranking — centred column layout */
+/* FIFA Ranking â€” centred column layout */
 .fifa-ranking-table {
   width: 100%;
   table-layout: fixed;
@@ -791,7 +791,7 @@
   justify-content: flex-start;
 }
 /* =========================================================
-   TEAM PROFILE — SQUAD POSITION GROUPS
+   TEAM PROFILE â€” SQUAD POSITION GROUPS
 ========================================================= */
 
 .team-squad-group {
@@ -882,7 +882,7 @@
   }
 }
 /* =========================================================
-   TEAM PROFILE — FINAL SQUAD LAYOUT
+   TEAM PROFILE â€” FINAL SQUAD LAYOUT
    One position group per row, 4 players per row
 ========================================================= */
 
@@ -1129,7 +1129,7 @@
     grid-template-columns:34px minmax(0,1fr) 40px 54px !important;
   }
 }
-/* Full-row qualification colours — COMPACT VIEW ONLY */
+/* Full-row qualification colours â€” COMPACT VIEW ONLY */
 .compact-standing-row.standing-row-ucl{
   background:rgba(20,100,180,.30);
 }
@@ -1179,7 +1179,7 @@
   background:#dc2626;
 }
 /* =========================================================
-   KNOCKOUT CUP — TOURNAMENT VIEW
+   KNOCKOUT CUP â€” TOURNAMENT VIEW
 ========================================================= */
 
 .knockout-standings{
@@ -1335,7 +1335,7 @@
   }
 }
 /* =========================================================
-   KNOCKOUT CUP — DARK CALCIUM SPORT POLISH
+   KNOCKOUT CUP â€” DARK CALCIUM SPORT POLISH
 ========================================================= */
 
 .knockout-standings{
@@ -1424,244 +1424,19 @@
   font-size:16px;
   font-weight:950;
 }
-/* =========================================================
-   KNOCKOUT BRACKET — 3 STAGE VIEW
-========================================================= */
 
-.knockout-bracket{
-  width:100%;
-  margin-top:12px;
-}
-
-/* Navigation */
-.knockout-stage-navigation{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding:14px 16px;
-  margin-bottom:0;
-
-  background:#03242b;
-  border-radius:10px 10px 0 0;
-  border-bottom:1px solid rgba(255,255,255,.07);
-}
-
-.knockout-stage-nav-button{
-  display:flex;
-  align-items:center;
-  gap:10px;
-
-  padding:10px 16px;
-  border:1px solid rgba(255,255,255,.08);
-  border-radius:10px;
-
-  background:#00151b;
-  color:#f3fbff;
-
-  font-size:14px;
-  font-weight:900;
-  text-transform:uppercase;
-  letter-spacing:.03em;
-
-  cursor:pointer;
-}
-
-.knockout-stage-nav-button:hover:not(:disabled){
-  background:#062f38;
-}
-
-.knockout-stage-nav-button:disabled{
-  opacity:.28;
-  cursor:default;
-}
-
-.knockout-nav-arrow{
-  font-size:27px;
-  line-height:15px;
-  font-weight:400;
-}
-
-/* Round titles */
-.knockout-stage-headings{
-  display:grid;
-  grid-template-columns:repeat(3,minmax(0,1fr));
-
-  background:#03242b;
-  border-radius:0 0 8px 8px;
-}
-
-.knockout-stage-heading{
-  padding:14px 10px;
-
-  color:#c8d6da;
-  text-align:center;
-
-  font-size:15px;
-  font-weight:900;
-  text-transform:uppercase;
-  letter-spacing:.02em;
-}
-
-/* Three bracket columns */
-.knockout-bracket-scroll{
-  display:grid !important;
-  grid-template-columns:repeat(3,minmax(0,1fr));
-  gap:28px;
-
-  width:100%;
-  min-width:0 !important;
-
-  padding:28px 16px 34px;
-  overflow:visible !important;
-}
-
-/* Stage */
-.knockout-stage{
-  min-width:0 !important;
-  margin:0 !important;
-  display:flex;
-}
-
-.knockout-stage-title{
-  display:none !important;
-}
-
-.knockout-stage-matches{
-  width:100%;
-
-  display:flex;
-  flex-direction:column;
-  justify-content:space-around;
-
-  gap:18px;
-}
-
-/* Match */
-.knockout-match-card{
-  position:relative;
-
-  width:100%;
-  min-height:74px;
-
-  padding:8px 10px;
-
-  background:#021b22 !important;
-  border:1px solid rgba(89,220,235,.18) !important;
-  border-radius:10px !important;
-
-  box-shadow:none !important;
-
-  color:#f3fbff;
-  text-align:left;
-
-  overflow:visible;
-}
-
-/* Teams — SAME base colour */
-.knockout-team{
-  display:grid;
-  grid-template-columns:28px minmax(0,1fr) auto;
-  align-items:center;
-  gap:9px;
-
-  min-height:28px;
-  padding:3px 5px !important;
-
-  background:transparent !important;
-  border:0 !important;
-}
-
-/* Only subtle winner emphasis */
-.knockout-team.is-winner{
-  background:rgba(89,220,235,.055) !important;
-  border-radius:5px;
-}
-
-.knockout-team-name,
-.knockout-team > span:not(.knockout-team-score){
-  overflow:hidden;
-  white-space:nowrap;
-  text-overflow:ellipsis;
-
-  color:#d7e3e6 !important;
-  font-size:14px;
-  font-weight:600;
-}
-
-.knockout-team.is-winner .knockout-team-name,
-.knockout-team.is-winner > span{
-  color:#fff !important;
-  font-weight:900;
-}
-
-/* Logo */
-.knockout-team .team-logo{
-  width:25px !important;
-  height:25px !important;
-  min-width:25px !important;
-  min-height:25px !important;
-
-  background:transparent !important;
-  border:0 !important;
-  box-shadow:none !important;
-}
-
-/* Score */
-.knockout-team-score{
-  min-width:25px;
-
-  color:#c3d1d5 !important;
-  font-size:15px !important;
-  font-weight:800 !important;
-  text-align:right;
-}
-
-.knockout-team.is-winner .knockout-team-score{
-  color:#fff !important;
-  font-weight:950 !important;
-}
-
-.knockout-team-score small{
-  margin-left:1px;
-  font-size:10px;
-}
-
-/* Basic progression connectors */
-.knockout-stage:not(:last-child) .knockout-match-card::after{
-  content:"";
-  position:absolute;
-
-  top:50%;
-  right:-29px;
-
-  width:29px;
-  height:1px;
-
-  background:rgba(89,220,235,.20);
-}
-
-/* Mobile */
-@media(max-width:800px){
-
-  .knockout-stage-navigation{
-    padding:10px;
-  }
-
-  .knockout-stage-nav-button{
-    padding:9px 11px;
-    font-size:11px;
-  }
-
-  .knockout-stage-headings,
-  .knockout-bracket-scroll{
-    grid-template-columns:repeat(3,260px);
-  }
-
-  .knockout-bracket{
-    overflow-x:auto;
-  }
-
-  .knockout-bracket-scroll{
-    width:max-content;
-  }
-}
+/* 2027 Default Lineups: isolated team-profile styles */
+.default-lineup-section h3 small{font-size:.75em;opacity:.7;margin-left:.5rem}
+.lineup-pitch{position:relative;isolation:isolate;overflow:hidden;display:flex;flex-direction:column;justify-content:space-around;gap:12px;min-height:680px;padding:24px 8px;background:repeating-linear-gradient(180deg,#17683e 0,#17683e 76px,#1a7144 76px,#1a7144 152px);border:3px solid #d6e6d9;border-radius:12px}
+.lineup-pitch-markings{position:absolute;z-index:-1;inset:12px;border:2px solid #ffffff66;pointer-events:none}
+.lineup-pitch-markings:before{content:'';position:absolute;left:50%;top:50%;width:25%;aspect-ratio:1;border:2px solid #ffffff66;border-radius:50%;transform:translate(-50%,-50%)}
+.lineup-pitch-markings:after{content:'';position:absolute;left:20%;right:20%;top:0;height:14%;border:2px solid #ffffff66;border-top:0;box-shadow:0 0 0 transparent}
+.lineup-pitch-row{display:flex;justify-content:space-evenly;align-items:center;gap:4px;min-width:0}
+.lineup-pitch .lineup-player{display:flex;flex-direction:column;align-items:center;gap:4px;width:clamp(55px,17%,120px);border:0;background:none;color:white;cursor:pointer;font:inherit;text-align:center;text-shadow:0 1px 3px #000;min-width:0}
+.lineup-pitch .lineup-player .player-photo img{width:48px;height:48px;object-fit:cover;border-radius:50%;border:2px solid white;background:#123d2a}
+.lineup-pitch .lineup-player > span:last-child{font-size:clamp(10px,1.6vw,13px);line-height:1.2;overflow-wrap:anywhere}
+.lineup-lists{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-top:18px}
+.lineup-list{display:grid;gap:6px}.lineup-list-item{display:flex;align-items:center;gap:10px;padding:7px;border-radius:7px;background:rgba(128,128,128,.08)}
+.lineup-list-item .lineup-player{display:flex;align-items:center;gap:10px;background:none;border:0;color:inherit;text-align:left;cursor:pointer;font:inherit;min-width:0}
+.lineup-list-item .lineup-player .player-photo img{width:34px;height:34px;object-fit:cover;border-radius:50%}.lineup-number{opacity:.65;min-width:18px}
+@media(max-width:580px){.lineup-lists{grid-template-columns:1fr}.lineup-pitch{min-height:600px;padding:15px 3px}.lineup-pitch .lineup-player .player-photo img{width:36px;height:36px}}
