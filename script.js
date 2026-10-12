@@ -2128,6 +2128,13 @@ async function showMatchHistory(homeTeam,awayTeam){
     ? history.map(match=>{
         const matchId=match.MatchID||match.ID||'';
         const competition=match.Competition||match['Competition Name']||'Competition';
+        const season=getProfileMatchSeason(match);
+        const round=String(match.Round||'').trim();
+        const context=[
+          competition,
+          season ? `Season ${season}` : '',
+          round
+        ].filter(Boolean).join(' · ');
         const action=matchId
           ? `onclick="openMatchDetail(${escapeAttr(JSON.stringify(matchId))})"`
           : '';
@@ -2135,7 +2142,7 @@ async function showMatchHistory(homeTeam,awayTeam){
         return `
           <button class="match-history-row" type="button" ${action}>
             <span class="match-history-date">
-              ${escapeHTML(formatScoreboardDateParts(match.Date,match.Time).date)}
+              ${escapeHTML(formatFullDateTime(match.Date,''))}
             </span>
             <span class="match-history-game">
               <strong>
@@ -2143,7 +2150,7 @@ async function showMatchHistory(homeTeam,awayTeam){
                 ${escapeHTML(renderScoreText(match))}
                 ${escapeHTML(match.AwayTeam)}
               </strong>
-              <small>${escapeHTML(competition)}</small>
+              <small>${escapeHTML(context)}</small>
             </span>
           </button>
         `;
