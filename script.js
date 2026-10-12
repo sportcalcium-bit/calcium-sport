@@ -2126,11 +2126,7 @@ function openPlayerProfileFromTeam(playerName,teamName){
   if(content && playerProfileBackTeam){
     content.insertAdjacentHTML(
       'afterbegin',
-      `<button type="button"
-        onclick="backFromPlayerProfile()"
-        style="margin:0 0 16px 0;padding:9px 14px;border-radius:8px;cursor:pointer;font-weight:700;">
-        ← Back
-      </button>`
+      `<div class="team-profile-back"><button type="button" onclick="backFromPlayerProfile()">← Back</button></div>`
     );
   }
 }
@@ -2170,7 +2166,7 @@ function renderActivePlayerProfile(){
 
   $('playerDetailContent').innerHTML=
     `${playerProfileBackTeam
-      ? `<button type="button" class="player-profile-back" onclick="backFromPlayerProfile()">← Back</button>`
+      ? `<div class="team-profile-back"><button type="button" class="player-profile-back" onclick="backFromPlayerProfile()">← Back</button></div>`
       : ''
     }${renderPlayerProfile(activePlayerProfileName,activePlayerSeason)}`;
 }
