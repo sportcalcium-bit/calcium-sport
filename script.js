@@ -1848,71 +1848,61 @@ function normaliseProfileSeason(value){
   const text=String(value??'').trim(),range=text.match(/^(\d{4})\s*[-/]\s*(\d{2}|\d{4})$/);
   return range?(range[2].length===2?String(Number(range[1].slice(0,2)+range[2])):range[2]):text;
 }
+function isManagerAssignment(item){
+  return normaliseText(item?.position)==='manager';
+}
+function getAssignmentSeason(item){
+  return normaliseProfileSeason(getSeasonYearForDate(item?.startDate));
+}
+function assignmentAppliesToSeason(item,season){
+  const selected=normaliseProfileSeason(season);
+  if(!selected) return false;
+  if(!isManagerAssignment(item)) return getAssignmentSeason(item)===selected;
+
+  const seasonEndYear=Number(selected);
+  if(!seasonEndYear) return false;
+  const seasonStart=new Date(seasonEndYear-1,7,1);
+  const seasonEnd=new Date(seasonEndYear,6,31,23,59,59);
+  const start=parseDateOnly(item?.startDate);
+  const end=parseDateOnly(item?.endDate);
+  return !!start && start<=seasonEnd && (!end || end>=seasonStart);
+}
+function getAssignmentSeasons(rows){
+  const seasons=new Set();
+  (rows||[]).forEach(item=>{
+    if(!isManagerAssignment(item)){
+      const season=getAssignmentSeason(item);
+      if(season) seasons.add(season);
+      return;
+    }
+
+    const start=parseDateOnly(item?.startDate);
+    if(!start) return;
+    const end=parseDateOnly(item?.endDate)||new Date();
+    let season=Number(getSeasonYearForDate(start));
+    const lastSeason=Number(getSeasonYearForDate(end));
+    while(season && season<=lastSeason){
+      seasons.add(String(season));
+      season++;
+    }
+  });
+  return [...seasons].sort((a,b)=>Number(b)-Number(a));
+}
 function getProfileMatchSeason(match){
   return normaliseProfileSeason(match.Year||match.Season||getSeasonYearForDate(match.Date));
 }
 function getPlayerSeasonRows(name,season){
-  const seasonEndYear=Number(season);
-  if(!seasonEndYear) return [];
-
-  const seasonStart=new Date(seasonEndYear-1,7,1);
-  const seasonEnd=new Date(seasonEndYear,6,31,23,59,59);
-
-  function parseTenureDate(value){
-    const parts=String(value||'').trim().split('/');
-    if(parts.length!==3) return null;
-
-    const day=Number(parts[0]);
-    const month=Number(parts[1]);
-    const year=Number(parts[2]);
-
-    if(!day||!month||!year) return null;
-
-    return new Date(year,month-1,day);
-  }
-
-  return (playerTeamsLookup.get(canonicalPlayerKey(name))||[]).filter(row=>{
-    const start=parseTenureDate(row.startDate);
-    const end=parseTenureDate(row.endDate);
-
-    if(!start) return false;
-
-    return start<=seasonEnd && (!end || end>=seasonStart);
-  });
+  return (playerTeamsLookup.get(canonicalPlayerKey(name))||[])
+    .filter(row=>assignmentAppliesToSeason(row,season));
 }
 function getPreferredPlayerSeason(name,requested){
-  const assignments=playerTeamsLookup.get(canonicalPlayerKey(name))||[];
-
-  const seasons=new Set();
-
-  assignments.forEach(row=>{
-    const start=String(row.startDate||'').trim().split('/');
-    const end=String(row.endDate||'').trim().split('/');
-
-    if(start.length!==3) return;
-
-    const startDate=new Date(Number(start[2]),Number(start[1])-1,Number(start[0]));
-    const endDate=end.length===3
-      ? new Date(Number(end[2]),Number(end[1])-1,Number(end[0]))
-      : new Date();
-
-    let season=getSeasonYearForDate(startDate);
-
-    while(Number(season)<=Number(getSeasonYearForDate(endDate))){
-      seasons.add(String(season));
-      season=String(Number(season)+1);
-    }
-  });
-
-  const available=[...seasons].sort((a,b)=>Number(b)-Number(a));
-
+  const available=getAssignmentSeasons(
+    playerTeamsLookup.get(canonicalPlayerKey(name))||[]
+  );
   const preferred=normaliseProfileSeason(
     requested||appData?.selectedCompetition?.Year||getCurrentSeasonYear()
   );
-
-  return available.includes(preferred)
-    ? preferred
-    : (available[0]||'');
+  return available.includes(preferred) ? preferred : (available[0]||'');
 }
 function renderPlayerSearchLabel(name){
   const rows=getPlayerSeasonRows(name,getPreferredPlayerSeason(name));
@@ -2184,39 +2174,7 @@ function renderPlayerProfile(playerName,seasonYear=getCurrentSeasonYear()){
   const name=canonicalPlayerName(playerName);
   const allAssignments=playerTeamsLookup.get(canonicalPlayerKey(name))||[];
 
-  const seasons=new Set();
-
-  allAssignments.forEach(row=>{
-    const startParts=String(row.startDate||'').trim().split('/');
-    const endParts=String(row.endDate||'').trim().split('/');
-
-    if(startParts.length!==3) return;
-
-    const startDate=new Date(
-      Number(startParts[2]),
-      Number(startParts[1])-1,
-      Number(startParts[0])
-    );
-
-    const endDate=endParts.length===3
-      ? new Date(
-          Number(endParts[2]),
-          Number(endParts[1])-1,
-          Number(endParts[0])
-        )
-      : new Date();
-
-    let season=Number(getSeasonYearForDate(startDate));
-    const lastSeason=Number(getSeasonYearForDate(endDate));
-
-    while(season<=lastSeason){
-      seasons.add(String(season));
-      season++;
-    }
-  });
-
-  const availableSeasons=[...seasons]
-    .sort((a,b)=>Number(b)-Number(a));
+  const availableSeasons=getAssignmentSeasons(allAssignments);
 
   const selected=getPreferredPlayerSeason(name,seasonYear);
   const assignments=getPlayerSeasonRows(name,selected);
@@ -2326,36 +2284,29 @@ const description=currentAssignment
   `;
 }
 function renderPlayerTeamAssignment(item){
-
   const startDate=String(item.startDate||'').trim();
   const endDate=String(item.endDate||'').trim();
+  let period='';
 
-  const isCurrent=
-    !endDate &&
-    String(item.status||'').trim().toLowerCase()==='active';
-
-  const tenure=isCurrent
-    ? (startDate ? `Since ${startDate}` : 'Current')
-    : (
-        startDate && endDate
+  if(isManagerAssignment(item)){
+    const isCurrent=!endDate && normaliseText(item.status)==='active';
+    period=isCurrent
+      ? (startDate ? `Since ${startDate}` : 'Current')
+      : (startDate && endDate
           ? `${startDate} – ${endDate}`
-          : endDate
-            ? `Until ${endDate}`
-            : 'Previous team'
-      );
+          : endDate ? `Until ${endDate}` : 'Previous team');
+  }else{
+    const season=getAssignmentSeason(item);
+    period=season ? `Season ${season}` : 'Season not listed';
+  }
 
-  const detail=[
-    item.teamType,
-    item.position,
-    tenure
-  ]
+  const detail=[item.teamType,item.position,period]
     .filter(Boolean)
     .join(' · ');
 
   return `
     <div class="player-team-row">
       ${renderTeamLogo(findTeamLogo(item.team),item.team)}
-
       <span>
         <strong>${escapeHTML(item.team)}</strong>
         <small>${escapeHTML(detail)}</small>
@@ -2399,76 +2350,46 @@ function getPlayerMatches(assignments,playerName){
   return orderProfileGames(eligible).map(match=>({match,stats:getPlayerMatchStats(match,playerName)}));
 }
 function assignmentIncludesMatch(item,match){
-  const date=parseDateOnly(match.Date),start=parseDateOnly(item.startDate),end=parseDateOnly(item.endDate);
-  if(!date||!start)return false;
-  if(String(item.endDate||'').trim()&&!end)return false;
-  return (sameTeam(item.team,match.HomeTeam)||sameTeam(item.team,match.AwayTeam))&&date>=start&&(!end||date<=end);
+  if(!sameTeam(item.team,match.HomeTeam)&&!sameTeam(item.team,match.AwayTeam)) return false;
+
+  if(!isManagerAssignment(item)){
+    return getAssignmentSeason(item)===getProfileMatchSeason(match);
+  }
+
+  const date=parseDateOnly(match.Date);
+  const start=parseDateOnly(item.startDate);
+  const end=parseDateOnly(item.endDate);
+  if(!date||!start) return false;
+  if(String(item.endDate||'').trim()&&!end) return false;
+  return date>=start&&(!end||date<=end);
 }
 function profileGameScore(match){return String(match.Status||'').trim().toUpperCase()==='FT'?renderScoreText(match):'vs';}
 function profileNextBadge(match){return String(match.Status||'').trim().toUpperCase()==='FT'?'':'<span class="profile-next-badge">Next game</span>';}
 function getTeamSquad(teamName,season){
   const squad=[];
 
-  const seasonEndYear=Number(season);
-  const seasonStart=new Date(seasonEndYear-1,7,1); // 1 Aug previous year
-  const seasonEnd=new Date(seasonEndYear,6,31,23,59,59); // 31 Jul season year
-
-  function parseSquadDate(value){
-    const parts=String(value||'').trim().split('/');
-    if(parts.length!==3) return null;
-
-    const day=Number(parts[0]);
-    const month=Number(parts[1]);
-    const year=Number(parts[2]);
-
-    if(!day||!month||!year) return null;
-
-    return new Date(year,month-1,day);
-  }
-
   for(const rows of playerTeamsLookup.values()){
-    const row=rows.find(r=>{
-      if(!sameTeam(r.team,teamName)) return false;
-
-      const start=parseSquadDate(r.startDate);
-      const end=parseSquadDate(r.endDate);
-
-      if(!start) return false;
-
-      return start<=seasonEnd && (!end || end>=seasonStart);
-    });
-
+    const row=rows.find(item=>
+      !isManagerAssignment(item) &&
+      sameTeam(item.team,teamName) &&
+      assignmentAppliesToSeason(item,season)
+    );
     if(row) squad.push(row);
   }
 
   const positionOrder={
     GK:1,
-
-    CB:10,
-    RB:11,
-    LB:12,
-
-    CDM:20,
-    CM:21,
-    RM:22,
-    LM:23,
-    CAM:24,
-
-    RW:30,
-    LW:31,
-    ST:32
+    CB:10, RB:11, LB:12,
+    CDM:20, CM:21, RM:22, LM:23, CAM:24,
+    RW:30, LW:31, ST:32
   };
 
   return squad.sort((a,b)=>{
     const posA=String(a.position||'').trim().toUpperCase();
     const posB=String(b.position||'').trim().toUpperCase();
-
     const orderA=positionOrder[posA]??999;
     const orderB=positionOrder[posB]??999;
-
-    if(orderA!==orderB) return orderA-orderB;
-
-    return a.playerName.localeCompare(b.playerName);
+    return orderA!==orderB ? orderA-orderB : a.playerName.localeCompare(b.playerName);
   });
 }
 
