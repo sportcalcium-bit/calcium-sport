@@ -2367,13 +2367,28 @@ function profileGameScore(match){return String(match.Status||'').trim().toUpperC
 function profileNextBadge(match){return String(match.Status||'').trim().toUpperCase()==='FT'?'':'<span class="profile-next-badge">Next game</span>';}
 function getTeamSquad(teamName,season){
   const squad=[];
+  const selectedSeason=normaliseProfileSeason(season);
+  const currentSeason=String(getCurrentSeasonYear());
 
   for(const rows of playerTeamsLookup.values()){
-    const row=rows.find(item=>
+    const teamRows=rows.filter(item=>
       !isManagerAssignment(item) &&
-      sameTeam(item.team,teamName) &&
-      assignmentAppliesToSeason(item,season)
+      sameTeam(item.team,teamName)
     );
+
+    let row=null;
+
+    if(selectedSeason===currentSeason){
+      row=teamRows
+        .filter(item=>
+          normaliseText(item.status)==='active' &&
+          Number(getAssignmentSeason(item))<=Number(selectedSeason)
+        )
+        .sort((a,b)=>Number(getAssignmentSeason(b))-Number(getAssignmentSeason(a)))[0]||null;
+    }else{
+      row=teamRows.find(item=>getAssignmentSeason(item)===selectedSeason)||null;
+    }
+
     if(row) squad.push(row);
   }
 
