@@ -45,6 +45,14 @@ run(`loadTeamManagerLookup=async()=>new Map();ensureProfileMatches=async()=>{};g
  assert.equal((gameRow.match(/game-team-link/g)||[]).length,4);
  const gameDetail=run(`renderMatchDetail(gameFixture)`);
  assert.equal((gameDetail.match(/game-team-link/g)||[]).length,2);
+ run(`window.openTeamProfile('Arsenal','test')`);
+ assert.match(node('teamDetailContent').innerHTML,/Back to game/);
+ assert.match(node('teamDetailContent').innerHTML,/backToTeamGame\(&quot;test&quot;\)/);
+ run(`window.openTeamProfile('Arsenal')`);
+ assert.doesNotMatch(node('teamDetailContent').innerHTML,/Back to game/);
+ let returned='';context.recordReturn=id=>returned=id;
+ run(`openMatchDetail=recordReturn;backToTeamGame('test')`);
+ assert.equal(returned,'test');
  let stopped=false,opened='';
  context.window.openTeamProfile=name=>opened=name;
  context.clickEvent={stopPropagation(){stopped=true}};

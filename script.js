@@ -630,14 +630,19 @@ function pickHomeDate(value){
 }
 window.pickHomeDate = pickHomeDate;
 
-function openTeamFromGame(teamName,event){
+function openTeamFromGame(teamName,event,matchId=''){
   event?.stopPropagation?.();
   closeMatchModal();
-  window.openTeamProfile(teamName);
+  window.openTeamProfile(teamName,matchId);
 }
 window.openTeamFromGame=openTeamFromGame;
-function gameTeamAction(teamName){
-  return `onclick="openTeamFromGame(${escapeAttr(JSON.stringify(String(teamName||'')))},event)" aria-label="${escapeAttr('Open '+teamName+' team profile')}"`;
+function backToTeamGame(matchId){
+  closeTeamProfile();
+  openMatchDetail(matchId);
+}
+window.backToTeamGame=backToTeamGame;
+function gameTeamAction(teamName,matchId=''){
+  return `onclick="openTeamFromGame(${escapeAttr(JSON.stringify(String(teamName||'')))},event,${escapeAttr(JSON.stringify(String(matchId||'')))})" aria-label="${escapeAttr('Open '+teamName+' team profile')}"`;
 }
 function renderMatchRowFlat(match){
   const p = formatScoreboardDateParts(match.Date,match.Time);
@@ -646,7 +651,7 @@ function renderMatchRowFlat(match){
   const league = match.CompetitionLabel || match.Competition || 'Competition';
   const statusText = match.Status || 'Scheduled';
   const statusClass = statusText.trim().toUpperCase()==='FT' ? 'status-ft' : 'status-scheduled';
-  return `<article class="my-games-match" ${click}><div class="my-games-date"><span>${escapeHTML(p.date)} - ${escapeHTML(p.time)}</span><span>${escapeHTML(league)}</span></div><button type="button" class="my-games-team-name home game-team-link" ${gameTeamAction(match.HomeTeam)}>${escapeHTML(match.HomeTeam)}</button><button type="button" class="my-games-logo game-team-link" ${gameTeamAction(match.HomeTeam)}>${renderTeamLogo(match.HomeLogo,match.HomeTeam)}</button><div class="my-games-score">${score}</div><button type="button" class="my-games-logo game-team-link" ${gameTeamAction(match.AwayTeam)}>${renderTeamLogo(match.AwayLogo,match.AwayTeam)}</button><button type="button" class="my-games-team-name away game-team-link" ${gameTeamAction(match.AwayTeam)}>${escapeHTML(match.AwayTeam)}</button><div class="my-games-status ${statusClass}">${escapeHTML(statusText)}</div></article>`;
+  return `<article class="my-games-match" ${click}><div class="my-games-date"><span>${escapeHTML(p.date)} - ${escapeHTML(p.time)}</span><span>${escapeHTML(league)}</span></div><button type="button" class="my-games-team-name home game-team-link" ${gameTeamAction(match.HomeTeam,match.MatchID||match.ID)}>${escapeHTML(match.HomeTeam)}</button><button type="button" class="my-games-logo game-team-link" ${gameTeamAction(match.HomeTeam,match.MatchID||match.ID)}>${renderTeamLogo(match.HomeLogo,match.HomeTeam)}</button><div class="my-games-score">${score}</div><button type="button" class="my-games-logo game-team-link" ${gameTeamAction(match.AwayTeam,match.MatchID||match.ID)}>${renderTeamLogo(match.AwayLogo,match.AwayTeam)}</button><button type="button" class="my-games-team-name away game-team-link" ${gameTeamAction(match.AwayTeam,match.MatchID||match.ID)}>${escapeHTML(match.AwayTeam)}</button><div class="my-games-status ${statusClass}">${escapeHTML(statusText)}</div></article>`;
 }
 function renderHomeGames(){
   const selected = parseDateOnly(selectedDateKey) || new Date();
@@ -2018,7 +2023,7 @@ function renderMatchDetail(match,eventsLoading=false){
 
       <div class="match-main-teams">
 
-        <button type="button" class="match-main-team game-team-link" ${gameTeamAction(match.HomeTeam)}>
+        <button type="button" class="match-main-team game-team-link" ${gameTeamAction(match.HomeTeam,match.MatchID||match.ID)}>
           <div class="match-main-logo">
             ${match.HomeLogo ? `<img src="${escapeAttr(match.HomeLogo)}" alt="">` : ''}
           </div>
@@ -2030,7 +2035,7 @@ function renderMatchDetail(match,eventsLoading=false){
           ${penalty ? `<span>${escapeHTML(penalty)}</span>` : ''}
         </div>
 
-        <button type="button" class="match-main-team game-team-link" ${gameTeamAction(match.AwayTeam)}>
+        <button type="button" class="match-main-team game-team-link" ${gameTeamAction(match.AwayTeam,match.MatchID||match.ID)}>
           <div class="match-main-logo">
             ${match.AwayLogo ? `<img src="${escapeAttr(match.AwayLogo)}" alt="">` : ''}
           </div>

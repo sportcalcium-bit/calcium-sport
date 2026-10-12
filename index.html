@@ -13,7 +13,7 @@
 <link rel="apple-touch-icon" href="./calcium-logo.jpeg">
   <meta name="description" content="Calcium Sport football results centre" />
   <link rel="preconnect" href="https://script.google.com" />
-  <link rel="stylesheet" href="style.css?v=7096" />
+  <link rel="stylesheet" href="style.css?v=7097" />
 
 
 <style>
@@ -252,7 +252,7 @@
 <div class="match-detail-card team-detail-card"><button class="match-close" type="button" onclick="closeTeamProfile()">×</button><div id="teamDetailContent"></div></div>
 </div>
 <button id="backToTop" class="back-to-top" type="button" aria-label="Back to top">↑</button>
-  <script src="script.js?v=7096"></script>
+  <script src="script.js?v=7097"></script>
 
 
 <script>
@@ -301,7 +301,7 @@
     return teamManagerLookupPromise;
   }
 
-  window.openTeamProfile = function(teamName){
+  window.openTeamProfile = function(teamName,backMatchId=''){
     const name = String(teamName || '').trim();
     const key = normaliseTeamName(name);
     const modal = $('teamModal');
@@ -352,7 +352,8 @@
       const managerLabel = managerLoaded ? (managerName || 'Not listed') : 'Loading…';
 
       content.innerHTML =
-        `<section class="team-profile-hero">
+        `${backMatchId ? `<div class="team-profile-back"><button type="button" onclick="backToTeamGame(${escapeAttr(JSON.stringify(String(backMatchId)))})">← Back to game</button></div>` : ''}
+        <section class="team-profile-hero">
           <div class="team-profile-identity">
             ${renderTeamLogo(findTeamLogo(name),name)}
             <div><div class="eyebrow">Team profile</div><h2>${escapeHTML(name)}</h2></div>

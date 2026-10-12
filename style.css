@@ -1462,3 +1462,8 @@
 .game-team-link{padding:0;border:0;background:transparent;color:inherit;font:inherit;cursor:pointer}
 .game-team-link:hover{text-decoration:underline;text-underline-offset:4px}
 .game-team-link:focus-visible{outline:3px solid #ffd75e;outline-offset:4px;border-radius:8px}
+
+.team-profile-back{padding:18px 24px 0;background:#021b22}
+.team-profile-back button{padding:10px 16px;border:1px solid rgba(89,220,235,.3);border-radius:10px;background:#0b4d58;color:var(--text);font:inherit;font-weight:700}
+.team-profile-back button:hover{background:#126574}
+.team-profile-back button:focus-visible{outline:3px solid #ffd75e;outline-offset:3px}
