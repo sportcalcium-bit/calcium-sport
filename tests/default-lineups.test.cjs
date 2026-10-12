@@ -18,7 +18,7 @@ run(`loadTeamManagerLookup=async()=>new Map();ensureProfileMatches=async()=>{};g
  let rendered=node('teamDetailContent').innerHTML;
  assert.match(rendered,/Starting XI — 4-3-3/);
  assert.match(rendered,/Full Squad · 2027/);
- assert.match(rendered,/Played games · 2027/);
+ assert.match(rendered,/Games · 2027/);
  assert.match(rendered,/Manager/);
  assert.equal((rendered.match(/class="lineup-player /g)||[]).length,30);
  assert.ok(rendered.indexOf('David Raya')<rendered.indexOf('Player 2'));
@@ -59,10 +59,25 @@ run(`loadTeamManagerLookup=async()=>new Map();ensureProfileMatches=async()=>{};g
  run(`openTeamFromGame('Torino',clickEvent)`);
  assert.equal(stopped,true);assert.equal(opened,'Torino');
  for(const [team,home,away,result] of [['Lazio',2,0,'W'],['Lazio',0,4,'L'],['Lazio',3,3,'D'],['Torino',2,0,'L']]){
-  context.resultFixture={HomeTeam:'Lazio',AwayTeam:'Torino',HomeScore:home,AwayScore:away};context.resultTeam=team;
+  context.resultFixture={HomeTeam:'Lazio',AwayTeam:'Torino',HomeScore:home,AwayScore:away,Status:'FT'};context.resultTeam=team;
   assert.match(run(`renderTeamMatchResult(resultFixture,resultTeam)`),new RegExp('>'+result+'</span>'));
  }
- assert.equal(run(`renderTeamMatchResult({HomeTeam:'Lazio',AwayTeam:'Torino',HomeScore:'',AwayScore:''},'Lazio')`),'');
+ assert.equal(run(`renderTeamMatchResult({HomeTeam:'Lazio',AwayTeam:'Torino',HomeScore:'',AwayScore:'',Status:'FT'},'Lazio')`),'');
+ context.tenure={team:'Empoli',startDate:'21/09/2026',endDate:'12/10/2026'};
+ for(const [date,expected] of [['2026-09-20',false],['2026-09-21',true],['2026-10-12',true],['2026-10-13',false]]){
+  context.tenureMatch={Date:date,HomeTeam:'Empoli',AwayTeam:'Lazio'};
+  assert.equal(run(`assignmentIncludesMatch(tenure,tenureMatch)`),expected);
+ }
+ context.orderFixture=[
+ {MatchID:'old',Date:'2026-09-19',Status:'FT'},
+ {MatchID:'latest',Date:'2026-10-11',Status:'FT'},
+ {MatchID:'next',Date:'2026-10-13',Status:'NS'},
+ {MatchID:'later',Date:'2026-10-18',Status:'NS'},
+ {MatchID:'future-result',Date:'2026-10-20',Status:'FT'},
+ {MatchID:'postponed',Date:'2026-10-12',Status:'PST'}];
+ assert.equal(run(`orderProfileGames(orderFixture,new Date(2026,9,12)).map(m=>m.MatchID).join()`),'next,latest,old');
+ assert.match(run(`profileNextBadge({Status:'NS'})`),/Next game/);
+ console.log('Tenure date boundaries and next-game-first ordering checks passed.');
  console.log('Team W/D/L home, away, draw and missing-score checks passed.');
  console.log('Game team links and click propagation tests passed.');
  console.log('Default lineup integration, season selection, formation ordering, 30 slots, profile links and retry tests passed.');

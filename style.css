@@ -1472,3 +1472,8 @@
 .team-profile-match-result>span:nth-child(2){display:grid;gap:5px}
 .team-profile-match-result>.team-result-badge{display:inline-flex;flex-shrink:0;justify-self:end}
 @media(max-width:580px){.team-profile-match-result{grid-template-columns:52px minmax(0,1fr) 32px;gap:10px}}
+
+.profile-next-badge{display:inline-flex;align-items:center;justify-content:center;padding:6px 9px;border-radius:8px;background:#0b4d58;color:#a6edf5;font-size:12px;font-weight:800;white-space:nowrap}
+.team-profile-match-result{grid-template-columns:90px minmax(0,1fr) auto}
+.team-profile-match-result>.profile-next-badge{display:inline-flex;justify-self:end}
+@media(max-width:580px){.team-profile-match-result{grid-template-columns:52px minmax(0,1fr) auto}}

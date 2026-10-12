@@ -13,7 +13,7 @@
 <link rel="apple-touch-icon" href="./calcium-logo.jpeg">
   <meta name="description" content="Calcium Sport football results centre" />
   <link rel="preconnect" href="https://script.google.com" />
-  <link rel="stylesheet" href="style.css?v=7098" />
+  <link rel="stylesheet" href="style.css?v=7100" />
 
 
 <style>
@@ -252,7 +252,7 @@
 <div class="match-detail-card team-detail-card"><button class="match-close" type="button" onclick="closeTeamProfile()">×</button><div id="teamDetailContent"></div></div>
 </div>
 <button id="backToTop" class="back-to-top" type="button" aria-label="Back to top">↑</button>
-  <script src="script.js?v=7099"></script>
+  <script src="script.js?v=7100"></script>
 
 
 <script>
@@ -309,7 +309,6 @@
     if(!modal || !content) return;
 
     const teamMatches = () => getProfileMatches().filter(match =>
-      String(match?.Status || '').trim().toUpperCase() === 'FT' &&
       (normaliseTeamName(match.HomeTeam) === key || normaliseTeamName(match.AwayTeam) === key)
     );
     let allMatches = teamMatches();
@@ -329,9 +328,7 @@
     let managerLoaded = false;
 
     const render = () => {
-      const seasonMatches = allMatches
-        .filter(match => getProfileMatchSeason(match) === selectedSeason)
-        .sort((a,b) => matchDateSortValue(b) - matchDateSortValue(a));
+      const seasonMatches = orderProfileGames(allMatches.filter(match => getProfileMatchSeason(match) === selectedSeason));
 
       const seasonOptions = seasons.map(year =>
         `<option value="${escapeAttr(year)}" ${year===selectedSeason?'selected':''}>${escapeHTML(year)}</option>`
@@ -342,7 +339,7 @@
             `<button class="team-profile-match team-profile-match-result" type="button" ${match.MatchID?`onclick="closeTeamProfile();openMatchDetail('${escapeAttr(match.MatchID)}')"`:''}>
               <span>${escapeHTML(formatScoreboardDateParts(match.Date,match.Time).date)}</span>
               <span>
-                <strong>${escapeHTML(match.HomeTeam)} ${escapeHTML(renderScoreText(match))} ${escapeHTML(match.AwayTeam)}</strong>
+                <strong>${escapeHTML(match.HomeTeam)} ${escapeHTML(profileGameScore(match))} ${escapeHTML(match.AwayTeam)}</strong>
                 <small>${escapeHTML(match.Competition || match['Competition Name'] || 'Competition')}</small>
               </span>
               ${renderTeamMatchResult(match,name)}
@@ -378,7 +375,7 @@
         ${renderDefaultTeamLineup(name,selectedSeason)}
         <section class="team-profile-section"><h3>Full Squad · ${escapeHTML(selectedSeason)}</h3><div class="team-squad-grid">${renderTeamSquad(name,selectedSeason)}</div></section>
         <section class="team-profile-section">
-          <h3>Played games · ${escapeHTML(selectedSeason)}</h3>
+          <h3>Games · ${escapeHTML(selectedSeason)}</h3>
           ${gamesHtml}
         </section>`;
 

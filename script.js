@@ -2317,7 +2317,7 @@ const description=currentAssignment
     <section class="player-matches-section">
 
       <h3>
-        Played games${selected ? ' · '+escapeHTML(selected) : ''}
+        Games${selected ? ' · '+escapeHTML(selected) : ''}
       </h3>
 
       ${rows}
@@ -2383,41 +2383,28 @@ function getProfileMatches(){
     Competition:match.Competition||competition?.['Competition Name']||''}));
   return dedupeMatchArray(getGlobalMatches().concat(profileGlobalMatches,local,appData?.myGames||[]));
 }
+function orderProfileGames(matches,now=new Date()){
+  const today=parseDateOnly(now);
+  const completed=matches.filter(m=>String(m.Status||'').trim().toUpperCase()==='FT'&&parseDateOnly(m.Date)<=today).sort((a,b)=>matchDateSortValue(b)-matchDateSortValue(a));
+  const next=matches.filter(m=>{
+    const status=String(m.Status||'').trim().toUpperCase();
+    return !['FT','POSTPONED','CANCELLED','CANCELED','PST','CANC','ABD'].includes(status)&&parseDateOnly(m.Date)>=today;
+  }).sort((a,b)=>matchDateSortValue(a)-matchDateSortValue(b))[0];
+  return next?[next,...completed]:completed;
+}
 function getPlayerMatches(assignments,playerName){
-  if(!assignments.length) return [];
-  const matches=getProfileMatches();
-  return matches.filter(match=>String(match.Status||'').trim().toUpperCase()==='FT'&&assignments.some(item=>assignmentIncludesMatch(item,match))).map(match=>({match,stats:getPlayerMatchStats(match,playerName)})).sort((a,b)=>matchDateSortValue(b.match)-matchDateSortValue(a.match));
+  if(!assignments.length)return [];
+  const eligible=getProfileMatches().filter(match=>assignments.some(item=>assignmentIncludesMatch(item,match)));
+  return orderProfileGames(eligible).map(match=>({match,stats:getPlayerMatchStats(match,playerName)}));
 }
 function assignmentIncludesMatch(item,match){
-  const matchDate=parseDateOnly(match.Date);
-  if(!matchDate) return false;
-
-  function parseTenureDate(value){
-    const parts=String(value||'').trim().split('/');
-    if(parts.length!==3) return null;
-
-    const day=Number(parts[0]);
-    const month=Number(parts[1]);
-    const year=Number(parts[2]);
-
-    if(!day||!month||!year) return null;
-
-    return new Date(year,month-1,day);
-  }
-
-  const start=parseTenureDate(item.startDate);
-  const end=parseTenureDate(item.endDate);
-
-  if(!start) return false;
-
-  const belongsToTeam=
-    sameTeam(item.team,match.HomeTeam) ||
-    sameTeam(item.team,match.AwayTeam);
-
-  if(!belongsToTeam) return false;
-
-  return matchDate>=start && (!end || matchDate<=end);
+  const date=parseDateOnly(match.Date),start=parseDateOnly(item.startDate),end=parseDateOnly(item.endDate);
+  if(!date||!start)return false;
+  if(String(item.endDate||'').trim()&&!end)return false;
+  return (sameTeam(item.team,match.HomeTeam)||sameTeam(item.team,match.AwayTeam))&&date>=start&&(!end||date<=end);
 }
+function profileGameScore(match){return String(match.Status||'').trim().toUpperCase()==='FT'?renderScoreText(match):'vs';}
+function profileNextBadge(match){return String(match.Status||'').trim().toUpperCase()==='FT'?'':'<span class="profile-next-badge">Next game</span>';}
 function getTeamSquad(teamName,season){
   const squad=[];
 
@@ -2578,7 +2565,7 @@ function renderPlayerMatchRow(item){
   let result='';
   let resultClass='';
 
-  if(matchAssignment){
+  if(matchAssignment && String(match.Status||'').trim().toUpperCase()==='FT'){
     const homeScore=Number(match.HomeScore);
     const awayScore=Number(match.AwayScore);
 
@@ -2613,7 +2600,7 @@ function renderPlayerMatchRow(item){
       <span class="player-match-teams">
         <strong>
           ${escapeHTML(match.HomeTeam)}
-          ${escapeHTML(renderScoreText(match))}
+          ${escapeHTML(profileGameScore(match))}
           ${escapeHTML(match.AwayTeam)}
         </strong>
         <small>
@@ -2627,7 +2614,7 @@ function renderPlayerMatchRow(item){
       </span>
 
       <span class="player-match-events">
-        ${badges || ''}
+        ${profileNextBadge(match)}${badges || ''}
         ${result
           ? `<span class="player-result-badge ${resultClass}">${result}</span>`
           : ''
@@ -3991,6 +3978,7 @@ function closeFifaRankingView(){
 }
 
 function renderTeamMatchResult(match,teamName){
+  if(String(match.Status||'').trim().toUpperCase()!=='FT')return profileNextBadge(match);
   if(!sameTeam(teamName,match.HomeTeam)&&!sameTeam(teamName,match.AwayTeam))return '';
   const home=String(match.HomeScore??'').trim(),away=String(match.AwayScore??'').trim();
   if(!/^\d+$/.test(home)||!/^\d+$/.test(away))return '';
