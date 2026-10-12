@@ -13,7 +13,7 @@
 <link rel="apple-touch-icon" href="./calcium-logo.jpeg">
   <meta name="description" content="Calcium Sport football results centre" />
   <link rel="preconnect" href="https://script.google.com" />
-  <link rel="stylesheet" href="style.css?v=7101" />
+  <link rel="stylesheet" href="style.css?v=7102" />
 
 
 <style>
@@ -252,13 +252,12 @@
 <div class="match-detail-card team-detail-card"><button class="match-close" type="button" onclick="closeTeamProfile()">×</button><div id="teamDetailContent"></div></div>
 </div>
 <button id="backToTop" class="back-to-top" type="button" aria-label="Back to top">↑</button>
-  <script src="script.js?v=7101"></script>
+  <script src="script.js?v=7102"></script>
 
 
 <script>
-/* Calcium Sport team profile 7058: manager, season-only controls, newest games first */
+/* Calcium Sport team profile 7102: manager, season-only controls, newest games first */
 (function(){
-  const TEAM_MANAGERS_SPREADSHEET_ID = '1Ggp732lJtVucm1mxREgjuq0xiKpAUK0BTUIPEDCkO_g';
   let teamManagerLookupPromise = null;
 
   function teamCurrentSeasonYear(){
@@ -274,29 +273,23 @@
   function loadTeamManagerLookup(){
     if(teamManagerLookupPromise) return teamManagerLookupPromise;
 
-    teamManagerLookupPromise = loadGoogleVisualizationTable(TEAM_MANAGERS_SPREADSHEET_ID, 'Managers')
-      .then(table => {
-        const columns = (table?.cols || []).map(col =>
-          normaliseText(col?.label || col?.id || '')
-        );
-        const managerColumn = columns.indexOf('name') >= 0 ? columns.indexOf('name') : 1;
-        const teamColumn = columns.indexOf('team') >= 0 ? columns.indexOf('team') : 2;
-        const lookup = new Map();
+    teamManagerLookupPromise = Promise.resolve().then(() => {
+      const lookup = new Map();
 
-        (table?.rows || []).forEach(row => {
-          const cells = row?.c || [];
-          const manager = String(cells[managerColumn]?.f ?? cells[managerColumn]?.v ?? '').trim();
-          const team = String(cells[teamColumn]?.f ?? cells[teamColumn]?.v ?? '').trim();
-          const teamKey = normaliseTeamName(team);
-          if(manager && teamKey && !lookup.has(teamKey)) lookup.set(teamKey, manager);
-        });
+      for(const rows of playerTeamsLookup.values()){
+        for(const row of rows){
+          if(normaliseText(row.position) !== 'manager') continue;
+          if(normaliseText(row.status) !== 'active') continue;
 
-        return lookup;
-      })
-      .catch(error => {
-        console.warn('Could not load team managers.', error);
-        return new Map();
-      });
+          const teamKey = normaliseTeamName(row.team);
+          if(teamKey && !lookup.has(teamKey)){
+            lookup.set(teamKey,row.playerName);
+          }
+        }
+      }
+
+      return lookup;
+    });
 
     return teamManagerLookupPromise;
   }
