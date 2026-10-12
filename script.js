@@ -1854,15 +1854,33 @@ function isManagerAssignment(item){
 function getAssignmentSeason(item){
   return normaliseProfileSeason(getSeasonYearForDate(item?.startDate));
 }
-function assignmentAppliesToSeason(item,season){
-  const selected=normaliseProfileSeason(season);
-  if(!selected) return false;
-  if(!isManagerAssignment(item)) return getAssignmentSeason(item)===selected;
+function getAssignmentLastSeason(item){
+  const startSeason=Number(getAssignmentSeason(item));
+  if(!startSeason) return '';
 
-  const seasonEndYear=Number(selected);
-  if(!seasonEndYear) return false;
-  const seasonStart=new Date(seasonEndYear-1,7,1);
-  const seasonEnd=new Date(seasonEndYear,6,31,23,59,59);
+  if(normaliseText(item?.status)==='active'){
+    return String(Math.max(startSeason,getCurrentSeasonYear()));
+  }
+
+  const end=parseDateOnly(item?.endDate);
+  if(!end) return String(startSeason);
+
+  const endSeason=Number(getSeasonYearForDate(end));
+  const finalSeason=end.getMonth()>=7 ? endSeason-1 : endSeason;
+  return String(Math.max(startSeason,finalSeason));
+}
+function assignmentAppliesToSeason(item,season){
+  const selected=Number(normaliseProfileSeason(season));
+  if(!selected) return false;
+
+  if(!isManagerAssignment(item)){
+    const first=Number(getAssignmentSeason(item));
+    const last=Number(getAssignmentLastSeason(item));
+    return !!first && selected>=first && selected<=last;
+  }
+
+  const seasonStart=new Date(selected-1,7,1);
+  const seasonEnd=new Date(selected,6,31,23,59,59);
   const start=parseDateOnly(item?.startDate);
   const end=parseDateOnly(item?.endDate);
   return !!start && start<=seasonEnd && (!end || end>=seasonStart);
@@ -1871,8 +1889,12 @@ function getAssignmentSeasons(rows){
   const seasons=new Set();
   (rows||[]).forEach(item=>{
     if(!isManagerAssignment(item)){
-      const season=getAssignmentSeason(item);
-      if(season) seasons.add(season);
+      let season=Number(getAssignmentSeason(item));
+      const lastSeason=Number(getAssignmentLastSeason(item));
+      while(season && season<=lastSeason){
+        seasons.add(String(season));
+        season++;
+      }
       return;
     }
 
@@ -2181,7 +2203,7 @@ function renderPlayerProfile(playerName,seasonYear=getCurrentSeasonYear()){
   const matches=getPlayerMatches(assignments,name);
 
   const teams=assignments.length
-    ? assignments.map(renderPlayerTeamAssignment).join('')
+    ? assignments.map(item=>renderPlayerTeamAssignment(item,selected)).join('')
     : '<div class="empty">Team information has not been added yet.</div>';
 
   const rows=matches.length
@@ -2283,7 +2305,7 @@ const description=currentAssignment
     </section>
   `;
 }
-function renderPlayerTeamAssignment(item){
+function renderPlayerTeamAssignment(item,selectedSeason=''){
   const startDate=String(item.startDate||'').trim();
   const endDate=String(item.endDate||'').trim();
   let period='';
@@ -2296,7 +2318,7 @@ function renderPlayerTeamAssignment(item){
           ? `${startDate} – ${endDate}`
           : endDate ? `Until ${endDate}` : 'Previous team');
   }else{
-    const season=getAssignmentSeason(item);
+    const season=normaliseProfileSeason(selectedSeason)||getAssignmentSeason(item);
     period=season ? `Season ${season}` : 'Season not listed';
   }
 
@@ -2353,7 +2375,7 @@ function assignmentIncludesMatch(item,match){
   if(!sameTeam(item.team,match.HomeTeam)&&!sameTeam(item.team,match.AwayTeam)) return false;
 
   if(!isManagerAssignment(item)){
-    return getAssignmentSeason(item)===getProfileMatchSeason(match);
+    return assignmentAppliesToSeason(item,getProfileMatchSeason(match));
   }
 
   const date=parseDateOnly(match.Date);
