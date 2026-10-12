@@ -3993,3 +3993,12 @@ function closeFifaRankingView(){
     'statsSection'
   ].forEach(id => $(id)?.classList.remove('hidden'));
 }
+
+function renderTeamMatchResult(match,teamName){
+  if(!sameTeam(teamName,match.HomeTeam)&&!sameTeam(teamName,match.AwayTeam))return '';
+  const home=String(match.HomeScore??'').trim(),away=String(match.AwayScore??'').trim();
+  if(!/^\d+$/.test(home)||!/^\d+$/.test(away))return '';
+  const diff=(Number(home)-Number(away))*(sameTeam(teamName,match.HomeTeam)?1:-1);
+  const [label,kind,title]=diff>0?['W','win','Win']:diff<0?['L','loss','Loss']:['D','draw','Draw'];
+  return `<span class="player-result-badge team-result-badge ${kind}" aria-label="${title}" title="${title}">${label}</span>`;
+}

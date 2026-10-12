@@ -1467,3 +1467,8 @@
 .team-profile-back button{padding:10px 16px;border:1px solid rgba(89,220,235,.3);border-radius:10px;background:#0b4d58;color:var(--text);font:inherit;font-weight:700}
 .team-profile-back button:hover{background:#126574}
 .team-profile-back button:focus-visible{outline:3px solid #ffd75e;outline-offset:3px}
+
+.team-profile-match-result{grid-template-columns:90px minmax(0,1fr) 32px;align-items:center}
+.team-profile-match-result>span:nth-child(2){display:grid;gap:5px}
+.team-profile-match-result>.team-result-badge{display:inline-flex;flex-shrink:0;justify-self:end}
+@media(max-width:580px){.team-profile-match-result{grid-template-columns:52px minmax(0,1fr) 32px;gap:10px}}

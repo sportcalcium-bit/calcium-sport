@@ -58,6 +58,12 @@ run(`loadTeamManagerLookup=async()=>new Map();ensureProfileMatches=async()=>{};g
  context.clickEvent={stopPropagation(){stopped=true}};
  run(`openTeamFromGame('Torino',clickEvent)`);
  assert.equal(stopped,true);assert.equal(opened,'Torino');
+ for(const [team,home,away,result] of [['Lazio',2,0,'W'],['Lazio',0,4,'L'],['Lazio',3,3,'D'],['Torino',2,0,'L']]){
+  context.resultFixture={HomeTeam:'Lazio',AwayTeam:'Torino',HomeScore:home,AwayScore:away};context.resultTeam=team;
+  assert.match(run(`renderTeamMatchResult(resultFixture,resultTeam)`),new RegExp('>'+result+'</span>'));
+ }
+ assert.equal(run(`renderTeamMatchResult({HomeTeam:'Lazio',AwayTeam:'Torino',HomeScore:'',AwayScore:''},'Lazio')`),'');
+ console.log('Team W/D/L home, away, draw and missing-score checks passed.');
  console.log('Game team links and click propagation tests passed.');
  console.log('Default lineup integration, season selection, formation ordering, 30 slots, profile links and retry tests passed.');
 })().catch(e=>{console.error(e);process.exitCode=1});

@@ -13,7 +13,7 @@
 <link rel="apple-touch-icon" href="./calcium-logo.jpeg">
   <meta name="description" content="Calcium Sport football results centre" />
   <link rel="preconnect" href="https://script.google.com" />
-  <link rel="stylesheet" href="style.css?v=7097" />
+  <link rel="stylesheet" href="style.css?v=7098" />
 
 
 <style>
@@ -252,7 +252,7 @@
 <div class="match-detail-card team-detail-card"><button class="match-close" type="button" onclick="closeTeamProfile()">×</button><div id="teamDetailContent"></div></div>
 </div>
 <button id="backToTop" class="back-to-top" type="button" aria-label="Back to top">↑</button>
-  <script src="script.js?v=7097"></script>
+  <script src="script.js?v=7098"></script>
 
 
 <script>
@@ -339,12 +339,13 @@
 
       const gamesHtml = seasonMatches.length
         ? seasonMatches.map(match =>
-            `<button class="team-profile-match" type="button" ${match.MatchID?`onclick="closeTeamProfile();openMatchDetail('${escapeAttr(match.MatchID)}')"`:''}>
+            `<button class="team-profile-match team-profile-match-result" type="button" ${match.MatchID?`onclick="closeTeamProfile();openMatchDetail('${escapeAttr(match.MatchID)}')"`:''}>
               <span>${escapeHTML(formatScoreboardDateParts(match.Date,match.Time).date)}</span>
               <span>
                 <strong>${escapeHTML(match.HomeTeam)} ${escapeHTML(renderScoreText(match))} ${escapeHTML(match.AwayTeam)}</strong>
                 <small>${escapeHTML(match.Competition || match['Competition Name'] || 'Competition')}</small>
               </span>
+              ${renderTeamMatchResult(match,name)}
             </button>`
           ).join('')
         : '<div class="empty">No played games found for this season.</div>';
