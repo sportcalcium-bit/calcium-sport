@@ -2128,13 +2128,8 @@ async function showMatchHistory(homeTeam,awayTeam){
     ? history.map(match=>{
         const matchId=match.MatchID||match.ID||'';
         const competition=match.Competition||match['Competition Name']||'Competition';
-        const season=getProfileMatchSeason(match);
         const round=String(match.Round||'').trim();
-        const context=[
-          competition,
-          season ? `Season ${season}` : '',
-          round
-        ].filter(Boolean).join(' · ');
+        const context=[competition,round].filter(Boolean).join(' · ');
         const action=matchId
           ? `onclick="openMatchDetail(${escapeAttr(JSON.stringify(matchId))})"`
           : '';
