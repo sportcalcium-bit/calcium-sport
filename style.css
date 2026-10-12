@@ -1477,3 +1477,22 @@
 .team-profile-match-result{grid-template-columns:90px minmax(0,1fr) auto}
 .team-profile-match-result>.profile-next-badge{display:inline-flex;justify-self:end}
 @media(max-width:580px){.team-profile-match-result{grid-template-columns:52px minmax(0,1fr) auto}}
+
+
+/* Match head-to-head history */
+.match-history-panel{display:grid;gap:14px;justify-items:start}
+.match-history-button{min-width:150px;border:1px solid #16758a;border-radius:13px;background:#0d5968;color:#fff;padding:12px 22px;font:inherit;font-weight:950;cursor:pointer}
+.match-history-button:hover{background:#126d7f}
+.match-history-content{display:none;width:100%;border-top:1px solid var(--line)}
+.match-history-panel.is-open{justify-items:stretch}
+.match-history-panel.is-open .match-history-button{justify-self:start}
+.match-history-panel.is-open .match-history-content{display:block}
+.match-history-row{width:100%;display:grid;grid-template-columns:100px minmax(0,1fr);gap:14px;align-items:center;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--text);padding:14px 8px;text-align:left;cursor:pointer}
+.match-history-row:hover{background:rgba(255,255,255,.04)}
+.match-history-date{color:var(--muted);font-weight:850}
+.match-history-game{display:grid;gap:4px}
+.match-history-game small{color:var(--muted);font-weight:750}
+@media(max-width:700px){
+  .match-history-button{width:100%}
+  .match-history-row{grid-template-columns:70px minmax(0,1fr);gap:10px}
+}
