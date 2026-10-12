@@ -2385,10 +2385,11 @@ function getProfileMatches(){
 }
 function orderProfileGames(matches,now=new Date()){
   const today=parseDateOnly(now);
-  const completed=matches.filter(m=>String(m.Status||'').trim().toUpperCase()==='FT'&&parseDateOnly(m.Date)<=today).sort((a,b)=>matchDateSortValue(b)-matchDateSortValue(a));
+  const completed=matches.filter(m=>String(m.Status||'').trim().toUpperCase()==='FT'&&parseDateOnly(m.Date)).sort((a,b)=>matchDateSortValue(b)-matchDateSortValue(a));
+  const latestPlayed=completed.length?parseDateOnly(completed[0].Date):today;
   const next=matches.filter(m=>{
     const status=String(m.Status||'').trim().toUpperCase();
-    return !['FT','POSTPONED','CANCELLED','CANCELED','PST','CANC','ABD'].includes(status)&&parseDateOnly(m.Date)>=today;
+    return !['FT','POSTPONED','CANCELLED','CANCELED','PST','CANC','ABD'].includes(status)&&parseDateOnly(m.Date)>=today&&parseDateOnly(m.Date)>=latestPlayed;
   }).sort((a,b)=>matchDateSortValue(a)-matchDateSortValue(b))[0];
   return next?[next,...completed]:completed;
 }

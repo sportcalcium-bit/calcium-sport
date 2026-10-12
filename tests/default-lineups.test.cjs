@@ -73,10 +73,12 @@ run(`loadTeamManagerLookup=async()=>new Map();ensureProfileMatches=async()=>{};g
  {MatchID:'latest',Date:'2026-10-11',Status:'FT'},
  {MatchID:'next',Date:'2026-10-13',Status:'NS'},
  {MatchID:'later',Date:'2026-10-18',Status:'NS'},
- {MatchID:'future-result',Date:'2026-10-20',Status:'FT'},
+ {MatchID:'future-result',Date:'2026-10-12',Status:'FT'},
  {MatchID:'postponed',Date:'2026-10-12',Status:'PST'}];
- assert.equal(run(`orderProfileGames(orderFixture,new Date(2026,9,12)).map(m=>m.MatchID).join()`),'next,latest,old');
+ assert.equal(run(`orderProfileGames(orderFixture,new Date(2026,9,12)).map(m=>m.MatchID).join()`),'next,future-result,latest,old');
  assert.match(run(`profileNextBadge({Status:'NS'})`),/Next game/);
+ context.barcelonaFixture=[{MatchID:'levante',Date:'2026-10-18',Status:'FT'}, {MatchID:'osasuna',Date:'2026-10-10',Status:'FT'}, {MatchID:'slavia',Date:'2026-10-20',Status:'NS'}];
+ assert.equal(run(`orderProfileGames(barcelonaFixture,new Date(2026,9,12)).map(m=>m.MatchID).join()`),'slavia,levante,osasuna');
  console.log('Tenure date boundaries and next-game-first ordering checks passed.');
  console.log('Team W/D/L home, away, draw and missing-score checks passed.');
  console.log('Game team links and click propagation tests passed.');
