@@ -40,5 +40,16 @@ run(`loadTeamManagerLookup=async()=>new Map();ensureProfileMatches=async()=>{};g
  assert.match(run(`renderDefaultTeamLineup('Arsenal')`),/could not be loaded/);
  fail=false;await run(`loadDefaultLineups()`);
  assert.equal(run(`defaultLineupsCache.length`),30);
+ context.gameFixture={HomeTeam:"Torino",AwayTeam:"Lazio",HomeLogo:"torino.png",AwayLogo:"lazio.png",Status:"FT",MatchID:"test",Date:"2026-10-12",Time:"17:30",HomeScore:3,AwayScore:1};
+ const gameRow=run(`renderMatchRowFlat(gameFixture)`);
+ assert.equal((gameRow.match(/game-team-link/g)||[]).length,4);
+ const gameDetail=run(`renderMatchDetail(gameFixture)`);
+ assert.equal((gameDetail.match(/game-team-link/g)||[]).length,2);
+ let stopped=false,opened='';
+ context.window.openTeamProfile=name=>opened=name;
+ context.clickEvent={stopPropagation(){stopped=true}};
+ run(`openTeamFromGame('Torino',clickEvent)`);
+ assert.equal(stopped,true);assert.equal(opened,'Torino');
+ console.log('Game team links and click propagation tests passed.');
  console.log('Default lineup integration, season selection, formation ordering, 30 slots, profile links and retry tests passed.');
 })().catch(e=>{console.error(e);process.exitCode=1});

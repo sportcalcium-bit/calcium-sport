@@ -1458,3 +1458,7 @@
  .lineup-pitch .lineup-player .player-photo{width:60px;height:60px;min-width:60px;min-height:60px}
  .lineup-pitch .lineup-player > span:last-child{font-size:14px}
 }
+
+.game-team-link{padding:0;border:0;background:transparent;color:inherit;font:inherit;cursor:pointer}
+.game-team-link:hover{text-decoration:underline;text-underline-offset:4px}
+.game-team-link:focus-visible{outline:3px solid #ffd75e;outline-offset:4px;border-radius:8px}

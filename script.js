@@ -630,6 +630,15 @@ function pickHomeDate(value){
 }
 window.pickHomeDate = pickHomeDate;
 
+function openTeamFromGame(teamName,event){
+  event?.stopPropagation?.();
+  closeMatchModal();
+  window.openTeamProfile(teamName);
+}
+window.openTeamFromGame=openTeamFromGame;
+function gameTeamAction(teamName){
+  return `onclick="openTeamFromGame(${escapeAttr(JSON.stringify(String(teamName||'')))},event)" aria-label="${escapeAttr('Open '+teamName+' team profile')}"`;
+}
 function renderMatchRowFlat(match){
   const p = formatScoreboardDateParts(match.Date,match.Time);
   const score = match.Status==='FT' ? renderScoreText(match) : 'vs';
@@ -637,7 +646,7 @@ function renderMatchRowFlat(match){
   const league = match.CompetitionLabel || match.Competition || 'Competition';
   const statusText = match.Status || 'Scheduled';
   const statusClass = statusText.trim().toUpperCase()==='FT' ? 'status-ft' : 'status-scheduled';
-  return `<article class="my-games-match" ${click}><div class="my-games-date"><span>${escapeHTML(p.date)} - ${escapeHTML(p.time)}</span><span>${escapeHTML(league)}</span></div><div class="my-games-team-name home">${escapeHTML(match.HomeTeam)}</div><div class="my-games-logo">${renderTeamLogo(match.HomeLogo,match.HomeTeam)}</div><div class="my-games-score">${score}</div><div class="my-games-logo">${renderTeamLogo(match.AwayLogo,match.AwayTeam)}</div><div class="my-games-team-name away">${escapeHTML(match.AwayTeam)}</div><div class="my-games-status ${statusClass}">${escapeHTML(statusText)}</div></article>`;
+  return `<article class="my-games-match" ${click}><div class="my-games-date"><span>${escapeHTML(p.date)} - ${escapeHTML(p.time)}</span><span>${escapeHTML(league)}</span></div><button type="button" class="my-games-team-name home game-team-link" ${gameTeamAction(match.HomeTeam)}>${escapeHTML(match.HomeTeam)}</button><button type="button" class="my-games-logo game-team-link" ${gameTeamAction(match.HomeTeam)}>${renderTeamLogo(match.HomeLogo,match.HomeTeam)}</button><div class="my-games-score">${score}</div><button type="button" class="my-games-logo game-team-link" ${gameTeamAction(match.AwayTeam)}>${renderTeamLogo(match.AwayLogo,match.AwayTeam)}</button><button type="button" class="my-games-team-name away game-team-link" ${gameTeamAction(match.AwayTeam)}>${escapeHTML(match.AwayTeam)}</button><div class="my-games-status ${statusClass}">${escapeHTML(statusText)}</div></article>`;
 }
 function renderHomeGames(){
   const selected = parseDateOnly(selectedDateKey) || new Date();
@@ -2009,24 +2018,24 @@ function renderMatchDetail(match,eventsLoading=false){
 
       <div class="match-main-teams">
 
-        <div class="match-main-team">
+        <button type="button" class="match-main-team game-team-link" ${gameTeamAction(match.HomeTeam)}>
           <div class="match-main-logo">
             ${match.HomeLogo ? `<img src="${escapeAttr(match.HomeLogo)}" alt="">` : ''}
           </div>
           <strong>${escapeHTML(match.HomeTeam)}</strong>
-        </div>
+        </button>
 
         <div class="match-main-score">
           <div>${renderScoreText(match)}</div>
           ${penalty ? `<span>${escapeHTML(penalty)}</span>` : ''}
         </div>
 
-        <div class="match-main-team">
+        <button type="button" class="match-main-team game-team-link" ${gameTeamAction(match.AwayTeam)}>
           <div class="match-main-logo">
             ${match.AwayLogo ? `<img src="${escapeAttr(match.AwayLogo)}" alt="">` : ''}
           </div>
           <strong>${escapeHTML(match.AwayTeam)}</strong>
-        </div>
+        </button>
 
       </div>
 
