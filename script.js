@@ -2696,9 +2696,9 @@ function renderDefaultTeamLineup(teamName,season='2027'){
   const renderList=(players)=>`<div class="lineup-list">${players.map((name,i)=>`<div class="lineup-list-item"><span class="lineup-number">${i+1}</span>${lineupPlayerButton(name,teamName,season)}</div>`).join('')}</div>`;
   return `<section class="team-profile-section default-lineup-section"><h3>Default Lineup · ${escapeHTML(season)} <small>${escapeHTML(formation)}</small></h3>
     <h4>Starting XI — ${escapeHTML(formation)}</h4>
-    <div class="lineup-pitch" aria-label="${escapeAttr(formation)} formation, goalkeeper to forwards"><div class="lineup-pitch-markings"></div>
+    <div class="lineup-pitch-scroll"><div class="lineup-pitch" style="--lineup-columns:${Math.max(...lines)}" aria-label="${escapeAttr(formation)} formation, goalkeeper to forwards"><div class="lineup-pitch-markings"></div>
       <div class="lineup-pitch-row lineup-goalkeeper">${lineupPlayerButton(slots.get('XI1'),teamName,season)}</div>
-      ${outfield.join('')}</div>
+      ${outfield.join('')}</div></div>
     <div class="lineup-lists"><div><h4>Substitutes (9)</h4>${renderList(bench)}</div><div><h4>Not Called Up (10)</h4>${renderList(excluded)}</div></div>
   </section>`;
 }
