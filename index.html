@@ -13,7 +13,7 @@
 <link rel="apple-touch-icon" href="./calcium-logo.jpeg">
   <meta name="description" content="Calcium Sport football results centre" />
   <link rel="preconnect" href="https://script.google.com" />
-  <link rel="stylesheet" href="style.css?v=7092" />
+  <link rel="stylesheet" href="style.css?v=7093" />
 
 
 <style>
@@ -252,7 +252,7 @@
 <div class="match-detail-card team-detail-card"><button class="match-close" type="button" onclick="closeTeamProfile()">×</button><div id="teamDetailContent"></div></div>
 </div>
 <button id="backToTop" class="back-to-top" type="button" aria-label="Back to top">↑</button>
-  <script src="script.js?v=7092"></script>
+  <script src="script.js?v=7093"></script>
 
 
 <script>
@@ -373,7 +373,8 @@
             <select id="teamProfileSeasonSelect">${seasonOptions}</select>
           </label>
         </section>
-        <section class="team-profile-section"><h3>Squad · ${escapeHTML(selectedSeason)}</h3><div class="team-squad-grid">${renderTeamSquad(name,selectedSeason)}</div></section>
+        ${renderDefaultTeamLineup(name,selectedSeason)}
+        <section class="team-profile-section"><h3>Full Squad · ${escapeHTML(selectedSeason)}</h3><div class="team-squad-grid">${renderTeamSquad(name,selectedSeason)}</div></section>
         <section class="team-profile-section">
           <h3>Played games · ${escapeHTML(selectedSeason)}</h3>
           ${gamesHtml}
@@ -385,13 +386,26 @@
       });
     };
 
+    const profileToken = {};
+    content.profileToken = profileToken;
+    const lineupRequest = loadDefaultLineups();
     content.dataset.teamProfile = name;
     render();
     modal.classList.remove('hidden');
     document.body.classList.add('modal-open');
 
+    lineupRequest.then(() => {
+      if(content.profileToken !== profileToken) return;
+      (defaultLineupsCache || []).filter(row => sameTeam(row.team,name)).forEach(row => {
+        const season = normaliseProfileSeason(row.season);
+        if(season && !seasons.includes(season)) seasons.push(season);
+      });
+      seasons.sort((a,b) => Number(b)-Number(a));
+      render();
+    });
+
     ensureProfileMatches().then(() => {
-      if(content.dataset.teamProfile !== name) return;
+      if(content.profileToken !== profileToken) return;
       allMatches = teamMatches();
       allMatches.forEach(match => {
         const season = getProfileMatchSeason(match);
@@ -401,7 +415,7 @@
       render();
     });
     loadTeamManagerLookup().then(lookup => {
-      if(content.dataset.teamProfile !== name) return;
+      if(content.profileToken !== profileToken) return;
       managerName = lookup.get(key) || '';
       managerLoaded = true;
       render();

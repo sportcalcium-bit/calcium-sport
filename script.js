@@ -102,6 +102,7 @@ let playerDatabaseCache = null;
 let competitionsListCache = null;
 let defaultLineupsCache = null;
 let defaultLineupsPromise = null;
+let defaultLineupsError = false;
 
 async function loadCompetition(competitionParam){
 
@@ -2660,10 +2661,11 @@ window.closeTeamProfile=closeTeamProfile;
 async function loadDefaultLineups(){
   if(defaultLineupsCache) return defaultLineupsCache;
   if(!defaultLineupsPromise){
+    defaultLineupsError=false;
     defaultLineupsPromise=fetch(`${API_URL}?action=defaultLineups&v=${Date.now()}`,{cache:'no-store'})
       .then(r=>{if(!r.ok)throw new Error('Lineup API HTTP '+r.status);return r.json()})
       .then(data=>{if(!data.success||!Array.isArray(data.lineups))throw new Error('Invalid lineup API response');return (defaultLineupsCache=data.lineups)})
-      .catch(err=>{console.warn('Default lineups unavailable:',err);defaultLineupsCache=[];return null})
+      .catch(err=>{console.warn('Default lineups unavailable:',err);defaultLineupsError=true;return null})
       .finally(()=>{defaultLineupsPromise=null});
   }
   return defaultLineupsPromise;
@@ -2675,10 +2677,11 @@ function lineupPlayerButton(playerName,teamName,season,extraClass=''){
   const jsSeason=escapeAttr(JSON.stringify(String(season)));
   return `<button type="button" class="lineup-player ${extraClass}" onclick="closeTeamProfile();openPlayerProfile(${jsName},null,${jsSeason},${jsTeam})">${renderPlayerImage(playerName)}<span>${escapeHTML(playerName)}</span></button>`;
 }
-function renderDefaultTeamLineup(teamName){
-  if(!defaultLineupsCache)return defaultLineupsPromise?'<div class="lineup-loading">Loading 2027 lineup…</div>':'';
-  const rows=defaultLineupsCache.filter(r=>sameTeam(r.team,teamName)&&String(r.season).trim()==='2027');
-  if(!rows.length)return '';
+function renderDefaultTeamLineup(teamName,season='2027'){
+  season=normaliseProfileSeason(season);
+  if(!defaultLineupsCache)return defaultLineupsError?'<div class="empty" role="status">Default lineup could not be loaded. Reopen the team profile to retry.</div>':'<div class="lineup-loading" role="status">Loading default lineup…</div>';
+  const rows=defaultLineupsCache.filter(r=>sameTeam(r.team,teamName)&&normaliseProfileSeason(r.season)===season);
+  if(!rows.length)return `<section class="team-profile-section"><h3>Default Lineup · ${escapeHTML(season)}</h3><div class="empty">No default lineup available for this season.</div></section>`;
   const slots=new Map(rows.map(r=>[String(r.slot).toUpperCase().trim(),String(r.playerName||'').trim()]));
   const formation=String(rows[0].formation||'4-3-3').trim();
   const lines=formation.split('-').map(Number);
@@ -2686,14 +2689,15 @@ function renderDefaultTeamLineup(teamName){
   let index=2;
   const outfield=lines.map(count=>{
     const group=Array.from({length:count},()=>slots.get('XI'+index++)||'');
-    return `<div class="lineup-pitch-row">${group.map(name=>lineupPlayerButton(name,teamName,'2027')).join('')}</div>`;
+    return `<div class="lineup-pitch-row">${group.map(name=>lineupPlayerButton(name,teamName,season)).join('')}</div>`;
   });
   const bench=Array.from({length:9},(_,i)=>slots.get('BENCH'+(i+1))||'');
   const excluded=Array.from({length:10},(_,i)=>slots.get('OUT'+(i+1))||'');
-  const renderList=(players)=>`<div class="lineup-list">${players.map((name,i)=>`<div class="lineup-list-item"><span class="lineup-number">${i+1}</span>${lineupPlayerButton(name,teamName,'2027')}</div>`).join('')}</div>`;
-  return `<section class="team-profile-section default-lineup-section"><h3>2027 Default Lineup <small>${escapeHTML(formation)}</small></h3>
-    <div class="lineup-pitch"><div class="lineup-pitch-markings"></div>
-      <div class="lineup-pitch-row lineup-goalkeeper">${lineupPlayerButton(slots.get('XI1'),teamName,'2027')}</div>
+  const renderList=(players)=>`<div class="lineup-list">${players.map((name,i)=>`<div class="lineup-list-item"><span class="lineup-number">${i+1}</span>${lineupPlayerButton(name,teamName,season)}</div>`).join('')}</div>`;
+  return `<section class="team-profile-section default-lineup-section"><h3>Default Lineup · ${escapeHTML(season)} <small>${escapeHTML(formation)}</small></h3>
+    <h4>Starting XI — ${escapeHTML(formation)}</h4>
+    <div class="lineup-pitch" aria-label="${escapeAttr(formation)} formation, goalkeeper to forwards"><div class="lineup-pitch-markings"></div>
+      <div class="lineup-pitch-row lineup-goalkeeper">${lineupPlayerButton(slots.get('XI1'),teamName,season)}</div>
       ${outfield.join('')}</div>
     <div class="lineup-lists"><div><h4>Substitutes (9)</h4>${renderList(bench)}</div><div><h4>Not Called Up (10)</h4>${renderList(excluded)}</div></div>
   </section>`;

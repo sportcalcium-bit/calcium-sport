@@ -1,0 +1,44 @@
+const fs=require('node:fs');
+const vm=require('node:vm');
+const assert=require('node:assert/strict');
+const nodes=new Map();
+const node=id=>nodes.get(id)||nodes.set(id,{dataset:{},classList:{add(){},remove(){},contains(){return false}},addEventListener(type,fn){this[type]=fn},innerHTML:''}).get(id);
+let requests=0,fail=false;
+const records=Array.from({length:30},(_,i)=>({team:'Arsenal',season:'2027',formation:'4-3-3',slot:i<11?'XI'+(i+1):i<20?'BENCH'+(i-10):'OUT'+(i-19),playerName:i===0?'David Raya':'Player '+(i+1)}));
+const context=vm.createContext({console:{...console,warn(){}},URLSearchParams,navigator:{},window:{location:{search:''}},document:{addEventListener(){},getElementById:node,body:{classList:{add(){},remove(){}}}},setTimeout,clearTimeout,fetch:async()=>{requests++;if(fail)throw Error('offline');return {ok:true,json:async()=>({success:true,lineups:records})}}});
+const run=code=>vm.runInContext(code,context);
+run(fs.readFileSync('script.js','utf8'));
+const html=fs.readFileSync('index.html','utf8');
+const inline=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)].map(m=>m[1]).filter(s=>s.includes('window.openTeamProfile'))[0];
+run(inline);
+run(`loadTeamManagerLookup=async()=>new Map();ensureProfileMatches=async()=>{};getProfileMatches=()=>[];teamCurrentSeasonYear=()=>2027;appData={};`);
+(async()=>{
+ run(`window.openTeamProfile('Arsenal')`);
+ await new Promise(resolve=>setImmediate(resolve));
+ let rendered=node('teamDetailContent').innerHTML;
+ assert.match(rendered,/Starting XI — 4-3-3/);
+ assert.match(rendered,/Full Squad · 2027/);
+ assert.match(rendered,/Played games · 2027/);
+ assert.match(rendered,/Manager/);
+ assert.equal((rendered.match(/class="lineup-player /g)||[]).length,30);
+ assert.ok(rendered.indexOf('David Raya')<rendered.indexOf('Player 2'));
+ assert.match(rendered,/openPlayerProfile\(&quot;David Raya&quot;,null,&quot;2027&quot;,&quot;Arsenal&quot;\)/);
+ node('teamProfileSeasonSelect').change({target:{value:'2026'}});
+ assert.doesNotMatch(node('teamDetailContent').innerHTML,/David Raya/);
+ assert.match(node('teamDetailContent').innerHTML,/No default lineup available/);
+ for(const formation of ['4-3-3','4-2-3-1','3-5-2','5-4-1']){
+ context.formation=formation;
+ run(`defaultLineupsCache.forEach(r=>r.formation=formation)`);
+ rendered=run(`renderDefaultTeamLineup('Arsenal','2027')`);
+ assert.equal((rendered.match(/class="lineup-pitch-row/g)||[]).length,formation.split('-').length+1);
+ assert.equal((rendered.match(/class="lineup-player /g)||[]).length,30);
+ }
+ run(`defaultLineupsCache.forEach(r=>r.formation='4-4-4')`);
+ assert.match(run(`renderDefaultTeamLineup('Arsenal')`),/Invalid formation/);
+ run(`defaultLineupsCache=null`);fail=true;
+ await run(`loadDefaultLineups()`);
+ assert.match(run(`renderDefaultTeamLineup('Arsenal')`),/could not be loaded/);
+ fail=false;await run(`loadDefaultLineups()`);
+ assert.equal(run(`defaultLineupsCache.length`),30);
+ console.log('Default lineup integration, season selection, formation ordering, 30 slots, profile links and retry tests passed.');
+})().catch(e=>{console.error(e);process.exitCode=1});
