@@ -1989,7 +1989,9 @@ async function openMatchDetail(matchId){
   document.body.classList.add('modal-open');
   if(!hasEvents&&isHomePage()){
     await loadCompetitionDetailsForMatch(match);
-    if(!modal.classList.contains('hidden')) content.innerHTML=renderMatchDetail(match,false);
+    if(!modal.classList.contains('hidden')&&!content.querySelector('.match-history-panel.is-open')){
+      content.innerHTML=renderMatchDetail(match,false);
+    }
   }
 }
 window.openMatchDetail=openMatchDetail;
@@ -2010,9 +2012,9 @@ function renderMatchDetail(match,eventsLoading=false){
     '';
   const roundLabel = String(match.Round || '').trim();
 
-  const eventContent=eventsLoading
-    ? '<div class="empty">Loading goals, assists and cards...</div>'
-    : renderTimelineEvents(events,match);
+  const eventContent=events.length
+    ? renderTimelineEvents(events,match)
+    : renderMatchHistoryAction(match);
 
   return `
     <section class="match-hero">
@@ -2077,6 +2079,79 @@ function renderMatchDetail(match,eventsLoading=false){
     ${renderHighlights(youtube)}
   `;
 }
+function renderMatchHistoryAction(match){
+  const home=escapeAttr(JSON.stringify(String(match.HomeTeam||'')));
+  const away=escapeAttr(JSON.stringify(String(match.AwayTeam||'')));
+
+  return `
+    <div id="matchHistoryPanel" class="match-history-panel">
+      <button
+        class="match-history-button"
+        type="button"
+        aria-expanded="false"
+        onclick="showMatchHistory(${home},${away})"
+      >
+        History
+      </button>
+      <div id="matchHistoryContent" class="match-history-content" aria-live="polite"></div>
+    </div>
+  `;
+}
+async function showMatchHistory(homeTeam,awayTeam){
+  const panel=$('matchHistoryPanel');
+  const content=$('matchHistoryContent');
+  if(!panel||!content) return;
+
+  panel.classList.add('is-open');
+  panel.querySelector('.match-history-button')?.setAttribute('aria-expanded','true');
+  content.innerHTML='<div class="empty">Loading history...</div>';
+
+  await ensureProfileMatches();
+
+  if(!$('matchHistoryContent')) return;
+
+  const homeKey=normaliseTeamName(homeTeam);
+  const awayKey=normaliseTeamName(awayTeam);
+  const history=getProfileMatches()
+    .filter(match=>{
+      if(!isPlayedMatch(match)) return false;
+      const matchHome=normaliseTeamName(match.HomeTeam);
+      const matchAway=normaliseTeamName(match.AwayTeam);
+      return (
+        (matchHome===homeKey&&matchAway===awayKey) ||
+        (matchHome===awayKey&&matchAway===homeKey)
+      );
+    })
+    .sort((a,b)=>matchDateSortValue(b)-matchDateSortValue(a));
+
+  content.innerHTML=history.length
+    ? history.map(match=>{
+        const matchId=match.MatchID||match.ID||'';
+        const competition=match.Competition||match['Competition Name']||'Competition';
+        const action=matchId
+          ? `onclick="openMatchDetail(${escapeAttr(JSON.stringify(matchId))})"`
+          : '';
+
+        return `
+          <button class="match-history-row" type="button" ${action}>
+            <span class="match-history-date">
+              ${escapeHTML(formatScoreboardDateParts(match.Date,match.Time).date)}
+            </span>
+            <span class="match-history-game">
+              <strong>
+                ${escapeHTML(match.HomeTeam)}
+                ${escapeHTML(renderScoreText(match))}
+                ${escapeHTML(match.AwayTeam)}
+              </strong>
+              <small>${escapeHTML(competition)}</small>
+            </span>
+          </button>
+        `;
+      }).join('')
+    : '<div class="empty">No previous meetings found.</div>';
+}
+window.showMatchHistory=showMatchHistory;
+
 function resolveMatchCompetitionSlug(match){
   const direct=String(match.CompetitionSlug||match.Slug||'').trim();
   if(direct) return direct;
