@@ -1,4 +1,4 @@
-const CACHE_NAME = "calcium-sport-player-identities-v2";
+const CACHE_NAME = "calcium-sport-player-lookups-v3";
 
 const FILES_TO_CACHE = [
   "./",

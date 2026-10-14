@@ -1,0 +1,11 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const context=vm.createContext({console,URLSearchParams,navigator:{},window:{location:{search:''}},document:{addEventListener(){},getElementById(){return null}},setTimeout,clearTimeout});
+vm.runInContext(fs.readFileSync('script.js','utf8'),context);
+const run=code=>vm.runInContext(code,context);
+run(`appData={players:[],playerTeams:Array.from({length:3400},(_,i)=>({'Player Name':'Player Surname'+i,Team:'Club'}))};playerTeamsLookup=buildPlayerTeamsLookup(appData.playerTeams);playerAliasLookup=buildPlayerAliasLookup();`);
+run(`let normalizationCalls=0;const originalInitialSurname=playerInitialSurname;playerInitialSurname=value=>{normalizationCalls++;return originalInitialSurname(value)};for(let i=0;i<1000;i++)canonicalPlayerKey('Unknown Person'+i);`);
+assert(run('normalizationCalls')<5000,'Unknown event names must not rescan every player');
+assert.equal(run(`canonicalPlayerKey('P. Surname12')`),'player surname12');
+run(`playerTeamsLookup=new Map([['new person',[]]]);playerAliasLookup=new Map();`);
+assert.equal(run(`canonicalPlayerKey('N. Person')`),'new person','Index must refresh when source changes');
+console.log('Passed: bounded lookup work for 3,400 players and refreshed indexes.');

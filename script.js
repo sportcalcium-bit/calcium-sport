@@ -11,6 +11,19 @@ const MY_GAMES_NATIONAL_TEAMS = new Set([
 const CONFIRMED_PLAYER_IDENTITIES = [{"id": "CS-P0001", "name": "Tyler Roberts", "team": "Birmingham", "position": "CAM", "fullName": "Tyler D'Whyte Roberts", "teamAliases": ["Birmingham"], "imageUrl": "https://static.flashscore.com/res/image/data/p2dqRedM-YehvUhK9.png", "note": ""}, {"id": "CS-P0002", "name": "Tyler Roberts", "team": "Wolves", "position": "RW", "fullName": "Tyler Ashley Roberts", "teamAliases": ["Wolves"], "imageUrl": "https://www.wolves.co.uk/media/of3p0g2v/roberts.jpg", "note": ""}, {"id": "CS-P0003", "name": "David López", "team": "Girona", "position": "CB", "fullName": "David López Silva", "teamAliases": ["Girona"], "imageUrl": "https://assets.laliga.com/squad/2025/t2893/p11129/2048x2048/p11129_t2893_2025_1_003_000.png", "note": ""}, {"id": "CS-P0004", "name": "David López", "team": "Mallorca", "position": "CB", "fullName": "David López Guijarro", "teamAliases": ["Mallorca"], "imageUrl": "https://media.futbolfantasy.com/thumb/400x400/v202602221844/uploads/images/jugadores/ficha/11712.png", "note": ""}, {"id": "CS-P0005", "name": "Rodri", "team": "Man City", "position": "CDM", "fullName": "Rodrigo Hernández Cascante", "teamAliases": ["Man City", "Manchester City", "Spain"], "imageUrl": "https://static.flashscore.com/res/image/data/IJ2FPQGG-zJ9Fa6T9.png", "note": ""}, {"id": "CS-P0006", "name": "Rodri", "team": "Betis", "position": "LM", "fullName": "Rodrigo Sánchez Rodríguez", "teamAliases": ["Betis", "Real Betis"], "imageUrl": "https://cdn-img.staticzz.com/img/jogadores/new/02/47/730247_rodri_sanchez_20250706002621.jpg", "note": ""}, {"id": "CS-P0007", "name": "Jacobo", "team": "Getafe", "position": "ST", "fullName": "Jacobo Alcalde Tellado", "teamAliases": ["Getafe"], "imageUrl": "", "note": "No verified portrait; use placeholder. Original ambiguous URL retained in backup."}, {"id": "CS-P0008", "name": "Jacobo", "team": "Real Madrid", "position": "CB", "fullName": "Jacobo Ramón Naveros", "teamAliases": ["Real Madrid"], "imageUrl": "https://cdn-img.staticzz.com/img/planteis/new/66/43/11686643_jacobo_ramon_20241029231256.png", "note": ""}, {"id": "CS-P0009", "name": "Arthur", "team": "Juventus", "position": "CDM", "fullName": "Arthur Henrique Ramos de Oliveira Melo", "teamAliases": ["Juventus"], "imageUrl": "https://static.flashscore.com/res/image/data/YDLmFcjl-fBCr4egh.png", "note": ""}, {"id": "CS-P0010", "name": "Arthur", "team": "Leverkusen", "position": "RB", "fullName": "Arthur Augusto de Matos Soares", "teamAliases": ["Leverkusen", "Bayer Leverkusen"], "imageUrl": "https://assets.bundesliga.com/player/dfl-obj-j01unl-dfl-clu-00000b-dfl-sea-0001k9.png", "note": ""}, {"id": "CS-P0011", "name": "Vitinha", "team": "Genoa", "position": "ST", "fullName": "Vítor Manuel Carvalho Oliveira", "teamAliases": ["Genoa", "Lecce"], "imageUrl": "https://static.sky.it/images/skysport/it/calcio/serie-a/probabili-formazioni/superscudetto/512/522479.png", "note": ""}, {"id": "CS-P0012", "name": "Vitinha", "team": "PSG", "position": "CM", "fullName": "Vítor Machado Ferreira", "teamAliases": ["PSG", "Paris SG", "Paris Saint-Germain", "Portugal"], "imageUrl": "https://static.flashscore.com/res/image/data/l67bUhGG-UuPdHetg.png", "note": ""}, {"id": "CS-P0013", "name": "Jacobo", "team": "Córdoba", "position": "RW", "fullName": "Jacobo González Rodrigáñez", "teamAliases": ["Córdoba", "Cordoba", "A Coruña"], "imageUrl": "https://www.ogol.com.br/img/jogadores/new/09/07/1320907_jacobo_gonzalez_20250805181603.jpg", "note": "Third Jacobo confirmed by user. Cup row records A Coruña; team retained as recorded."}];
 let playerIdentityRegistry = CONFIRMED_PLAYER_IDENTITIES;
 let playerIdentitiesLoaded = false;
+let indexedIdentityRegistry=null, identityIdIndex=new Map(), identityNameIndex=new Map();
+function ensureIdentityIndexes(){
+  if(indexedIdentityRegistry===playerIdentityRegistry)return;
+  identityIdIndex=new Map();identityNameIndex=new Map();
+  for(const r of playerIdentityRegistry){
+    identityIdIndex.set(r.id.toLowerCase(),r);
+    for(const key of new Set([r.name,r.fullName,playerInitialSurname(r.name)].filter(Boolean).map(playerIdentityKey))){
+      if(!identityNameIndex.has(key))identityNameIndex.set(key,[]);
+      identityNameIndex.get(key).push(r);
+    }
+  }
+  indexedIdentityRegistry=playerIdentityRegistry;
+}
 async function loadPlayerIdentities(){
   if(playerIdentitiesLoaded) return;
   try{
@@ -27,12 +40,11 @@ async function loadPlayerIdentities(){
 }
 function identityFromRef(ref){
   const id=String(ref||'').replace(/^@/,'').replace(/^id:/,'').toLowerCase();
-  return playerIdentityRegistry.find(r=>r.id.toLowerCase()===id);
+  ensureIdentityIndexes();return identityIdIndex.get(id);
 }
 function identitiesForName(name){
   const key=playerIdentityKey(name);
-  return playerIdentityRegistry.filter(r=>[r.name,r.fullName,playerInitialSurname(r.name)]
-    .some(n=>n&&playerIdentityKey(n)===key));
+  ensureIdentityIndexes();return identityNameIndex.get(key)||[];
 }
 function identityForPlayer(name,team=''){
   const direct=identityFromRef(name);if(direct)return direct;
@@ -1885,6 +1897,19 @@ function buildPlayerAliasLookup(){
   }
   return aliases;
 }
+let canonicalIndexSource=null,canonicalInitialIndex=new Map();
+function ensureCanonicalInitialIndex(){
+  if(canonicalIndexSource===playerTeamsLookup)return;
+  canonicalInitialIndex=new Map();
+  for(const key of playerTeamsLookup.keys()){
+    if(key.startsWith('id:'))continue;
+    const short=playerInitialSurname(key);
+    if(!short)continue;
+    if(!canonicalInitialIndex.has(short))canonicalInitialIndex.set(short,[]);
+    canonicalInitialIndex.get(short).push(key);
+  }
+  canonicalIndexSource=playerTeamsLookup;
+}
 function canonicalPlayerKey(name,team=''){
   const identity=identityForPlayer(name,team);
   if(identity)return 'id:'+identity.id.toLowerCase();
@@ -1892,7 +1917,8 @@ function canonicalPlayerKey(name,team=''){
   if(known.length>1)return 'ambiguous:'+playerIdentityKey(name);
   const key=playerIdentityKey(name);
   if(playerAliasLookup.has(key)) return playerAliasLookup.get(key);
-  const matches=[...playerTeamsLookup.keys()].filter(k=>playerInitialSurname(k) && playerInitialSurname(k)===playerInitialSurname(key));
+  ensureCanonicalInitialIndex();
+  const matches=canonicalInitialIndex.get(playerInitialSurname(key))||[];
   return matches.length===1 && (key.split(' ')[0].length===1 || matches[0].split(' ')[0].length===1)?matches[0]:key;
 }
 function canonicalPlayerName(name){ return identityFromRef(name)?.name||playerTeamsLookup.get(canonicalPlayerKey(name))?.[0]?.playerName||String(name||'').trim(); }
@@ -1987,12 +2013,13 @@ function renderPlayerSearchLabel(ref){
 }
 function findSearchPlayers(players,query){
   const q=playerIdentityKey(query);
+  const aliasMatches=new Set([...playerAliasLookup].filter(([alias])=>alias.includes(q)).map(([,key])=>key));
   const exact=players.filter(ref=>playerIdentityKey(playerDisplayName(ref))===q);
   if(exact.length)return exact.slice(0,8);
   return players.filter(ref=>{
     const identity=identityFromRef(ref);
     return [playerDisplayName(ref),identity?.fullName||''].some(n=>playerIdentityKey(n).includes(q))||
-      [...playerAliasLookup].some(([alias,key])=>alias.includes(q)&&key===canonicalPlayerKey(ref));
+      aliasMatches.has(canonicalPlayerKey(ref));
   }).slice(0,8);
 }
 function normalisePlayerName(value){
