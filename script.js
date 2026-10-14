@@ -6,6 +6,47 @@ const MY_GAMES_NATIONAL_TEAMS = new Set([
   'germany','morocco','brazil','argentina'
 ]);
 
+
+// Stable identities for confirmed namesakes. Names remain unchanged on screen.
+const CONFIRMED_PLAYER_IDENTITIES = [{"id": "CS-P0001", "name": "Tyler Roberts", "team": "Birmingham", "position": "CAM", "fullName": "Tyler D'Whyte Roberts", "teamAliases": ["Birmingham"], "imageUrl": "https://static.flashscore.com/res/image/data/p2dqRedM-YehvUhK9.png", "note": ""}, {"id": "CS-P0002", "name": "Tyler Roberts", "team": "Wolves", "position": "RW", "fullName": "Tyler Ashley Roberts", "teamAliases": ["Wolves"], "imageUrl": "https://www.wolves.co.uk/media/of3p0g2v/roberts.jpg", "note": ""}, {"id": "CS-P0003", "name": "David López", "team": "Girona", "position": "CB", "fullName": "David López Silva", "teamAliases": ["Girona"], "imageUrl": "https://assets.laliga.com/squad/2025/t2893/p11129/2048x2048/p11129_t2893_2025_1_003_000.png", "note": ""}, {"id": "CS-P0004", "name": "David López", "team": "Mallorca", "position": "CB", "fullName": "David López Guijarro", "teamAliases": ["Mallorca"], "imageUrl": "https://media.futbolfantasy.com/thumb/400x400/v202602221844/uploads/images/jugadores/ficha/11712.png", "note": ""}, {"id": "CS-P0005", "name": "Rodri", "team": "Man City", "position": "CDM", "fullName": "Rodrigo Hernández Cascante", "teamAliases": ["Man City", "Manchester City", "Spain"], "imageUrl": "https://static.flashscore.com/res/image/data/IJ2FPQGG-zJ9Fa6T9.png", "note": ""}, {"id": "CS-P0006", "name": "Rodri", "team": "Betis", "position": "LM", "fullName": "Rodrigo Sánchez Rodríguez", "teamAliases": ["Betis", "Real Betis"], "imageUrl": "https://cdn-img.staticzz.com/img/jogadores/new/02/47/730247_rodri_sanchez_20250706002621.jpg", "note": ""}, {"id": "CS-P0007", "name": "Jacobo", "team": "Getafe", "position": "ST", "fullName": "Jacobo Alcalde Tellado", "teamAliases": ["Getafe"], "imageUrl": "", "note": "No verified portrait; use placeholder. Original ambiguous URL retained in backup."}, {"id": "CS-P0008", "name": "Jacobo", "team": "Real Madrid", "position": "CB", "fullName": "Jacobo Ramón Naveros", "teamAliases": ["Real Madrid"], "imageUrl": "https://cdn-img.staticzz.com/img/planteis/new/66/43/11686643_jacobo_ramon_20241029231256.png", "note": ""}, {"id": "CS-P0009", "name": "Arthur", "team": "Juventus", "position": "CDM", "fullName": "Arthur Henrique Ramos de Oliveira Melo", "teamAliases": ["Juventus"], "imageUrl": "https://static.flashscore.com/res/image/data/YDLmFcjl-fBCr4egh.png", "note": ""}, {"id": "CS-P0010", "name": "Arthur", "team": "Leverkusen", "position": "RB", "fullName": "Arthur Augusto de Matos Soares", "teamAliases": ["Leverkusen", "Bayer Leverkusen"], "imageUrl": "https://assets.bundesliga.com/player/dfl-obj-j01unl-dfl-clu-00000b-dfl-sea-0001k9.png", "note": ""}, {"id": "CS-P0011", "name": "Vitinha", "team": "Genoa", "position": "ST", "fullName": "Vítor Manuel Carvalho Oliveira", "teamAliases": ["Genoa", "Lecce"], "imageUrl": "https://static.sky.it/images/skysport/it/calcio/serie-a/probabili-formazioni/superscudetto/512/522479.png", "note": ""}, {"id": "CS-P0012", "name": "Vitinha", "team": "PSG", "position": "CM", "fullName": "Vítor Machado Ferreira", "teamAliases": ["PSG", "Paris SG", "Paris Saint-Germain", "Portugal"], "imageUrl": "https://static.flashscore.com/res/image/data/l67bUhGG-UuPdHetg.png", "note": ""}, {"id": "CS-P0013", "name": "Jacobo", "team": "Córdoba", "position": "RW", "fullName": "Jacobo González Rodrigáñez", "teamAliases": ["Córdoba", "Cordoba", "A Coruña"], "imageUrl": "https://www.ogol.com.br/img/jogadores/new/09/07/1320907_jacobo_gonzalez_20250805181603.jpg", "note": "Third Jacobo confirmed by user. Cup row records A Coruña; team retained as recorded."}];
+let playerIdentityRegistry = CONFIRMED_PLAYER_IDENTITIES;
+let playerIdentitiesLoaded = false;
+async function loadPlayerIdentities(){
+  if(playerIdentitiesLoaded) return;
+  try{
+    const rows=tableToObjects(await loadGoogleVisualizationTable(HUB_SPREADSHEET_ID,'Player Identities'));
+    const parsed=rows.filter(r=>r['Player ID']&&r['Player Name']).map(r=>({
+      id:String(r['Player ID']),name:String(r['Player Name']),team:String(r.Team||''),
+      position:String(r.Position||''),imageUrl:String(r['Player Image URL']||''),
+      fullName:String(r['Full Name']||''),teamAliases:String(r['Team Aliases']||r.Team||'').split('|')
+    }));
+    // A partial or unavailable registry must not silently merge known namesakes.
+    if(CONFIRMED_PLAYER_IDENTITIES.every(r=>parsed.some(p=>p.id===r.id))) playerIdentityRegistry=parsed;
+  }catch(error){console.warn('Using confirmed player identity registry:',error);}
+  playerIdentitiesLoaded=true;
+}
+function identityFromRef(ref){
+  const id=String(ref||'').replace(/^@/,'').replace(/^id:/,'').toLowerCase();
+  return playerIdentityRegistry.find(r=>r.id.toLowerCase()===id);
+}
+function identitiesForName(name){
+  const key=playerIdentityKey(name);
+  return playerIdentityRegistry.filter(r=>[r.name,r.fullName,playerInitialSurname(r.name)]
+    .some(n=>n&&playerIdentityKey(n)===key));
+}
+function identityForPlayer(name,team=''){
+  const direct=identityFromRef(name);if(direct)return direct;
+  const matches=identitiesForName(name);
+  if(!team)return matches.length===1?matches[0]:null;
+  const teams=matches.filter(r=>[r.team,...r.teamAliases].some(t=>normaliseTeamName(t)===normaliseTeamName(team)));
+  return teams.length===1?teams[0]:null;
+}
+function playerReference(name,team=''){
+  const identity=identityForPlayer(name,team);
+  return identity?'@'+identity.id:String(name||'').trim();
+}
+function playerDisplayName(ref){return identityFromRef(ref)?.name||String(ref||'').trim();}
+
 let appData = null;
 let playerImageLookup = new Map();
 let playerTeamsLookup = new Map();
@@ -155,6 +196,7 @@ appData.playerTeams =
     await loadCompetitionData(competitionParam);
   }
 
+  await loadPlayerIdentities();
   playerImageLookup = buildPlayerImageLookup(appData.players);
   playerTeamsLookup = buildPlayerTeamsLookup(appData.playerTeams);
   playerAliasLookup = buildPlayerAliasLookup();
@@ -1772,7 +1814,7 @@ function renderKnockoutBracketMatch(match){
   `;
 }
 function renderStats(){ const stats=getFilteredStats(); renderStatList('topScorers',stats,'Goals','topScorers'); renderStatList('topAssists',stats,'Assists','topAssists'); renderStatList('cleanSheets',stats,'CleanSheets','cleanSheets'); renderStatList('yellowCards',stats,'YellowCards','yellowCards'); renderStatList('redCards',stats,'RedCards','redCards'); }
-function renderStatList(id,stats,key,expandKey){ const all=stats.filter(r=>Number(r[key])>0).sort((a,b)=>Number(b[key])-Number(a[key])||String(a.Player||'').localeCompare(String(b.Player||''))); if(!all.length){ setHTML(id,'<div class="empty">No data yet.</div>'); return; } const visible=expandedStats[expandKey]?all:all.slice(0,3); const rows=visible.map((r,i)=>`<div class="stat-row"><span class="stat-rank">${i+1}</span><span class="stat-player">${renderTeamLogo(r.Logo,r.Team)}${renderPlayerLink(r.Player,'stat-player-name')}</span><strong class="stat-value">${safeNumber(r[key])}</strong></div>`).join(''); const btn=all.length>3?`<button class="stat-toggle" type="button" onclick="toggleStatList('${expandKey}')">${expandedStats[expandKey]?'Show less':`See more (${all.length})`}</button>`:''; setHTML(id,rows+btn); }
+function renderStatList(id,stats,key,expandKey){ const all=stats.filter(r=>Number(r[key])>0).sort((a,b)=>Number(b[key])-Number(a[key])||String(a.Player||'').localeCompare(String(b.Player||''))); if(!all.length){ setHTML(id,'<div class="empty">No data yet.</div>'); return; } const visible=expandedStats[expandKey]?all:all.slice(0,3); const rows=visible.map((r,i)=>`<div class="stat-row"><span class="stat-rank">${i+1}</span><span class="stat-player">${renderTeamLogo(r.Logo,r.Team)}${renderPlayerLink(r.Player,'stat-player-name',r.Team)}</span><strong class="stat-value">${safeNumber(r[key])}</strong></div>`).join(''); const btn=all.length>3?`<button class="stat-toggle" type="button" onclick="toggleStatList('${expandKey}')">${expandedStats[expandKey]?'Show less':`See more (${all.length})`}</button>`:''; setHTML(id,rows+btn); }
 window.toggleStatList = key => { expandedStats[key]=!expandedStats[key]; renderStats(); };
 function renderTeamLogo(url,teamName){ if(!url) return '<span class="team-logo team-logo-empty"></span>'; return `<span class="team-logo"><img src="${escapeAttr(url)}" alt="${escapeAttr(teamName||'Team logo')}" loading="lazy"></span>`; }
 function buildPlayerImageLookup(players){
@@ -1782,7 +1824,9 @@ function buildPlayerImageLookup(players){
   players.forEach(row=>{
     const name=String(row?.playerName??'').trim();
     const imageUrl=String(row?.imageUrl??'').trim();
-    const key=playerIdentityKey(name);
+    const identity=identityForPlayer(row.playerId||row['Player ID']||name,row.team||row.Team||'');
+    const key=identity?'id:'+identity.id.toLowerCase():playerIdentityKey(name);
+    if(!identity&&identitiesForName(name).length>1)return;
 
     if(key && imageUrl && !lookup.has(key)){
       lookup.set(key,imageUrl);
@@ -1798,9 +1842,12 @@ function buildPlayerTeamsLookup(rows){
     const name=String(row?.['Player Name']??row?.Player??'').trim();
     const team=String(row?.Team??'').trim();
     if(!name||!team) return;
-    const key=playerIdentityKey(name);
+    const ref=playerReference(identityFromRef(row['Player ID'])?row['Player ID']:name,team);
+    const key=canonicalPlayerKey(ref,team);
+    if(key.startsWith('ambiguous:'))return;
     if(!lookup.has(key)) lookup.set(key,[]);
     lookup.get(key).push({
+  playerRef:ref,
   playerName:name,
   team,
   startDate:String(row['Start Date']??'').trim(),
@@ -1824,6 +1871,7 @@ function playerInitialSurname(value){
 function buildPlayerAliasLookup(){
   const aliases=new Map(), candidates=new Map();
   for(const key of playerTeamsLookup.keys()){
+    if(key.startsWith('id:'))continue;
     aliases.set(key,key);
     const short=playerInitialSurname(key);
     if(short){ if(!candidates.has(short)) candidates.set(short,[]); candidates.get(short).push(key); }
@@ -1837,13 +1885,17 @@ function buildPlayerAliasLookup(){
   }
   return aliases;
 }
-function canonicalPlayerKey(name){
+function canonicalPlayerKey(name,team=''){
+  const identity=identityForPlayer(name,team);
+  if(identity)return 'id:'+identity.id.toLowerCase();
+  const known=identitiesForName(name);
+  if(known.length>1)return 'ambiguous:'+playerIdentityKey(name);
   const key=playerIdentityKey(name);
   if(playerAliasLookup.has(key)) return playerAliasLookup.get(key);
   const matches=[...playerTeamsLookup.keys()].filter(k=>playerInitialSurname(k) && playerInitialSurname(k)===playerInitialSurname(key));
   return matches.length===1 && (key.split(' ')[0].length===1 || matches[0].split(' ')[0].length===1)?matches[0]:key;
 }
-function canonicalPlayerName(name){ return playerTeamsLookup.get(canonicalPlayerKey(name))?.[0]?.playerName||String(name||'').trim(); }
+function canonicalPlayerName(name){ return identityFromRef(name)?.name||playerTeamsLookup.get(canonicalPlayerKey(name))?.[0]?.playerName||String(name||'').trim(); }
 function normaliseProfileSeason(value){
   const text=String(value??'').trim(),range=text.match(/^(\d{4})\s*[-/]\s*(\d{2}|\d{4})$/);
   return range?(range[2].length===2?String(Number(range[1].slice(0,2)+range[2])):range[2]):text;
@@ -1926,17 +1978,22 @@ function getPreferredPlayerSeason(name,requested){
   );
   return available.includes(preferred) ? preferred : (available[0]||'');
 }
-function renderPlayerSearchLabel(name){
-  const rows=getPlayerSeasonRows(name,getPreferredPlayerSeason(name));
-  const detail=[...new Set(rows.map(r=>[r.team,r.position].filter(Boolean).join(' · ')))].join(' / ');
-  return `<span><strong>${escapeHTML(name)}</strong>${detail?`<small style="display:block">${escapeHTML(detail)}</small>`:''}</span>`;
+function renderPlayerSearchLabel(ref){
+  const rows=getPlayerSeasonRows(ref,getPreferredPlayerSeason(ref));
+  const identity=identityFromRef(ref);
+  const detail=[...new Set(rows.map(r=>[r.team,r.position].filter(Boolean).join(' · ')))].join(' / ')||
+    (identity?[identity.team,identity.position].filter(Boolean).join(' · '):'');
+  return `<span><strong>${escapeHTML(playerDisplayName(ref))}</strong>${detail?`<small style="display:block">${escapeHTML(detail)}</small>`:''}</span>`;
 }
 function findSearchPlayers(players,query){
   const q=playerIdentityKey(query);
-  const matchingAliases=new Set([...playerAliasLookup].filter(([alias])=>alias.includes(q)).map(([,key])=>key));
-  const names=players.filter(n=>playerIdentityKey(n).includes(q)||matchingAliases.has(playerIdentityKey(n)));
-  const exact=names.filter(n=>playerIdentityKey(n).split(' ').includes(q)||playerIdentityKey(n)===q);
-  return (exact.length?exact:names).slice(0,8);
+  const exact=players.filter(ref=>playerIdentityKey(playerDisplayName(ref))===q);
+  if(exact.length)return exact.slice(0,8);
+  return players.filter(ref=>{
+    const identity=identityFromRef(ref);
+    return [playerDisplayName(ref),identity?.fullName||''].some(n=>playerIdentityKey(n).includes(q))||
+      [...playerAliasLookup].some(([alias,key])=>alias.includes(q)&&key===canonicalPlayerKey(ref));
+  }).slice(0,8);
 }
 function normalisePlayerName(value){
   return String(value||'')
@@ -1954,6 +2011,9 @@ function normalisePlayerName(value){
     .toLocaleLowerCase();
 }
 function getPlayerImageUrl(playerName){
+  const identity=identityFromRef(playerName);
+  if(identity)return identity.imageUrl||'';
+  if(identitiesForName(playerName).length>1)return '';
   const key=canonicalPlayerKey(playerName),name=canonicalPlayerName(playerName);
   const exact=playerImageLookup.get(playerIdentityKey(name));
   if(exact) return exact;
@@ -1968,14 +2028,14 @@ function getPlayerImageUrl(playerName){
   return images.size===1?[...images][0]:'';
 }
 function renderPlayerImage(playerName){
-  const name=String(playerName||'').trim()||'Player';
-  const imageUrl=getPlayerImageUrl(name)||'player-placeholder.svg';
+  const ref=String(playerName||'').trim(),name=playerDisplayName(ref)||'Player';
+  const imageUrl=getPlayerImageUrl(ref)||'player-placeholder.svg';
   return `<span class="player-photo"><img src="${escapeAttr(imageUrl)}" alt="${escapeAttr(name)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src='player-placeholder.svg'"></span>`;
 }
-function renderPlayerLink(playerName,nameClass=''){
-  const name=String(playerName||'').trim();
-  if(!name) return '';
-  return `<button class="player-link ${escapeAttr(nameClass)}" type="button" onclick="openPlayerProfile('${escapeAttr(name)}',event)" title="Open ${escapeAttr(name)} profile">${renderPlayerImage(name)}<span>${escapeHTML(name)}</span></button>`;
+function renderPlayerLink(playerName,nameClass='',team=''){
+  const ref=playerReference(playerName,team),name=playerDisplayName(ref);
+  if(!name)return '';
+  return `<button class="player-link ${escapeAttr(nameClass)}" type="button" onclick="openPlayerProfile(${escapeAttr(JSON.stringify(ref))},event)" title="Open ${escapeAttr(name)} profile">${renderPlayerImage(ref)}<span>${escapeHTML(name)}</span></button>`;
 }
 async function openMatchDetail(matchId){
   const unique=getProfileMatches();
@@ -2181,19 +2241,19 @@ function renderHalfEvents(title,events,match){ if(!events.length) return `<div c
 function renderEventRow(event,match,liveHome,liveAway){ const side=sameTeam(event.Team,match.HomeTeam)?'event-home':'event-away'; return `<div class="event-row ${side}"><div class="event-minute">${escapeHTML(event.Minute)}'</div><div class="event-content">${getEventLabel(event,liveHome,liveAway)}</div></div>`; }
 function getEventLabel(event,liveHome,liveAway){
   const type=String(event.Event||'').toLowerCase().trim(), detail=String(event.Detail||'').trim(), player=String(event.Player||'').trim();
-  const playerLabel=renderPlayerLink(player);
-  const detailLabel=renderEventDetail(detail);
+  const playerLabel=renderPlayerLink(player,'',event.Team);
+  const detailLabel=renderEventDetail(detail,event.Team);
   if(type==='goal') return `<span class="goal-pill">⚽ ${liveHome} - ${liveAway}</span>${playerLabel}${detailLabel}`;
   if(type==='yellow card') return `<span>🟨</span>${playerLabel}${detailLabel}`;
   if(type==='red card') return `<span>🟥</span>${playerLabel}${detailLabel}`;
   if(type==='penalty missed'||type==='missed penalty') return `<span>❌</span>${playerLabel}<span class="event-detail">(Penalty missed)</span>`;
   return `<span>•</span>${playerLabel}${detailLabel}`;
 }
-function renderEventDetail(detail){
+function renderEventDetail(detail,team=''){
   const cleanDetail=cleanEventDetail(detail);
   if(!cleanDetail) return '';
   const assist=String(detail||'').match(/(?:^|,\s*)Assist:\s*(.+)$/i)?.[1]?.trim();
-  if(assist) return `<span class="event-detail event-assist">(Assist: ${renderPlayerLink(assist)})</span>`;
+  if(assist) return `<span class="event-detail event-assist">(Assist: ${renderPlayerLink(assist,'',team)})</span>`;
   return `<span class="event-detail">(${escapeHTML(cleanDetail)})</span>`;
 }
 
@@ -2208,7 +2268,7 @@ function openPlayerProfileFromTeam(playerName,teamName){
   playerProfileBackTeam=String(teamName||'').trim();
 
   closeTeamProfile();
-  openPlayerProfile(playerName);
+  openPlayerProfile(playerName,null,undefined,teamName);
 
   const content=$('playerDetailContent');
 
@@ -2224,7 +2284,12 @@ function openPlayerProfile(playerName,event,season,backTeam=''){
   playerProfileBackTeam=String(backTeam||'').trim();
   event?.stopPropagation?.();
 
-  activePlayerProfileName=canonicalPlayerName(playerName);
+  const ref=playerReference(playerName,backTeam);
+  if(!identityFromRef(ref)&&identitiesForName(playerName).length>1){
+    $('playerDetailContent').innerHTML='<div class="master-search-label">Choose player</div>'+identitiesForName(playerName).map(r=>`<button class="master-search-result" onclick="openPlayerProfile(${escapeAttr(JSON.stringify('@'+r.id))})">${renderPlayerImage('@'+r.id)}${renderPlayerSearchLabel('@'+r.id)}</button>`).join('');
+    $('playerModal')?.classList.remove('hidden');document.body.classList.add('modal-open');return;
+  }
+  activePlayerProfileName=ref;
   activePlayerSeason=getPreferredPlayerSeason(activePlayerProfileName,season);
 
   renderActivePlayerProfile();
@@ -2270,14 +2335,14 @@ function isPlayedMatch(match){
   return /^\d+$/.test(home) && /^\d+$/.test(away);
 }
 function renderPlayerProfile(playerName,seasonYear=getCurrentSeasonYear()){
-  const name=canonicalPlayerName(playerName);
-  const allAssignments=playerTeamsLookup.get(canonicalPlayerKey(name))||[];
+  const ref=playerReference(playerName),name=canonicalPlayerName(ref);
+  const allAssignments=playerTeamsLookup.get(canonicalPlayerKey(ref))||[];
 
   const availableSeasons=getAssignmentSeasons(allAssignments);
 
-  const selected=getPreferredPlayerSeason(name,seasonYear);
-  const assignments=getPlayerSeasonRows(name,selected);
-  const matches=getPlayerMatches(assignments,name);
+  const selected=getPreferredPlayerSeason(ref,seasonYear);
+  const assignments=getPlayerSeasonRows(ref,selected);
+  const matches=getPlayerMatches(assignments,ref);
 
   const teams=assignments.length
     ? assignments.map(item=>renderPlayerTeamAssignment(item,selected)).join('')
@@ -2330,7 +2395,7 @@ const description=currentAssignment
     <section class="player-profile-hero">
 
       <div class="player-profile-photo">
-        ${renderPlayerImage(name)}
+        ${renderPlayerImage(ref)}
       </div>
 
       <div class="player-profile-copy">
@@ -2537,8 +2602,8 @@ function renderTeamSquad(teamName,season){
     <button
       class="team-squad-player"
       type="button"
-      onclick="closeTeamProfile();openPlayerProfile(${escapeAttr(JSON.stringify(row.playerName))},null,${escapeAttr(JSON.stringify(String(season)))},${escapeAttr(JSON.stringify(teamName))})" >
-      ${renderPlayerImage(row.playerName)}
+      onclick="closeTeamProfile();openPlayerProfile(${escapeAttr(JSON.stringify(row.playerRef||row.playerName))},null,${escapeAttr(JSON.stringify(String(season)))},${escapeAttr(JSON.stringify(teamName))})" >
+      ${renderPlayerImage(row.playerRef||row.playerName)}
       <span>
         <strong>${escapeHTML(row.playerName)}</strong>
         <small style="display:block">${escapeHTML(row.position)}</small>
@@ -2567,10 +2632,10 @@ function getPlayerMatchStats(match,playerName){
   const key=canonicalPlayerKey(playerName);
   const totals={goals:0,assists:0,yellow:0,red:0};
   getMatchEvents(match.MatchID||match.ID).forEach(event=>{
-    const type=normaliseText(event.Event),player=canonicalPlayerKey(normalisePlayerName(event.Player));
+    const type=normaliseText(event.Event),player=canonicalPlayerKey(normalisePlayerName(event.Player),event.Team);
     if(player===key){ if(type==='goal') totals.goals++; if(type==='yellow card') totals.yellow++; if(type==='red card') totals.red++; }
     const assist=String(event.Detail||'').match(/(?:^|,\s*)Assist:\s*(.+)$/i)?.[1]?.trim();
-    if(assist&&canonicalPlayerKey(assist)===key) totals.assists++;
+    if(assist&&canonicalPlayerKey(assist,event.Team)===key) totals.assists++;
   });
   return totals;
 }
@@ -2662,9 +2727,10 @@ function renderPlayerMatchRow(item){
 
 function getMasterSearchItems(){
  const players=[],seenP=new Set(),teams=[],seenT=new Set();
- const addP=n=>{n=String(n||'').trim();const k=playerIdentityKey(n);if(n&&!seenP.has(k)){seenP.add(k);players.push(n)}};
- const addT=n=>{n=String(n||'').trim();const k=normaliseTeamName(n);if(n&&!seenT.has(k)){seenT.add(k);teams.push(n)}};
- (appData?.playerTeams||[]).forEach(r=>{addP(r?.['Player Name']??r?.Player??r?.[0]);addT(r?.Team??r?.[1])});
+ const addP=(name,team='')=>{const ref=playerReference(name,team),key=canonicalPlayerKey(ref,team);if(ref&&!key.startsWith('ambiguous:')&&!seenP.has(key)){seenP.add(key);players.push(ref)}};
+ const addT=name=>{name=String(name||'').trim();const key=normaliseTeamName(name);if(name&&!seenT.has(key)){seenT.add(key);teams.push(name)}};
+ (appData?.playerTeams||[]).forEach(r=>{addP(identityFromRef(r?.['Player ID'])?r['Player ID']:(r?.['Player Name']||r?.Player),r?.Team);addT(r?.Team)});
+ playerIdentityRegistry.forEach(r=>addP('@'+r.id));
  return {players,teams};
 }
 function renderMasterSearchResults(value){
@@ -2705,10 +2771,11 @@ async function loadDefaultLineups(){
 }
 function lineupPlayerButton(playerName,teamName,season,extraClass=''){
   if(!playerName)return '<span class="lineup-empty">—</span>';
-  const jsName=escapeAttr(JSON.stringify(playerName));
+  const ref=playerReference(playerName,teamName);
+  const jsName=escapeAttr(JSON.stringify(ref));
   const jsTeam=escapeAttr(JSON.stringify(teamName));
   const jsSeason=escapeAttr(JSON.stringify(String(season)));
-  return `<button type="button" class="lineup-player ${extraClass}" onclick="closeTeamProfile();openPlayerProfile(${jsName},null,${jsSeason},${jsTeam})">${renderPlayerImage(playerName)}<span>${escapeHTML(playerName)}</span></button>`;
+  return `<button type="button" class="lineup-player ${extraClass}" onclick="closeTeamProfile();openPlayerProfile(${jsName},null,${jsSeason},${jsTeam})">${renderPlayerImage(ref)}<span>${escapeHTML(playerName)}</span></button>`;
 }
 function renderDefaultTeamLineup(teamName,season='2027'){
   season=normaliseProfileSeason(season);
