@@ -3330,12 +3330,12 @@ function compareCompetitionNamePriorityFromName(groupName,a,b){ const key={Engla
    1. UEFA Champions League
    2. UEFA Europa League
    3. UEFA Conference League
-   4. Domestic Cups:
+   4. Domestic Cups and midweek league fixtures (Tuesday–Thursday):
       France -> Germany -> Spain -> Italy -> England
-   5. Domestic Leagues:
+   5. Weekend Domestic Leagues (Friday–Monday):
       France -> Germany -> Spain -> Italy -> England
 
-   Inside the SAME competition, REAL kickoff datetime is absolute.
+   Inside the SAME competition and priority band, REAL kickoff datetime is absolute.
    Canonical competition keys below make this rule survive harmless
    naming variations such as "Champions League" vs
    "UEFA Champions League".
@@ -3505,6 +3505,14 @@ function getMyGamesCanonicalCompetitionKey(match){
   return `${country}|${slugify(name)}`;
 }
 
+function isMyGamesMidweekLeagueMatch(match){
+  if(!isMyGamesDomesticLeague(match)) return false;
+  const date = parseDateOnly(match.Date);
+  if(!date) return false;
+  const day = date.getDay();
+  return day >= 2 && day <= 4;
+}
+
 function getMyGamesPriorityTier(match){
   if(isMyGamesUCL(match)) return 0;
   if(isMyGamesUEL(match)) return 1;
@@ -3519,7 +3527,7 @@ function getMyGamesPriorityTier(match){
 
   if(
     countryIndex!==-1 &&
-    isCupCompetition(match)
+    (isCupCompetition(match) || isMyGamesMidweekLeagueMatch(match))
   ){
     return 10+countryIndex;
   }
