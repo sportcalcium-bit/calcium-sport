@@ -1499,8 +1499,6 @@
 
 
 .my-games-header{flex-wrap:wrap}
-.my-games-daily-stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;flex:1;min-width:280px}
-.my-games-daily-stats .my-games-stat{text-align:center;min-width:0}
-.my-games-daily-stats .my-games-stat-value{font-size:20px}
-.my-games-daily-stats .my-games-stat-label{font-size:10px}
-@media(max-width:700px){.my-games-daily-stats{flex-basis:100%;min-width:0;gap:6px}.my-games-header>div:first-child{width:100%}.my-games-stats{width:100%;justify-content:space-between}}
+#myGamesList .my-games-day-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+#myGamesList .my-games-day-counts{flex-shrink:0}
+@media(max-width:700px){.my-games-header>div:first-child{width:100%}.my-games-stats{width:100%;justify-content:space-between}}

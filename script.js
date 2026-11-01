@@ -1270,14 +1270,6 @@ function buildMyGamesDayAssignment(
   );
 }
 
-function renderMyGamesDailyCounters(assignment){
-  const counts = Object.fromEntries(MONDAY_TO_SUNDAY_DISPLAY_ORDER.map(day=>[day,0]));
-  assignment.forEach(day=>{ if(day in counts) counts[day]++; });
-  setHTML('myGamesDailyStats',MONDAY_TO_SUNDAY_DISPLAY_ORDER.map(day=>
-    `<div class="my-games-stat"><span class="my-games-stat-value">${counts[day]}</span><span class="my-games-stat-label">${day.slice(0,3)}</span></div>`
-  ).join(''));
-}
-
 function renderMyGames(){
   const all =
     Array.isArray(appData?.myGames)
@@ -1357,7 +1349,6 @@ function renderMyGames(){
     scheduledCount
   );
 
-  renderMyGamesDailyCounters(new Map());
   if(!weekMatches.length){
     setHTML(
       'myGamesList',
@@ -1372,8 +1363,6 @@ function renderMyGames(){
       weekStart,
       isCurrentWeek
     );
-
-  renderMyGamesDailyCounters(dayAssignment);
 
   const dayGroups = new Map();
 
@@ -1418,8 +1407,9 @@ function renderMyGames(){
 
         return `
           <section class="home-time-block">
-            <div class="home-time-heading">
-              ${escapeHTML(label)}
+            <div class="home-time-heading my-games-day-heading">
+              <span>${escapeHTML(label)}</span>
+              <span class="my-games-day-counts"><span>${dayMatches.length} GAMES</span></span>
             </div>
             ${body}
           </section>
