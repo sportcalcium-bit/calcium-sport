@@ -34,7 +34,7 @@ assert.equal(run('isMyGamesMidweekLeagueMatch(fixture)'),false);
 // National-team ordering and the scheduling quotas still use their existing rules.
 assert.ok(run(`compareMyGamesMatches({Competition:'Friendlies',Date:'2026-10-27'}, {Competition:'Nations League',Date:'2026-10-28'}) < 0`));
 assert.equal(run(`JSON.stringify(computeDayQuotas(26,MONDAY_TO_SUNDAY_DISPLAY_ORDER))`),
-  '{"Monday":4,"Tuesday":4,"Wednesday":3,"Thursday":4,"Friday":4,"Saturday":3,"Sunday":4}');
+  '{"Monday":5,"Tuesday":4,"Wednesday":4,"Thursday":4,"Friday":4,"Sunday":5}');
 assert.equal(run('buildMyGamesBaselineAssignment(matches).size'),8);
 run(`const frozen = {assignments:{'serie-weekend':'Monday','serie-midweek-early':'Friday'}};
   const restored = storedObjectToAssignmentMap(frozen.assignments,matches);
