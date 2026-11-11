@@ -1,9 +1,10 @@
-const CACHE_NAME = "calcium-sport-day-heading-counts-1";
+const CACHE_NAME = "calcium-sport-lineup-editor-1";
 
 const FILES_TO_CACHE = [
   "./",
   "./index.html",
   "./script.js",
+  "./lineup-editor.js",
   "./manifest.webmanifest",
   "./calcium-logo.jpeg"
 ];
@@ -31,6 +32,7 @@ self.addEventListener("activate", event => {
 });
 
 self.addEventListener("fetch", event => {
+  if (event.request.method !== 'GET' || event.request.cache === 'no-store') return;
   event.respondWith(
     fetch(event.request)
       .then(response => {

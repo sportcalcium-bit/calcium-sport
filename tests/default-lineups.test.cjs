@@ -8,6 +8,7 @@ const records=Array.from({length:30},(_,i)=>({team:'Arsenal',season:'2027',forma
 const context=vm.createContext({console:{...console,warn(){}},URLSearchParams,navigator:{},window:{location:{search:''}},document:{addEventListener(){},getElementById:node,body:{classList:{add(){},remove(){}}}},setTimeout,clearTimeout,fetch:async()=>{requests++;if(fail)throw Error('offline');return {ok:true,json:async()=>({success:true,lineups:records})}}});
 const run=code=>vm.runInContext(code,context);
 run(fs.readFileSync('script.js','utf8'));
+run(fs.readFileSync('lineup-editor.js','utf8'));
 const html=fs.readFileSync('index.html','utf8');
 const inline=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)].map(m=>m[1]).filter(s=>s.includes('window.openTeamProfile'))[0];
 run(inline);
