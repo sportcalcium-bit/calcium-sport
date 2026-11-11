@@ -13,7 +13,8 @@
 <link rel="apple-touch-icon" href="./calcium-logo.jpeg">
   <meta name="description" content="Calcium Sport football results centre" />
   <link rel="preconnect" href="https://script.google.com" />
-  <link rel="stylesheet" href="style.css?v=7107" />
+  <meta name="calcium-lineup-editor" content="https://script.google.com/macros/s/AKfycbxnJShvaUiveAUkO0Ic6uauxMwRUuA2heuEarV78tSZxkUFPxxj_VgD3Del1aCzPwvU6Q/exec" />
+  <link rel="stylesheet" href="style.css?v=7108" />
 
 
 <style>
@@ -253,6 +254,7 @@
 </div>
 <button id="backToTop" class="back-to-top" type="button" aria-label="Back to top">↑</button>
   <script src="script.js?v=7107"></script>
+  <script src="lineup-editor.js?v=1"></script>
 
 
 <script>
@@ -299,7 +301,7 @@
     const key = normaliseTeamName(name);
     const modal = $('teamModal');
     const content = $('teamDetailContent');
-    if(!modal || !content) return;
+    if(!modal || !content || !leaveLineupEdit()) return;
 
     const teamMatches = () => getProfileMatches().filter(match =>
       (normaliseTeamName(match.HomeTeam) === key || normaliseTeamName(match.AwayTeam) === key)
@@ -329,7 +331,7 @@
 
       const gamesHtml = seasonMatches.length
         ? seasonMatches.map(match =>
-            `<button class="team-profile-match team-profile-match-result" type="button" ${match.MatchID?`onclick="closeTeamProfile();openMatchDetail('${escapeAttr(match.MatchID)}')"`:''}>
+            `<button class="team-profile-match team-profile-match-result" type="button" ${match.MatchID?`onclick="if(closeTeamProfile())openMatchDetail('${escapeAttr(match.MatchID)}')"`:''}>
               <span>${escapeHTML(formatScoreboardDateParts(match.Date,match.Time).date)}</span>
               <span>
                 <strong>${escapeHTML(match.HomeTeam)} ${escapeHTML(profileGameScore(match))} ${escapeHTML(match.AwayTeam)}</strong>
@@ -342,6 +344,8 @@
 
       const managerLabel = managerLoaded ? (managerName || 'Not listed') : 'Loading…';
 
+      const editingSection = lineupDraft && content.querySelector?.('#defaultLineup');
+      const focused = editingSection?.contains?.(document.activeElement) ? document.activeElement : null;
       content.innerHTML =
         `${backMatchId ? `<div class="team-profile-back"><button type="button" onclick="backToTeamGame(${escapeAttr(JSON.stringify(String(backMatchId)))})">← Back to game</button></div>` : ''}
         <section class="team-profile-hero">
@@ -353,7 +357,7 @@
   <span>Manager</span>
   <div
   class="team-profile-manager-profile"
-  ${managerLoaded && managerName ? `onclick="openPlayerProfile('${escapeAttr(managerName)}')" style="cursor:pointer;"` : ''}
+  ${managerLoaded && managerName ? `onclick="if(!lineupDraft||closeTeamProfile())openPlayerProfile(${escapeAttr(JSON.stringify(managerName))})" style="cursor:pointer;"` : ''}
 >
   ${managerLoaded && managerName ? renderPlayerImage(managerName) : ''}
   <strong>${escapeHTML(managerLabel)}</strong>
@@ -364,6 +368,9 @@
           <label><span>Season</span>
             <select id="teamProfileSeasonSelect">${seasonOptions}</select>
           </label>
+          <div id="lineupActions" class="lineup-actions" data-team="${escapeAttr(name)}" data-season="${escapeAttr(selectedSeason)}">
+            ${renderLineupActions(name,selectedSeason)}
+          </div>
         </section>
         ${renderDefaultTeamLineup(name,selectedSeason)}
         <section class="team-profile-section"><h3>Full Squad · ${escapeHTML(selectedSeason)}</h3><div class="team-squad-grid">${renderTeamSquad(name,selectedSeason)}</div></section>
@@ -372,7 +379,15 @@
           ${gamesHtml}
         </section>`;
 
+      if(editingSection){
+        content.querySelector('#defaultLineup')?.replaceWith(editingSection);
+        focused?.focus();
+      }
       $('teamProfileSeasonSelect')?.addEventListener('change', event => {
+        if(!leaveLineupEdit()){
+          event.target.value = selectedSeason;
+          return;
+        }
         selectedSeason = event.target.value || currentSeason;
         render();
       });

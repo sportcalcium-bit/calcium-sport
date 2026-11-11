@@ -1502,3 +1502,45 @@
 #myGamesList .my-games-day-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
 #myGamesList .my-games-day-counts{flex-shrink:0}
 @media(max-width:700px){.my-games-header>div:first-child{width:100%}.my-games-stats{width:100%;justify-content:space-between}}
+
+/* Lineup editing controls and picker */
+.team-profile-controls:has(.lineup-actions button){display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.team-profile-controls > label{min-width:0;flex:0 1 220px}
+.lineup-actions,.lineup-dialog-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
+.lineup-actions button,#lineupFormation,.lineup-dialog button{
+  color:var(--text);background:#0b4d58;border:1px solid #387580;border-radius:10px;
+  font:inherit;font-weight:700;padding:9px 14px;min-height:44px;cursor:pointer
+}
+.lineup-actions .lineup-save{background:#117562;border-color:#51b69d;color:#fff}
+.lineup-actions button:disabled,.lineup-editing button:disabled{opacity:.65;cursor:wait}
+.lineup-notice,.lineup-edit-hint{margin:8px 0 14px;color:var(--text)}
+.lineup-edit-hint{color:var(--muted)}
+.lineup-editing .lineup-editable:hover span:last-child{text-decoration:underline;text-underline-offset:4px}
+.lineup-editing .lineup-list-item .lineup-player{min-height:44px;width:100%}
+.lineup-dialog{
+  width:min(480px,calc(100% - 24px));max-height:calc(100dvh - 24px);box-sizing:border-box;
+  padding:18px;background:#082831;border:1px solid #387580;border-radius:14px;color:var(--text);
+  overflow:auto
+}
+.lineup-dialog::backdrop{background:#000b}
+.lineup-dialog h3,.lineup-dialog p{margin:0 0 12px}
+.lineup-dialog label{display:block;margin-bottom:5px;font-weight:700}
+.lineup-dialog input,.lineup-dialog select{
+  box-sizing:border-box;width:100%;min-height:44px;border:1px solid #387580;border-radius:8px;
+  background:#021b22;color:var(--text);font:inherit;padding:8px 10px
+}
+.lineup-dialog form{margin-top:12px}
+.lineup-dialog-actions{margin-top:12px}
+.lineup-player-choices{display:grid;gap:6px;max-height:min(46dvh,360px);overflow:auto;margin-top:12px;padding:3px}
+.lineup-player-choices button{display:flex;align-items:center;gap:10px;text-align:left;background:#0b3742}
+.lineup-player-choices .player-photo{width:36px;height:36px;flex:0 0 36px}
+.lineup-player-choices img{width:100%;height:100%;object-fit:contain}
+.lineup-player-choices strong,.lineup-player-choices small{display:block}
+.lineup-player-choices small{color:var(--muted);margin-top:2px}
+.lineup-actions button:focus-visible,#lineupFormation:focus-visible,.lineup-dialog :focus-visible{outline:2px solid #ffd75e;outline-offset:2px}
+@media(max-width:580px){
+  .lineup-editing .lineup-pitch{min-width:0}
+  .lineup-editing .lineup-pitch .player-photo{width:clamp(30px,11vw,60px);height:clamp(30px,11vw,60px);min-width:0;min-height:0}
+  .lineup-editing .lineup-pitch .lineup-player>span:last-child{white-space:normal;overflow-wrap:anywhere;font-size:12px}
+  .lineup-editing .lineup-pitch-row{gap:4px}
+}
