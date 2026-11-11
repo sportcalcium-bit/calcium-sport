@@ -19,7 +19,7 @@ function doPost(event) {
     let data;
     try { data = JSON.parse(body); } catch (_) { lineupFail_('invalid'); }
     const secret = PropertiesService.getScriptProperties().getProperty('LINEUP_EDITOR_TOKEN');
-    if (!secret || secret.length < 32 || typeof data?.token !== 'string' ||
+    if (!secret || secret.length < 10 || typeof data?.token !== 'string' ||
         !lineupEqual_(lineupDigest_(data.token), lineupDigest_(secret))) lineupFail_('permission');
 
     const {team, season, base, formation, order} = data;
