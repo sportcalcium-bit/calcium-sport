@@ -189,3 +189,44 @@ assert.equal(context.output.myGamesSubtitle,'16/11 - 22/11');
 assert.deepEqual([...context.output.myGamesList.matchAll(/<span>(\w+ \d\d\.\d\d)<\/span>/g)].map(([,day])=>day),
   ['Monday 16.11','Tuesday 17.11','Wednesday 18.11','Thursday 19.11','Friday 20.11','Saturday 21.11','Sunday 22.11']);
 assert.equal([...context.output.myGamesList.matchAll(/No games\./g)].length,7);
+
+async function testMissingClubFixtures(){
+  context.feed = {
+    competitions:[
+      {name:'La Liga',year:2026,sheetId:'old-spain'},
+      {name:'La Liga',year:2027,sheetId:'spain',region:'Spain'},
+      {name:'Bundesliga',year:2027,sheetId:'germany',region:'Germany'},
+      {name:'Ligue 1',year:2027,sheetId:'france',region:'France'}
+    ],
+    allGames:[{matchId:'old-game',competition:'La Liga',year:2026,homeTeam:'Barcelona',awayTeam:'Valencia'}],
+    myGames:[
+      {matchId:'existing',competition:'Serie A',homeTeam:'Inter',awayTeam:'Napoli'},
+      {matchId:'bayern',competition:'Bundesliga',homeTeam:'Hamburger SV',awayTeam:'Bayern'}
+    ]
+  };
+  const row = (id,home,away,date)=>({'Match ID':id,Home:home,Away:away,Date:date});
+  const sheets = {
+    spain:[
+      row('madrid','Real Madrid','Osasuna','21/11/2026'),
+      row('atletico','Mallorca','Atlético Madrid','22/11/2026'),
+      row('barcelona','Real Sociedad','Barcelona','22/11/2026'),
+      row('other','Elche','Sevilla','20/11/2026')
+    ],
+    germany:[row('bayern','Hamburger SV','Bayern','22/11/2026')],
+    france:[row('psg','Clermont','PSG','20/11/2026')]
+  };
+  const requested = [];
+  context.fetch = async url=>{
+    const params = new URL(url).searchParams;
+    if(params.get('action') === 'home') return {ok:true,json:async()=>context.feed};
+    const sheet = params.get('sheetId');
+    requested.push(sheet);
+    return {ok:true,json:async()=>({fixtures:sheets[sheet]})};
+  };
+  run('observeMyGamesResults = () => {}');
+  await run('loadHomeData()');
+  assert.deepEqual(requested.sort(),['france','germany','spain']);
+  assert.equal(run('ids(appData.myGames)'),'existing,bayern,madrid,atletico,barcelona,psg');
+  assert.equal(run('ids(appData.allMatches)'),'old-game');
+}
+testMissingClubFixtures().catch(error=>{console.error(error);process.exitCode=1;});
