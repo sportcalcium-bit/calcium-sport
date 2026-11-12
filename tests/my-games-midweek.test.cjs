@@ -196,9 +196,10 @@ async function testMissingClubFixtures(){
       {name:'La Liga',year:2026,sheetId:'old-spain'},
       {name:'La Liga',year:2027,sheetId:'spain',region:'Spain'},
       {name:'Bundesliga',year:2027,sheetId:'germany',region:'Germany'},
-      {name:'Ligue 1',year:2027,sheetId:'france',region:'France'}
+      {name:'Ligue 1',year:2027,sheetId:'france',region:'France'},
+      {name:'UEFA Champions League',year:2027,sheetId:'ucl',region:'Europe'}
     ],
-    allGames:[{matchId:'old-game',competition:'La Liga',year:2026,homeTeam:'Barcelona',awayTeam:'Valencia'}],
+    allGames:[{matchId:'old-game',competition:'La Liga',year:2026,date:'2026-04-12',homeTeam:'Barcelona',awayTeam:'Valencia'}],
     myGames:[
       {matchId:'existing',competition:'Serie A',homeTeam:'Inter',awayTeam:'Napoli'},
       {matchId:'bayern',competition:'Bundesliga',homeTeam:'Hamburger SV',awayTeam:'Bayern'}
@@ -213,7 +214,9 @@ async function testMissingClubFixtures(){
       row('other','Elche','Sevilla','20/11/2026')
     ],
     germany:[row('bayern','Hamburger SV','Bayern','22/11/2026')],
-    france:[row('psg','Clermont','PSG','20/11/2026')]
+    france:[row('psg','Clermont','PSG','20/11/2026')],
+    'old-spain':[row('old-madrid','Real Madrid','Valencia','12/04/2026')],
+    ucl:[row('ucl-bayern','Bayern','PSG','25/11/2026')]
   };
   const requested = [];
   context.fetch = async url=>{
@@ -225,8 +228,10 @@ async function testMissingClubFixtures(){
   };
   run('observeMyGamesResults = () => {}');
   await run('loadHomeData()');
-  assert.deepEqual(requested.sort(),['france','germany','spain']);
-  assert.equal(run('ids(appData.myGames)'),'existing,bayern,madrid,atletico,barcelona,psg');
+  assert.deepEqual(requested.sort(),['france','germany','old-spain','spain','ucl']);
+  assert.equal(run('ids(appData.myGames)'),'existing,bayern,old-game,old-madrid,madrid,atletico,barcelona,psg,ucl-bayern');
   assert.equal(run('ids(appData.allMatches)'),'old-game');
+  assert.equal(run("ids(getMyGamesWeekMatches(appData.myGames,parseDateOnly('2026-04-06'),{results:{}},'2026-11-12'))"),'old-game,old-madrid');
+  assert.equal(run("ids(getMyGamesWeekMatches(appData.myGames,parseDateOnly('2026-11-23'),{results:{}},'2026-11-12'))"),'ucl-bayern');
 }
 testMissingClubFixtures().catch(error=>{console.error(error);process.exitCode=1;});
