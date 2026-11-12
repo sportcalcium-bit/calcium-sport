@@ -5,11 +5,11 @@ const MY_GAMES_NATIONAL_TEAMS = new Set([
   'portugal','spain','france','england','italy','netherlands',
   'germany','morocco','brazil','argentina'
 ]);
-const MY_GAMES_CLUB_FIXTURE_SOURCES = [
-  ['La Liga', ['Real Madrid','Barcelona','Atlético Madrid']],
-  ['Bundesliga', ['Bayern']],
-  ['Ligue 1', ['PSG']]
-];
+const MY_GAMES_CLUB_TEAMS = new Set([
+  'man utd','man city','tottenham','chelsea','arsenal','liverpool',
+  'juventus','inter','ac milan','napoli','as roma','lazio',
+  'real madrid','barcelona','atletico madrid','psg','bayern'
+]);
 
 // Stable identities for confirmed namesakes. Names remain unchanged on screen.
 const CONFIRMED_PLAYER_IDENTITIES = [{"id": "CS-P0001", "name": "Tyler Roberts", "team": "Birmingham", "position": "CAM", "fullName": "Tyler D'Whyte Roberts", "teamAliases": ["Birmingham"], "imageUrl": "https://static.flashscore.com/res/image/data/p2dqRedM-YehvUhK9.png", "note": ""}, {"id": "CS-P0002", "name": "Tyler Roberts", "team": "Wolves", "position": "RW", "fullName": "Tyler Ashley Roberts", "teamAliases": ["Wolves"], "imageUrl": "https://www.wolves.co.uk/media/of3p0g2v/roberts.jpg", "note": ""}, {"id": "CS-P0003", "name": "David López", "team": "Girona", "position": "CB", "fullName": "David López Silva", "teamAliases": ["Girona"], "imageUrl": "https://assets.laliga.com/squad/2025/t2893/p11129/2048x2048/p11129_t2893_2025_1_003_000.png", "note": ""}, {"id": "CS-P0004", "name": "David López", "team": "Mallorca", "position": "CB", "fullName": "David López Guijarro", "teamAliases": ["Mallorca"], "imageUrl": "https://media.futbolfantasy.com/thumb/400x400/v202602221844/uploads/images/jugadores/ficha/11712.png", "note": ""}, {"id": "CS-P0005", "name": "Rodri", "team": "Man City", "position": "CDM", "fullName": "Rodrigo Hernández Cascante", "teamAliases": ["Man City", "Manchester City", "Spain"], "imageUrl": "https://static.flashscore.com/res/image/data/IJ2FPQGG-zJ9Fa6T9.png", "note": ""}, {"id": "CS-P0006", "name": "Rodri", "team": "Betis", "position": "LM", "fullName": "Rodrigo Sánchez Rodríguez", "teamAliases": ["Betis", "Real Betis"], "imageUrl": "https://cdn-img.staticzz.com/img/jogadores/new/02/47/730247_rodri_sanchez_20250706002621.jpg", "note": ""}, {"id": "CS-P0007", "name": "Jacobo", "team": "Getafe", "position": "ST", "fullName": "Jacobo Alcalde Tellado", "teamAliases": ["Getafe"], "imageUrl": "", "note": "No verified portrait; use placeholder. Original ambiguous URL retained in backup."}, {"id": "CS-P0008", "name": "Jacobo", "team": "Real Madrid", "position": "CB", "fullName": "Jacobo Ramón Naveros", "teamAliases": ["Real Madrid"], "imageUrl": "https://cdn-img.staticzz.com/img/planteis/new/66/43/11686643_jacobo_ramon_20241029231256.png", "note": ""}, {"id": "CS-P0009", "name": "Arthur", "team": "Juventus", "position": "CDM", "fullName": "Arthur Henrique Ramos de Oliveira Melo", "teamAliases": ["Juventus"], "imageUrl": "https://static.flashscore.com/res/image/data/YDLmFcjl-fBCr4egh.png", "note": ""}, {"id": "CS-P0010", "name": "Arthur", "team": "Leverkusen", "position": "RB", "fullName": "Arthur Augusto de Matos Soares", "teamAliases": ["Leverkusen", "Bayer Leverkusen"], "imageUrl": "https://assets.bundesliga.com/player/dfl-obj-j01unl-dfl-clu-00000b-dfl-sea-0001k9.png", "note": ""}, {"id": "CS-P0011", "name": "Vitinha", "team": "Genoa", "position": "ST", "fullName": "Vítor Manuel Carvalho Oliveira", "teamAliases": ["Genoa", "Lecce"], "imageUrl": "https://static.sky.it/images/skysport/it/calcio/serie-a/probabili-formazioni/superscudetto/512/522479.png", "note": ""}, {"id": "CS-P0012", "name": "Vitinha", "team": "PSG", "position": "CM", "fullName": "Vítor Machado Ferreira", "teamAliases": ["PSG", "Paris SG", "Paris Saint-Germain", "Portugal"], "imageUrl": "https://static.flashscore.com/res/image/data/l67bUhGG-UuPdHetg.png", "note": ""}, {"id": "CS-P0013", "name": "Jacobo", "team": "Córdoba", "position": "RW", "fullName": "Jacobo González Rodrigáñez", "teamAliases": ["Córdoba", "Cordoba", "A Coruña"], "imageUrl": "https://www.ogol.com.br/img/jogadores/new/09/07/1320907_jacobo_gonzalez_20250805181603.jpg", "note": "Third Jacobo confirmed by user. Cup row records A Coruña; team retained as recorded."}];
@@ -267,43 +267,40 @@ async function loadHomeData(){
   appData.myGames = (data.myGames||[]).map(mapApiMatchToPascal);
   appData.competitions = (data.competitions||[]).map(mapApiCompetitionToPascal);
 
-  // The deployed home endpoint can temporarily serve an older Global Games
-  // snapshot after a hub rebuild. Recover missing fixtures from the same
-  // dedicated sources used by the competition pages.
-  const [nationalMatches, ...clubMatches] = await Promise.all([
-    loadHomeCompetitionFixtures('Nations League'),
-    ...MY_GAMES_CLUB_FIXTURE_SOURCES.map(async ([competition,teams])=>{
-      const favourites = new Set(teams.map(normaliseTeamName));
-      const matches = await loadHomeCompetitionFixtures(competition);
-      return matches.filter(match=>
-        favourites.has(normaliseTeamName(match.HomeTeam)) ||
-        favourites.has(normaliseTeamName(match.AwayTeam))
-      );
-    })
-  ]);
-  appData.allMatches = dedupeMatchArray(appData.allMatches.concat(nationalMatches));
-  const nationalFavourites = appData.allMatches.filter(match=>
-    getCompetitionCategoryKey(match) === 'national-teams' &&
-    (MY_GAMES_NATIONAL_TEAMS.has(normaliseTeamName(match.HomeTeam)) ||
-      MY_GAMES_NATIONAL_TEAMS.has(normaliseTeamName(match.AwayTeam)))
-  );
-  appData.myGames = dedupeMatchArray(nationalFavourites.concat(appData.myGames,clubMatches.flat()));
-  observeMyGamesResults(appData.myGames);
+  const home = appData;
+  const sources = home.competitions.filter(comp=>comp['Sheet ID']?.trim());
+  const fixtures = [];
+  // Limit concurrent Apps Script requests while covering every registered season.
+  for(let index=0;index<sources.length;index+=12){
+    const batch = await Promise.all(sources.slice(index,index+12).map(loadHomeCompetitionFixtures));
+    fixtures.push(...batch.flat());
+  }
+  if(appData !== home) return;
+
+  const nationsLeague = fixtures.filter(match=>normaliseCompetitionName(match.Competition)==='nations league');
+  home.allMatches = dedupeMatchArray(home.allMatches.concat(nationsLeague));
+  const favouriteFixtures = home.allMatches.concat(fixtures).filter(match=>{
+    const teams = isMyGamesNationalTeamMatch(match) ? MY_GAMES_NATIONAL_TEAMS : MY_GAMES_CLUB_TEAMS;
+    return teams.has(normaliseTeamName(match.HomeTeam)) || teams.has(normaliseTeamName(match.AwayTeam));
+  });
+  const games = new Map();
+  for(const match of home.myGames.concat(favouriteFixtures)){
+    const key = [normaliseCompetitionName(match.Competition),match.MatchID].join('|');
+    const existing = games.get(key);
+    if(!existing || (!isPlayedMatch(existing) && isPlayedMatch(match))) games.set(key,match);
+  }
+  home.myGames = [...games.values()];
+  observeMyGamesResults(home.myGames);
 }
 
-async function loadHomeCompetitionFixtures(competitionName){
-  const wanted = normaliseCompetitionName(competitionName);
-  const competition = appData.competitions
-    .filter(comp=>normaliseCompetitionName(comp['Competition Name']) === wanted)
-    .sort((a,b)=>compareSeasonsDesc(a.Year,b.Year))[0];
-  const sheetId = String(competition?.['Sheet ID'] || '').trim();
-  if(!sheetId) return [];
+const homeFixtureCache = new Map();
 
-  const existing = appData.allMatches.filter(match=>
-    normaliseCompetitionName(match.Competition) === wanted &&
-    String(match.Year) === String(competition.Year)
-  );
-  if(existing.length) return existing;
+async function loadHomeCompetitionFixtures(competition){
+  const sheetId = competition['Sheet ID'].trim();
+  const cached = homeFixtureCache.get(sheetId);
+  const now = Date.now();
+  const day = dateToKey(getMyGamesSnapshotDate(new Date(now)));
+  if(cached?.day === day && now-cached.loadedAt < 60000) return cached.fixtures;
 
   try{
     const response = await fetch(`${API_URL}?action=competitionDetail&sheetId=${encodeURIComponent(sheetId)}&v=${Date.now()}`, { cache:'no-store' });
@@ -311,15 +308,20 @@ async function loadHomeCompetitionFixtures(competitionName){
     const detail = await response.json();
     if(detail.error) return [];
 
-    return parseFixturesTable(detail.fixtures || []).map(match=>({
+    const fixtures = parseFixturesTable(detail.fixtures || [],(row,home,away)=>[
+      slugify(competition['Competition Name']),competition.Year,getDateKey(row.Date),
+      normaliseTeamName(home),normaliseTeamName(away)
+    ].join('|')).map(match=>({
       ...match,
       Competition:competition['Competition Name'],
       Year:competition.Year,
       Region:competition.Region,
       CompetitionType:competition['Competition Type']
     }));
+    homeFixtureCache.set(sheetId,{day,loadedAt:Date.now(),fixtures});
+    return fixtures;
   }catch(error){
-    console.warn(`Could not load ${competitionName} home fallback.`,error);
+    console.warn(`Could not load ${competition['Competition Name']} home fixtures.`,error);
     return [];
   }
 }
@@ -495,7 +497,7 @@ function splitScoreText(text){
   return match ? {home:match[1], away:match[2]} : {home:'', away:''};
 }
 
-function parseFixturesTable(rows){
+function parseFixturesTable(rows, fallbackId){
   return (rows||[]).map((row,index)=>{
     const home = String(row['Home']||'').trim();
     const away = String(row['Away']||'').trim();
@@ -506,7 +508,7 @@ function parseFixturesTable(rows){
     const awayScore = String(row['AG']??'').trim() || fallback.away;
     const homePens = String(row['HP']??'').trim();
     const awayPens = String(row['AP']??'').trim();
-    const matchId = String(row['Match ID']||'').trim() || `${home}-${away}-${index}`;
+    const matchId = String(row['Match ID']||'').trim() || (fallbackId ? fallbackId(row,home,away) : `${home}-${away}-${index}`);
 
     return {
       MatchID: matchId,
