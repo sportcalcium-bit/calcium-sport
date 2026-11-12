@@ -1364,23 +1364,25 @@ function renderMyGames(){
       isCurrentWeek
     );
 
-  const dayGroups = new Map();
+  const nationalGroups = new Map();
+  const clubGroups = new Map();
 
-  MONDAY_TO_SUNDAY_DISPLAY_ORDER.forEach(
-    dayName=>dayGroups.set(dayName,[])
-  );
-
-  weekMatches.forEach(match=>{
-    const dayName =
-      dayAssignment.get(match) ||
-      'Sunday';
-
-    dayGroups.get(dayName).push(match);
+  MONDAY_TO_SUNDAY_DISPLAY_ORDER.forEach(dayName=>{
+    nationalGroups.set(dayName,[]);
+    clubGroups.set(dayName,[]);
   });
 
-  const html =
-    MONDAY_TO_SUNDAY_DISPLAY_ORDER
-      .map(dayName=>{
+  weekMatches.forEach(match=>{
+    const dayName = dayAssignment.get(match) || 'Sunday';
+    const groups = isMyGamesNationalTeamMatch(match) ? nationalGroups : clubGroups;
+    groups.get(dayName).push(match);
+  });
+
+  const html = [
+    ...[...nationalGroups].filter(([,matches])=>matches.length),
+    ...[...clubGroups].filter(([dayName,matches])=>matches.length || !nationalGroups.get(dayName).length)
+  ]
+      .map(([dayName,dayMatches])=>{
         const dayDate =
           addDays(
             weekStart,
@@ -1393,14 +1395,10 @@ function renderMyGames(){
               .replace(/\.$/,'')
           }`;
 
-        const dayMatches =
-          dayGroups
-            .get(dayName)
-            .sort(compareMyGamesMatches);
-
         const body =
           dayMatches.length
             ? dayMatches
+                .sort(compareMyGamesMatches)
                 .map(renderMatchRowFlat)
                 .join('')
             : '<div class="empty home-empty">No games.</div>';
@@ -3583,30 +3581,21 @@ function getMyGamesGroupLabel(match){
   }[getCompetitionCategoryKey(match)] || 'World');
 }
 function isMyGamesNationalTeamMatch(match){
-  const category = getCompetitionCategoryKey(match);
+  const competition = getMyGamesCompetitionName(match);
+  const region = normaliseRegion(match.Region);
 
-  if(category === 'national-teams'){
-    return true;
+  if(/\b(?:clubs?|champions league|champions cup|europa league|conference league|super league|super cup|supercup|intercontinental cup|libertadores|sudamericana|recopa|leagues cup)\b/.test(competition)){
+    return false;
   }
 
-  const competition = normaliseCompetitionName(
-    match?.Competition ||
-    match?.CompetitionLabel ||
-    match?.['Competition Name'] ||
-    ''
-  );
-
   return (
-    competition.includes('nations league') ||
-    competition.includes('afcon') ||
-    competition.includes('world cup qualification') ||
-    competition.includes('world cup qualifiers') ||
-    competition.includes('euro qualification') ||
-    competition.includes('euro qualifiers') ||
-    competition.includes('friendlies') ||
-    competition.includes('friendly')
+    ['national teams','national-teams','international','africa','south america','north america','asia'].includes(region) ||
+    /\b(?:nations league|world cup|euro(?:s|pean championship)?|afcon|africa cup of nations|copa america|asian cup|gold cup|ofc nations cup)\b/.test(competition.normalize('NFD').replace(/[\u0300-\u036f]/g,'')) ||
+    (/\b(?:friendlies|friendly)\b/.test(competition) &&
+      (!region || region === 'world' || /\b(?:international|national team)\b/.test(competition)))
   );
 }
+
 function compareMyGamesMatches(a,b){
 
   // NATIONAL TEAMS ONLY:
