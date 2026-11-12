@@ -615,13 +615,12 @@ function renderDateTabs(){
 
   const myGames = currentHomeTab === 'myGames';
   const today = myGames ? getMyGamesSnapshotDate() : new Date();
-  const weekOf = myGames ? getMyGamesWeekStart : getWeekStart;
-  const thisWeekStart = weekOf(today);
+  const thisWeekStart = getWeekStart(today);
   const lastWeekStart = addDays(thisWeekStart,-7);
   const nextWeekStart = addDays(thisWeekStart,7);
 
   const selected = myGames ? getSelectedMyGamesDate() : parseDateOnly(selectedDateKey) || today;
-  const selectedWeekStart = weekOf(selected);
+  const selectedWeekStart = getWeekStart(selected);
 
   const weeks = [
     {key:dateToKey(lastWeekStart),label:'Last week',start:lastWeekStart},
@@ -632,9 +631,9 @@ function renderDateTabs(){
   const buttons = weeks.map(item=>{
     const isActive = dateToKey(selectedWeekStart)===dateToKey(item.start);
     return `
-    <button type="button" class="${isActive?'active':''}" onclick="selectDateTab('${escapeAttr(myGames ? dateToKey(addDays(item.start,1)) : item.key)}')">
+    <button type="button" class="${isActive?'active':''}" onclick="selectDateTab('${escapeAttr(item.key)}')">
       <span>${escapeHTML(item.label)}</span>
-      <strong>${escapeHTML(myGames ? getMyGamesWeekRangeLabel(item.start) : getWeekRangeLabel(item.start))}</strong>
+      <strong>${escapeHTML(getWeekRangeLabel(item.start))}</strong>
     </button>
   `;
   }).join('');
@@ -747,7 +746,7 @@ function renderHomeGames(){
 }
 function renderHomeTab(){ const allPanel=$('allGamesPanel'), myPanel=$('myGamesPanel'), jump=$('jumpSelect'); document.querySelectorAll('[data-home-tab]').forEach(b=>b.classList.toggle('active',b.dataset.homeTab===currentHomeTab)); allPanel?.classList.toggle('hidden',currentHomeTab!=='allGames'); myPanel?.classList.toggle('hidden',currentHomeTab!=='myGames'); if(isHomePage()){ if(jump) jump.value=currentHomeTab==='myGames'?'myGames':'nextUp'; renderDateTabs(); } }
 const PERSONAL_DAY_PRIORITY = ['Sunday','Monday','Friday','Thursday','Tuesday','Wednesday'];
-const MY_GAMES_PLAY_DAYS = ['Tuesday','Wednesday','Thursday','Friday','Sunday','Monday'];
+const MY_GAMES_PLAY_DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Sunday'];
 const WEEKDAY_NAMES_BY_JS_INDEX = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 function weekdayNameFromDate(d){ return WEEKDAY_NAMES_BY_JS_INDEX[d.getDay()]; }
 
@@ -793,8 +792,8 @@ function fillDaysInCalendarOrder(sortedMatches,dayNames,quota){
   return assignment;
 }
 
-// Keep the Monday anchor for season numbering and legacy snapshot keys.
-function getMyGamesWeekStart(date){
+// Only kickoff dates use the Tuesday–Monday window.
+function getMyGamesKickoffWeekStart(date){
   return getWeekStart(addDays(date,-1));
 }
 
@@ -803,10 +802,6 @@ function getSelectedMyGamesDate(){
   return selectedDateKey === today
     ? getMyGamesSnapshotDate()
     : parseDateOnly(selectedDateKey) || getMyGamesSnapshotDate();
-}
-
-function getMyGamesWeekRangeLabel(weekStart){
-  return `${formatMyGamesDate(addDays(weekStart,1))} - ${formatMyGamesDate(addDays(weekStart,7))}`;
 }
 
 // Calendar arithmetic uses local date-only values; the clock always uses London.
@@ -848,7 +843,7 @@ function loadMyGamesScheduleStore(){
       store.lastObservation = [store.lastObservation,snapshotKey].sort().pop();
       for(const [id,played] of Object.entries(snapshot.playedAtSnapshot || {})){
         const offset = WEEKDAY_NAMES_BY_JS_INDEX.indexOf(snapshot.assignments?.[id]);
-        const date = offset < 0 ? '' : dateToKey(addDays(weekStart,offset === 1 ? 7 : offset === 0 ? 6 : offset-1));
+        const date = offset < 0 ? '' : dateToKey(addDays(weekStart,(offset+6)%7));
         store.results[id] = {played,date:played && date < snapshotKey ? date : ''};
       }
     }
@@ -900,7 +895,7 @@ function observeMyGamesResults(matches,now=new Date()){
   }
 
   store.lastObservation = key;
-  const weekStart = getMyGamesWeekStart(day);
+  const weekStart = getWeekStart(day);
   buildMyGamesDayAssignment(getMyGamesWeekMatches(matches,weekStart,store,key),weekStart,day,store);
 }
 
@@ -913,18 +908,21 @@ function getMyGamesRecordedDate(match,store,snapshotKey){
 function getMyGamesWeekMatches(matches,weekStart,store,snapshotKey){
   const weekKey = dateToKey(weekStart);
   return matches.filter(match=>{
-    const date = parseDateOnly(getMyGamesRecordedDate(match,store,snapshotKey) || match.Date);
-    return date && dateToKey(getMyGamesWeekStart(date)) === weekKey;
+    const recorded = getMyGamesRecordedDate(match,store,snapshotKey);
+    if(recorded) return dateToKey(getWeekStart(parseDateOnly(recorded))) === weekKey;
+    const kickoff = parseDateOnly(match.Date);
+    return kickoff && dateToKey(getMyGamesKickoffWeekStart(kickoff)) === weekKey;
   });
 }
 
 function buildMyGamesDayAssignment(weekMatches,weekStart,snapshotDate,store){
   const weekKey = dateToKey(weekStart);
   const snapshotKey = dateToKey(snapshotDate);
-  const todayWeek = dateToKey(getMyGamesWeekStart(snapshotDate));
-  const plan = store.weeks[weekKey];
+  const todayWeek = dateToKey(getWeekStart(snapshotDate));
+  const savedPlan = store.weeks[weekKey];
+  const plan = savedPlan?.playWeek === 'monday-sunday' ? savedPlan : undefined;
   const dayDates = Object.fromEntries(Array.from({length:7},(_,index)=>{
-    const date = addDays(weekStart,index+1);
+    const date = addDays(weekStart,index);
     return [weekdayNameFromDate(date),dateToKey(date)];
   }));
   const assignment = new Map();
@@ -968,6 +966,7 @@ function buildMyGamesDayAssignment(weekMatches,weekStart,snapshotDate,store){
 
   if(weekKey === todayWeek){
     store.weeks[weekKey] = {
+      playWeek:'monday-sunday',
       day:snapshotKey,
       assignments:Object.fromEntries([...assignment].map(([match,date])=>[getMatchStorageKey(match),date]))
     };
@@ -985,7 +984,7 @@ function renderMyGames(){
   const snapshotDate = getMyGamesSnapshotDate();
   const snapshotKey = dateToKey(snapshotDate);
   const store = loadMyGamesScheduleStore();
-  const weekStart = getMyGamesWeekStart(getSelectedMyGamesDate());
+  const weekStart = getWeekStart(getSelectedMyGamesDate());
   const weekMatches = getMyGamesWeekMatches(all,weekStart,store,snapshotKey);
 
   setText(
@@ -995,7 +994,7 @@ function renderMyGames(){
 
   setText(
     'myGamesSubtitle',
-    getMyGamesWeekRangeLabel(weekStart)
+    getWeekRangeLabel(weekStart)
   );
 
   const playedCount =
@@ -1019,19 +1018,11 @@ function renderMyGames(){
     scheduledCount
   );
 
-  if(!weekMatches.length){
-    setHTML(
-      'myGamesList',
-      '<div class="empty home-empty">No My Games found for this week.</div>'
-    );
-    return;
-  }
-
   const dayAssignment = buildMyGamesDayAssignment(weekMatches,weekStart,snapshotDate,store);
   const groups = new Map();
-  for(let offset=1;offset<=7;offset++){
+  for(let offset=0;offset<7;offset++){
     const date = addDays(weekStart,offset);
-    if(weekdayNameFromDate(date) !== 'Saturday') groups.set(dateToKey(date),[]);
+    groups.set(dateToKey(date),[]);
   }
   for(const match of weekMatches){
     const key = dayAssignment.get(match) || '';
