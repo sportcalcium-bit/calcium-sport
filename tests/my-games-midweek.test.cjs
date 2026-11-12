@@ -34,7 +34,7 @@ assert.equal(run('isMyGamesMidweekLeagueMatch(fixture)'),false);
 // National-team ordering and the scheduling quotas still use their existing rules.
 assert.ok(run(`compareMyGamesMatches({Competition:'Friendlies',Date:'2026-10-27'}, {Competition:'Nations League',Date:'2026-10-28'}) < 0`));
 assert.equal(run(`JSON.stringify(computeDayQuotas(26,MY_GAMES_PLAY_DAYS))`),
-  '{"Tuesday":4,"Wednesday":4,"Thursday":4,"Friday":4,"Sunday":5,"Monday":5}');
+  '{"Monday":5,"Tuesday":4,"Wednesday":4,"Thursday":4,"Friday":4,"Sunday":5}');
 
 for(const fixture of [
   {Competition:'UEFA Nations League',Region:'Europe'},
@@ -92,9 +92,9 @@ run(`
   );
   observeMyGamesResults(fixtures,nov12);
 `);
-assert.equal(run("getMyGamesWeekRangeLabel(week15)"),'10/11 - 16/11');
-assert.equal(run("dateToKey(getMyGamesWeekStart(parseDateOnly('2026-11-16')))"),'2026-11-09');
-assert.equal(run("dateToKey(getMyGamesWeekStart(parseDateOnly('2026-11-17')))"),'2026-11-16');
+assert.equal(run("getWeekRangeLabel(week15)"),'09/11 - 15/11');
+assert.equal(run("dateToKey(getMyGamesKickoffWeekStart(parseDateOnly('2026-11-16')))"),'2026-11-09');
+assert.equal(run("dateToKey(getMyGamesKickoffWeekStart(parseDateOnly('2026-11-17')))"),'2026-11-16');
 assert.equal(run("dateToKey(getMyGamesSnapshotDate(new Date('2026-11-13T02:59:59Z')))"),'2026-11-12');
 assert.equal(run("getNextMyGamesRefresh(new Date('2026-07-01T01:59:00Z'))"),Date.parse('2026-07-01T02:00:00Z'));
 const before = JSON.stringify(run("plan(week15,'2026-11-12')"));
@@ -113,7 +113,7 @@ assert.equal(revised['at-cutoff'],'2026-11-12');
 assert.equal(revised.unknown,'');
 assert.equal(run("ids(weekFixtures(week16,'2026-11-13'))"),'later-national,next-club');
 const counts = Object.values(revised).filter(date=>date >= '2026-11-13').sort();
-assert.deepEqual(counts,['2026-11-13','2026-11-15','2026-11-15','2026-11-16','2026-11-16']);
+assert.deepEqual(counts,['2026-11-13','2026-11-13','2026-11-15','2026-11-15','2026-11-15']);
 const future = run("plan(week16,'2026-11-13')");
 assert.ok(future['later-national'] <= future['next-club']);
 
@@ -131,10 +131,10 @@ const blocks = [...context.output.myGamesList.matchAll(/<section[^>]*>([\s\S]*?)
     games:[...body.matchAll(/openMatchDetail\('([^']+)'\)/g)].map(([,id])=>id)
   }));
 assert.deepEqual(blocks.map(({day})=>day),[
-  'Tuesday 10.11','Wednesday 11.11','Thursday 12.11','Friday 13.11',
-  'Sunday 15.11','Monday 16.11','Played · date unavailable'
+  'Monday 09.11','Tuesday 10.11','Wednesday 11.11','Thursday 12.11','Friday 13.11',
+  'Saturday 14.11','Sunday 15.11','Played · date unavailable'
 ]);
-assert.deepEqual(blocks[2].games,['same-day','early','at-cutoff']);
+assert.deepEqual(blocks[3].games,['same-day','early','at-cutoff']);
 assert.equal(context.output.myGamesPlayedValue,4);
 assert.equal(context.output.myGamesScheduledValue,5);
 console.log('My Games priority, chronological days, London cutoff, frozen plan, Monday ownership and early completions passed.');
@@ -147,7 +147,7 @@ run(`
   };
   const weekend = [
     {MatchID:'saturday-play',Date:'2026-11-17',Competition:'Serie A',Status:'NS'},
-    {MatchID:'monday-play',Date:'2026-11-18',Competition:'Serie A',Status:'NS'}
+    {MatchID:'monday-play',Date:'2026-11-24',Competition:'Serie A',Status:'NS'}
   ];
   observeMyGamesResults(weekend,new Date('2026-11-14T10:00:00Z'));
   weekend[0].Status = 'FT';
@@ -159,5 +159,33 @@ run(`
   const weekendPlan = buildMyGamesDayAssignment(recordedWeekend,week15,parseDateOnly('2026-11-17'),loadMyGamesScheduleStore());
 `);
 assert.equal(run("weekendPlan.get(weekend[0])"),'2026-11-14');
-assert.equal(run("weekendPlan.get(weekend[1])"),'2026-11-16');
-assert.equal(run("getMyGamesWeekMatches(weekend,week16,loadMyGamesScheduleStore(),'2026-11-17').length"),0);
+assert.equal(run("weekendPlan.has(weekend[1])"),false);
+assert.equal(run("ids(getMyGamesWeekMatches(weekend,week16,loadMyGamesScheduleStore(),'2026-11-17'))"),'monday-play');
+assert.equal(run("getMyGamesRecordedDate(weekend[1],loadMyGamesScheduleStore(),'2026-11-17')"),'2026-11-16');
+
+run(`
+  const week16Fixtures = [
+    {MatchID:'previous-week',Competition:'Nations League',Date:'2026-11-16',Status:'NS'},
+    {MatchID:'first-in-week',Competition:'Nations League',Date:'2026-11-17',Status:'NS'},
+    {MatchID:'following-monday',Competition:'Serie A',Date:'2026-11-23',Status:'NS'},
+    {MatchID:'following-tuesday',Competition:'Premier League',Date:'2026-11-24',Status:'NS'}
+  ];
+  const fixtureStore = {
+    results:{}, lastObservation:'',
+    weeks:{'2026-11-16':{day:'2026-11-16',assignments:{'following-monday':'2026-11-23'}}}
+  };
+  const nov16 = parseDateOnly('2026-11-16');
+  const selectedFixtures = getMyGamesWeekMatches(week16Fixtures,week16,fixtureStore,'2026-11-16');
+  const corrected = buildMyGamesDayAssignment(selectedFixtures,week16,nov16,fixtureStore);
+  getMyGamesSnapshotDate = () => nov16;
+  myGamesScheduleStore = fixtureStore;
+  appData = {myGames:[]};
+  selectedDateKey = '2026-11-16';
+  renderMyGames();
+`);
+assert.equal(run('ids(selectedFixtures)'),'first-in-week,following-monday');
+assert.ok(run("[...corrected.values()].every(date=>date >= '2026-11-16' && date <= '2026-11-22' && date !== '2026-11-21')"));
+assert.equal(context.output.myGamesSubtitle,'16/11 - 22/11');
+assert.deepEqual([...context.output.myGamesList.matchAll(/<span>(\w+ \d\d\.\d\d)<\/span>/g)].map(([,day])=>day),
+  ['Monday 16.11','Tuesday 17.11','Wednesday 18.11','Thursday 19.11','Friday 20.11','Saturday 21.11','Sunday 22.11']);
+assert.equal([...context.output.myGamesList.matchAll(/No games\./g)].length,7);
