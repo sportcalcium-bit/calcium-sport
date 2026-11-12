@@ -1,9 +1,9 @@
-const CACHE_NAME = "calcium-sport-my-games-schedule-2";
+const CACHE_NAME = "calcium-sport-my-games-fixtures-1";
 
 const FILES_TO_CACHE = [
   "./",
   "./index.html",
-  "./script.js?v=7110",
+  "./script.js?v=7111",
   "./lineup-editor.js",
   "./manifest.webmanifest",
   "./calcium-logo.jpeg"
