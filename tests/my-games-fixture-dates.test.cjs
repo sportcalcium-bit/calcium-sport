@@ -32,7 +32,7 @@ ctx.games = [
   ['missing','Nations League','England','France','17.11','16:00',1,1]
 ].map(([matchId,competition,homeTeam,awayTeam,date,time,homeScore,awayScore])=>({
   matchId,competition,homeTeam,awayTeam,date,time,homeScore,awayScore,year:2027,
-  status:homeScore === '' ? 'Scheduled' : 'FT'
+  status:'NS'
 }));
 ctx.fetch = async url=>url.includes('action=home')
   ? {ok:true,json:async()=>({
@@ -66,6 +66,10 @@ async function verifyFixtureDates(){
     'POR-CZE-17112026','UKR-SPA-17112026','CLE-PSG-20112026','HAM-BAY-21112026'
   ]);
   assert.ok(blocks.some(block=>block.games.includes('same-day-club')));
+  assert.doesNotMatch(ctx.output.myGamesList,/>NS</);
+  assert.match(ctx.output.myGamesList,/status-scheduled">Scheduled</);
+  assert.match(ctx.output.myGamesList,/status-ft">FT</);
+  assert.match(ctx.output.myGamesList,/my-games-score">0 - 2</);
   assert.equal(ctx.output.myGamesPlayedValue,6);
   assert.equal(ctx.output.myGamesScheduledValue,6);
   assert.ok(blocks[2].games.length && blocks[3].games.length);

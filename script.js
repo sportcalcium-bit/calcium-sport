@@ -289,14 +289,17 @@ async function loadHomeData(){
     const existing = games.get(key);
     const schedule = parseMyGamesFixtureDate(match.Date);
     const time = parseMyGamesFixtureTime(match.Time) || schedule?.time;
-    const result = !existing || (!isPlayedMatch(existing) && isPlayedMatch(match)) ? match : existing;
+    const result = !existing || (!hasMatchResult(existing) && hasMatchResult(match)) ? match : existing;
     games.set(key,{
       ...result,
       Date:schedule?.date || existing?.Date || '',
       Time:time || existing?.Time || result.Time
     });
   }
-  home.myGames = [...games.values()];
+  home.myGames = [...games.values()].map(match=>({
+    ...match,
+    Status:hasMatchResult(match) ? 'FT' : 'Scheduled'
+  }));
 }
 
 const homeFixtureCache = new Map();
@@ -2032,7 +2035,9 @@ window.changePlayerSeason=changePlayerSeason;
 function getCurrentSeasonYear(date=new Date()){ return date.getMonth()>=7?date.getFullYear()+1:date.getFullYear(); }
 function getSeasonYearForDate(value){ const d=parseDateOnly(value); return d?(d.getMonth()>=7?d.getFullYear()+1:d.getFullYear()):''; }
 function isPlayedMatch(match){
-  if(String(match?.Status||'').toUpperCase()==='FT') return true;
+  return String(match?.Status||'').toUpperCase()==='FT' || hasMatchResult(match);
+}
+function hasMatchResult(match){
   const home=String(match?.HomeScore??'').trim();
   const away=String(match?.AwayScore??'').trim();
   return /^\d+$/.test(home) && /^\d+$/.test(away);
