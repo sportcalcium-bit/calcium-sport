@@ -287,10 +287,16 @@ async function loadHomeData(){
   for(const match of home.myGames.concat(favouriteFixtures)){
     const key = [normaliseCompetitionName(match.Competition),match.MatchID].join('|');
     const existing = games.get(key);
-    if(!existing || (!isPlayedMatch(existing) && isPlayedMatch(match))) games.set(key,match);
+    const schedule = parseMyGamesFixtureDate(match.Date);
+    const time = parseMyGamesFixtureTime(match.Time) || schedule?.time;
+    const result = !existing || (!isPlayedMatch(existing) && isPlayedMatch(match)) ? match : existing;
+    games.set(key,{
+      ...result,
+      Date:schedule?.date || existing?.Date || '',
+      Time:time || existing?.Time || result.Time
+    });
   }
   home.myGames = [...games.values()];
-  observeMyGamesResults(home.myGames);
 }
 
 const homeFixtureCache = new Map();
@@ -309,7 +315,7 @@ async function loadHomeCompetitionFixtures(competition){
     if(detail.error) return [];
 
     const fixtures = parseFixturesTable(detail.fixtures || [],(row,home,away)=>[
-      slugify(competition['Competition Name']),competition.Year,getDateKey(row.Date),
+      slugify(competition['Competition Name']),competition.Year,parseMyGamesFixtureDate(row.Date)?.date || '',
       normaliseTeamName(home),normaliseTeamName(away)
     ].join('|')).map(match=>({
       ...match,
@@ -759,57 +765,8 @@ function renderHomeGames(){
   setHTML('homeGamesList', html);
 }
 function renderHomeTab(){ const allPanel=$('allGamesPanel'), myPanel=$('myGamesPanel'), jump=$('jumpSelect'); document.querySelectorAll('[data-home-tab]').forEach(b=>b.classList.toggle('active',b.dataset.homeTab===currentHomeTab)); allPanel?.classList.toggle('hidden',currentHomeTab!=='allGames'); myPanel?.classList.toggle('hidden',currentHomeTab!=='myGames'); if(isHomePage()){ if(jump) jump.value=currentHomeTab==='myGames'?'myGames':'nextUp'; renderDateTabs(); } }
-const PERSONAL_DAY_PRIORITY = ['Sunday','Monday','Friday','Thursday','Tuesday','Wednesday'];
-const MY_GAMES_PLAY_DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Sunday'];
 const WEEKDAY_NAMES_BY_JS_INDEX = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 function weekdayNameFromDate(d){ return WEEKDAY_NAMES_BY_JS_INDEX[d.getDay()]; }
-
-// Plans and observations are stored in this browser. A fixture's kickoff
-// selects its default week; an observed completion can override that week.
-const MY_GAMES_SCHEDULE_STORAGE_KEY = 'calciumSport.myGamesDailySchedule.v4';
-
-function computeDayQuotas(total, dayNames){
-  const dayCount = dayNames.length;
-  if(!dayCount) return {};
-
-  const base = Math.floor(total/dayCount);
-  const remainder = total % dayCount;
-
-  const priorityOrder = PERSONAL_DAY_PRIORITY.filter(name=>dayNames.includes(name));
-  const remainderDays = new Set(priorityOrder.slice(0,remainder));
-
-  const quota = {};
-  dayNames.forEach(name=>{
-    quota[name] = base + (remainderDays.has(name) ? 1 : 0);
-  });
-  return quota;
-}
-
-function fillDaysInCalendarOrder(sortedMatches,dayNames,quota){
-  const assignment = new Map();
-  if(!dayNames.length) return assignment;
-
-  let index = 0;
-
-  dayNames.forEach(dayName=>{
-    const count = quota[dayName] || 0;
-    for(let n=0;n<count && index<sortedMatches.length;n++,index++){
-      assignment.set(sortedMatches[index],dayName);
-    }
-  });
-
-  while(index<sortedMatches.length){
-    assignment.set(sortedMatches[index],dayNames[dayNames.length-1]);
-    index++;
-  }
-
-  return assignment;
-}
-
-// Only kickoff dates use the Tuesday–Monday window.
-function getMyGamesKickoffWeekStart(date){
-  return getWeekStart(addDays(date,-1));
-}
 
 function getSelectedMyGamesDate(){
   const today = dateToKey(getLondonClock().date);
@@ -825,7 +782,7 @@ function getLondonClock(now=new Date()){
     hour:'2-digit',minute:'2-digit',hourCycle:'h23'
   }).formatToParts(now);
   const values = Object.fromEntries(parts.map(p=>[p.type,p.value]));
-  return {date:new Date(+values.year,+values.month-1,+values.day),hour:+values.hour};
+  return {date:new Date(+values.year,+values.month-1,+values.day),hour:+values.hour,minute:+values.minute};
 }
 function getMyGamesSnapshotDate(now=new Date()){
   const clock = getLondonClock(now);
@@ -838,155 +795,50 @@ function getNextMyGamesRefresh(now=new Date()){
   return getLondonClock(new Date(utc)).hour===3 ? utc : utc-3600000;
 }
 
-let myGamesScheduleStore;
-
-function loadMyGamesScheduleStore(){
-  if(myGamesScheduleStore) return myGamesScheduleStore;
-  const store = {results:{},weeks:{},lastObservation:''};
-  try{
-    const saved = JSON.parse(localStorage.getItem(MY_GAMES_SCHEDULE_STORAGE_KEY));
-    if(saved?.results && saved?.weeks) return myGamesScheduleStore = saved;
-
-    const legacy = JSON.parse(localStorage.getItem('calciumSport.myGamesDailySchedule.v3'));
-    for(const [weekKey,week] of Object.entries(legacy?.weeks || {})){
-      const snapshotKey = Object.keys(week.snapshots || {}).sort().pop();
-      if(!snapshotKey) continue;
-      const snapshot = week.snapshots[snapshotKey];
-      const weekStart = parseDateOnly(weekKey);
-      if(!weekStart) continue;
-      store.lastObservation = [store.lastObservation,snapshotKey].sort().pop();
-      for(const [id,played] of Object.entries(snapshot.playedAtSnapshot || {})){
-        const offset = WEEKDAY_NAMES_BY_JS_INDEX.indexOf(snapshot.assignments?.[id]);
-        const date = offset < 0 ? '' : dateToKey(addDays(weekStart,(offset+6)%7));
-        store.results[id] = {played,date:played && date < snapshotKey ? date : ''};
-      }
-    }
-  }catch(_error){
-    // Keep an in-memory plan when browser storage is unavailable.
-  }
-  return myGamesScheduleStore = store;
+function formatFixtureTime(hour,minute){
+  if(hour<0 || hour>23 || minute<0 || minute>59) return '';
+  return [hour,minute].map(part=>String(part).padStart(2,'0')).join(':');
 }
 
-function saveMyGamesScheduleStore(store){
-  try{
-    localStorage.setItem(MY_GAMES_SCHEDULE_STORAGE_KEY,JSON.stringify(store));
-  }catch(_error){
-    // The in-memory plan remains usable.
-  }
+function parseMyGamesFixtureTime(value){
+  const text = String(value ?? '').trim();
+  const time = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(text)
+    || /^Date\(1899,\s*11,\s*30,\s*(\d{1,2}),\s*(\d{1,2})(?:,\s*\d{1,2})?(?:,\s*\d{1,3})?\)$/.exec(text);
+  return time ? formatFixtureTime(+time[1],+time[2]) : '';
 }
 
-function getMatchStorageKey(match){
-  const direct = String(match?.MatchID || match?.ID || '').trim();
-  if(direct) return direct;
+function parseMyGamesFixtureDate(value){
+  const text = String(value ?? '').trim();
+  const iso = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::\d{2}(?:\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/.exec(text);
+  const dayFirst = /^(\d{1,2})([./-])(\d{1,2})\2(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::\d{2})?)?$/.exec(text);
+  // Google Visualization dates use a zero-based month and sheet-local time.
+  const sheet = /^Date\((\d{4}),\s*(\d{1,2}),\s*(\d{1,2})(?:,\s*(\d{1,2}),\s*(\d{1,2})(?:,\s*\d{1,2})?(?:,\s*\d{1,3})?)?\)$/.exec(text);
 
-  return [
-    getMyGamesCanonicalCompetitionKey(match),
-    getDateKey(match?.Date),
-    String(match?.Time||'').trim(),
-    normaliseTeamName(match?.HomeTeam),
-    normaliseTeamName(match?.AwayTeam)
-  ].join('|');
-}
-
-function observeMyGamesResults(matches,now=new Date()){
-  const store = loadMyGamesScheduleStore();
-  const day = getMyGamesSnapshotDate(now);
-  const key = dateToKey(day);
-  const previousDay = dateToKey(addDays(day,-1));
-
-  for(const match of matches){
-    const id = getMatchStorageKey(match);
-    const prior = Object.hasOwn(store.results,id) ? store.results[id] : undefined;
-    const played = isPlayedMatch(match);
-    if(played && prior?.played) continue;
-
-    // When the first successful refresh after a cutoff sees a new FT,
-    // reconcile it with the day that just closed.
-    const observedDay = store.lastObservation === key ? key :
-      store.lastObservation === previousDay ? previousDay : '';
-    const date = played && prior ? observedDay : '';
-    store.results[id] = {played,date};
-  }
-
-  store.lastObservation = key;
-  const weekStart = getWeekStart(day);
-  buildMyGamesDayAssignment(getMyGamesWeekMatches(matches,weekStart,store,key),weekStart,day,store);
-}
-
-function getMyGamesRecordedDate(match,store,snapshotKey){
-  if(!isPlayedMatch(match)) return '';
-  const date = store.results[getMatchStorageKey(match)]?.date;
-  return date && date < snapshotKey ? date : '';
-}
-
-function getMyGamesWeekMatches(matches,weekStart,store,snapshotKey){
-  const weekKey = dateToKey(weekStart);
-  return matches.filter(match=>{
-    const recorded = getMyGamesRecordedDate(match,store,snapshotKey);
-    if(recorded) return dateToKey(getWeekStart(parseDateOnly(recorded))) === weekKey;
-    const kickoff = parseDateOnly(match.Date);
-    return kickoff && dateToKey(getMyGamesKickoffWeekStart(kickoff)) === weekKey;
-  });
-}
-
-function buildMyGamesDayAssignment(weekMatches,weekStart,snapshotDate,store){
-  const weekKey = dateToKey(weekStart);
-  const snapshotKey = dateToKey(snapshotDate);
-  const todayWeek = dateToKey(getWeekStart(snapshotDate));
-  const savedPlan = store.weeks[weekKey];
-  const plan = savedPlan?.playWeek === 'monday-sunday' ? savedPlan : undefined;
-  const dayDates = Object.fromEntries(Array.from({length:7},(_,index)=>{
-    const date = addDays(weekStart,index);
-    return [weekdayNameFromDate(date),dateToKey(date)];
-  }));
-  const assignment = new Map();
-  const remaining = [];
-
-  for(const match of weekMatches){
-    const id = getMatchStorageKey(match);
-    const recorded = getMyGamesRecordedDate(match,store,snapshotKey);
-    const saved = plan?.assignments[id];
-    const result = store.results[id];
-
-    if(recorded){
-      assignment.set(match,recorded);
-    }else if(isPlayedMatch(match) && !result?.date){
-      assignment.set(match,'');
-    }else if(saved && (plan.day === snapshotKey || weekKey < todayWeek)){
-      assignment.set(match,saved);
-    }else{
-      remaining.push(match);
-    }
-  }
-
-  const eligible = MY_GAMES_PLAY_DAYS.filter(day=>weekKey < todayWeek || dayDates[day] >= snapshotKey);
-  remaining.sort(compareMyGamesMatches);
-  if(plan?.day === snapshotKey && eligible.length){
-    const counts = Object.fromEntries(eligible.map(day=>[day,0]));
-    for(const date of assignment.values()){
-      const day = eligible.find(name=>dayDates[name] === date);
-      if(day) counts[day]++;
-    }
-    for(const match of remaining){
-      const day = eligible.reduce((best,name)=>counts[name] < counts[best] ? name : best);
-      assignment.set(match,dayDates[day]);
-      counts[day]++;
-    }
+  let year, month, day, hour, minute;
+  if(iso){
+    [,year,month,day,hour,minute] = iso;
+  }else if(dayFirst){
+    [,day,,month,year,hour,minute] = dayFirst;
+  }else if(sheet){
+    [,year,month,day,hour,minute] = sheet;
+    month = +month+1;
   }else{
-    const quotas = computeDayQuotas(remaining.length,eligible);
-    fillDaysInCalendarOrder(remaining,eligible,quotas)
-      .forEach((day,match)=>assignment.set(match,dayDates[day]));
+    return null;
   }
 
-  if(weekKey === todayWeek){
-    store.weeks[weekKey] = {
-      playWeek:'monday-sunday',
-      day:snapshotKey,
-      assignments:Object.fromEntries([...assignment].map(([match,date])=>[getMatchStorageKey(match),date]))
-    };
-    saveMyGamesScheduleStore(store);
+  const date = new Date(+year,+month-1,+day);
+  if(date.getFullYear()!==+year || date.getMonth()!==+month-1 || date.getDate()!==+day) return null;
+  const time = hour === undefined ? '' : formatFixtureTime(+hour,+minute);
+  if(hour !== undefined && !time) return null;
+
+  // A zoned timestamp is an instant. Display its London fixture day and time.
+  if(iso?.[6]){
+    const timestamp = Date.parse(text.replace(' ','T'));
+    if(!Number.isFinite(timestamp)) return null;
+    const clock = getLondonClock(new Date(timestamp));
+    return {date:dateToKey(clock.date),time:formatFixtureTime(clock.hour,clock.minute)};
   }
-  return assignment;
+  return {date:dateToKey(date),time};
 }
 
 function renderMyGames(){
@@ -995,11 +847,16 @@ function renderMyGames(){
       ? appData.myGames
       : [];
 
-  const snapshotDate = getMyGamesSnapshotDate();
-  const snapshotKey = dateToKey(snapshotDate);
-  const store = loadMyGamesScheduleStore();
   const weekStart = getWeekStart(getSelectedMyGamesDate());
-  const weekMatches = getMyGamesWeekMatches(all,weekStart,store,snapshotKey);
+  const groups = new Map();
+  for(let offset=0;offset<7;offset++){
+    const date = addDays(weekStart,offset);
+    groups.set(dateToKey(date),[]);
+  }
+  for(const match of all){
+    groups.get(match.Date)?.push(match);
+  }
+  const weekMatches = [...groups.values()].flat();
 
   setText(
     'myGamesTitle',
@@ -1032,25 +889,10 @@ function renderMyGames(){
     scheduledCount
   );
 
-  const dayAssignment = buildMyGamesDayAssignment(weekMatches,weekStart,snapshotDate,store);
-  const groups = new Map();
-  for(let offset=0;offset<7;offset++){
-    const date = addDays(weekStart,offset);
-    groups.set(dateToKey(date),[]);
-  }
-  for(const match of weekMatches){
-    const key = dayAssignment.get(match) || '';
-    if(!groups.has(key)) groups.set(key,[]);
-    groups.get(key).push(match);
-  }
-
   const html = [...groups]
-      .sort(([a],[b])=>(a || '9999').localeCompare(b || '9999'))
       .map(([key,dayMatches])=>{
         const date = parseDateOnly(key);
-        const label = date
-          ? `${weekdayNameFromDate(date)} ${formatShortDateFromDate(date).replace(/\.$/,'')}`
-          : 'Played · date unavailable';
+        const label = `${weekdayNameFromDate(date)} ${formatShortDateFromDate(date).replace(/\.$/,'')}`;
 
         const body =
           dayMatches.length
