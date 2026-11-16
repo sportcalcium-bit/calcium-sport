@@ -841,6 +841,141 @@ function parseMyGamesFixtureDate(value){
   return {date:dateToKey(date),time};
 }
 
+const PERSONAL_DAY_PRIORITY = ['Sunday','Monday','Friday','Thursday','Tuesday','Wednesday'];
+const MY_GAMES_PLAY_DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Sunday'];
+
+function computeDayQuotas(total, dayNames){
+  const dayCount = dayNames.length;
+  if(!dayCount) return {};
+
+  const base = Math.floor(total/dayCount);
+  const remainder = total % dayCount;
+
+  const priorityOrder = PERSONAL_DAY_PRIORITY.filter(name=>dayNames.includes(name));
+  const remainderDays = new Set(priorityOrder.slice(0,remainder));
+
+  const quota = {};
+  dayNames.forEach(name=>{
+    quota[name] = base + (remainderDays.has(name) ? 1 : 0);
+  });
+  return quota;
+}
+
+function fillDaysInCalendarOrder(sortedMatches,dayNames,quota){
+  const assignment = new Map();
+  if(!dayNames.length) return assignment;
+
+  let index = 0;
+
+  dayNames.forEach(dayName=>{
+    const count = quota[dayName] || 0;
+    for(let n=0;n<count && index<sortedMatches.length;n++,index++){
+      assignment.set(sortedMatches[index],dayName);
+    }
+  });
+
+  while(index<sortedMatches.length){
+    assignment.set(sortedMatches[index],dayNames[dayNames.length-1]);
+    index++;
+  }
+
+  return assignment;
+}
+
+// Only kickoff dates use the Tuesday–Monday window.
+function getMyGamesKickoffWeekStart(date){
+  return getWeekStart(addDays(date,-1));
+}
+
+const MY_GAMES_SCHEDULE_STORAGE_KEY = 'calciumSport.myGamesDailySchedule.v4';
+let myGamesScheduleStore;
+
+function loadMyGamesScheduleStore(){
+  if(myGamesScheduleStore) return myGamesScheduleStore;
+  try{
+    const saved = JSON.parse(localStorage.getItem(MY_GAMES_SCHEDULE_STORAGE_KEY));
+    if(saved?.weeks) return myGamesScheduleStore = saved;
+  }catch(_error){
+    // Keep the plan in memory when browser storage is unavailable.
+  }
+  return myGamesScheduleStore = {weeks:{}};
+}
+
+function saveMyGamesScheduleStore(store){
+  try{
+    localStorage.setItem(MY_GAMES_SCHEDULE_STORAGE_KEY,JSON.stringify(store));
+  }catch(_error){
+    // The in-memory plan remains usable.
+  }
+}
+
+function getMatchStorageKey(match){
+  const direct = String(match?.MatchID || match?.ID || '').trim();
+  if(direct) return direct;
+
+  return [
+    getMyGamesCanonicalCompetitionKey(match),
+    getDateKey(match?.Date),
+    String(match?.Time||'').trim(),
+    normaliseTeamName(match?.HomeTeam),
+    normaliseTeamName(match?.AwayTeam)
+  ].join('|');
+}
+
+function buildMyGamesDayAssignment(scheduledMatches,weekStart,snapshotDate,store){
+  const weekKey = dateToKey(weekStart);
+  const snapshotKey = dateToKey(snapshotDate);
+  const todayWeek = dateToKey(getWeekStart(snapshotDate));
+  const savedPlan = store.weeks[weekKey];
+  const plan = savedPlan?.playWeek === 'monday-sunday' ? savedPlan : undefined;
+  const dayDates = Object.fromEntries(Array.from({length:7},(_,index)=>{
+    const date = addDays(weekStart,index);
+    return [weekdayNameFromDate(date),dateToKey(date)];
+  }));
+  const dayKeys = new Set(MY_GAMES_PLAY_DAYS.map(day=>dayDates[day]));
+  const assignment = new Map();
+  const remaining = [];
+
+  for(const match of scheduledMatches){
+    const id = getMatchStorageKey(match);
+    const saved = plan?.assignments[id];
+    if(dayKeys.has(saved) && (plan.day === snapshotKey || weekKey < todayWeek)){
+      assignment.set(match,saved);
+    }else{
+      remaining.push(match);
+    }
+  }
+
+  const eligible = MY_GAMES_PLAY_DAYS.filter(day=>weekKey < todayWeek || dayDates[day] >= snapshotKey);
+  remaining.sort(compareMyGamesMatches);
+  if(plan?.day === snapshotKey && eligible.length){
+    const counts = Object.fromEntries(eligible.map(day=>[day,0]));
+    for(const date of assignment.values()){
+      const day = eligible.find(name=>dayDates[name] === date);
+      if(day) counts[day]++;
+    }
+    for(const match of remaining){
+      const day = eligible.reduce((best,name)=>counts[name] < counts[best] ? name : best);
+      assignment.set(match,dayDates[day]);
+      counts[day]++;
+    }
+  }else{
+    const quotas = computeDayQuotas(remaining.length,eligible);
+    fillDaysInCalendarOrder(remaining,eligible,quotas)
+      .forEach((day,match)=>assignment.set(match,dayDates[day]));
+  }
+
+  if(weekKey === todayWeek){
+    store.weeks[weekKey] = {
+      playWeek:'monday-sunday',
+      day:snapshotKey,
+      assignments:Object.fromEntries([...assignment].map(([match,date])=>[getMatchStorageKey(match),date]))
+    };
+    saveMyGamesScheduleStore(store);
+  }
+  return assignment;
+}
+
 function renderMyGames(){
   const all =
     Array.isArray(appData?.myGames)
@@ -853,8 +988,19 @@ function renderMyGames(){
     const date = addDays(weekStart,offset);
     groups.set(dateToKey(date),[]);
   }
+  const weekKey = dateToKey(weekStart);
+  const scheduled = [];
   for(const match of all){
-    groups.get(match.Date)?.push(match);
+    if(!match.Date) continue;
+    if(isPlayedMatch(match)){
+      groups.get(match.Date)?.push(match);
+    }else if(dateToKey(getMyGamesKickoffWeekStart(parseDateOnly(match.Date))) === weekKey){
+      scheduled.push(match);
+    }
+  }
+  const plan = buildMyGamesDayAssignment(scheduled,weekStart,getMyGamesSnapshotDate(),loadMyGamesScheduleStore());
+  for(const [match,date] of plan){
+    groups.get(date).push(match);
   }
   const weekMatches = [...groups.values()].flat();
 
