@@ -59,32 +59,41 @@ async function verifyFixtureDates(){
     }));
   assert.deepEqual(blocks.map(({day})=>day),[
     'Monday 16.11','Tuesday 17.11','Wednesday 18.11','Thursday 19.11',
-    'Friday 20.11','Saturday 21.11','Sunday 22.11'
+    'Friday 20.11','Sunday 22.11'
   ]);
-  assert.deepEqual(blocks[0].games,['weekend-national']);
-  assert.deepEqual(blocks[1].games,[
-    'UKR-SPA-17112026','ENG-SWE-17112026','GER-NET-17112026','POR-CZE-17112026','same-day-club'
+  assert.deepEqual(blocks[0].games,[
+    'ENG-SWE-17112026','weekend-national','GER-NET-17112026',
+    'POR-CZE-17112026','UKR-SPA-17112026','CLE-PSG-20112026','HAM-BAY-21112026'
   ]);
-  assert.ok(blocks[4].games.includes('CLE-PSG-20112026'));
-  assert.deepEqual(blocks[5].games,['HAM-BAY-21112026']);
+  assert.ok(blocks.some(block=>block.games.includes('same-day-club')));
   assert.equal(ctx.output.myGamesPlayedValue,6);
   assert.equal(ctx.output.myGamesScheduledValue,6);
   assert.ok(blocks[2].games.length && blocks[3].games.length);
   assert.equal(blocks.filter(block=>block.games.includes('following-monday')).length,1);
   assert.equal(blocks.some(block=>block.games.includes('earlier-club')),false);
-  assert.match(ctx.output.myGamesList,/21\.11 - 19:45/);
+  assert.doesNotMatch(ctx.output.myGamesList,/\d{2}\.\d{2} - \d{2}:\d{2}/);
+  assert.match(ctx.output.myGamesList,/<small class="scoreboard-time-main">Nations League<\/small>/);
+  assert.ok(run(`compareMyGamesMatches(
+    {Competition:'Premier League',HomeTeam:'Arsenal',Time:'23:00'},
+    {Competition:'Premier League',HomeTeam:'Chelsea',Time:'09:00'}
+  ) < 0`));
+  assert.equal(run(`JSON.stringify(computeDayQuotas(10,MY_GAMES_PLAY_DAYS))`),
+    '{"Monday":2,"Tuesday":1,"Wednesday":1,"Thursday":2,"Friday":2,"Sunday":2}');
 
+  // Keep a completed fixture on its personal play day when the rest reshuffle.
+  run("appData.myGames.find(match=>match.MatchID==='same-day-club').Status = 'FT'");
   const plan = run("JSON.stringify(myGamesScheduleStore.weeks['2026-11-16'].assignments)");
   run('renderMyGames()');
   assert.deepEqual(JSON.parse(run("JSON.stringify(myGamesScheduleStore.weeks['2026-11-16'].assignments)")),JSON.parse(plan));
   run("scheduleDay = '2026-11-18'; renderMyGames()");
   const reshuffled = JSON.parse(run("JSON.stringify(myGamesScheduleStore.weeks['2026-11-16'].assignments)"));
-  assert.deepEqual([...new Set(Object.values(reshuffled))].sort(),[
+  assert.deepEqual([...new Set(Object.values(reshuffled).filter(day=>day>='2026-11-18'))].sort(),[
     '2026-11-18','2026-11-19','2026-11-20','2026-11-22'
   ]);
   assert.equal(reshuffled['weekend-national'],'2026-11-18');
-  assert.equal(Object.keys(reshuffled).length,6);
-  assert.match(ctx.output.myGamesList,/Tuesday 17\.11[\s\S]*UKR-SPA-17112026/);
+  assert.equal(Object.keys(reshuffled).length,12);
+  assert.equal(reshuffled['same-day-club'],JSON.parse(plan)['same-day-club']);
+  assert.equal(reshuffled['HAM-BAY-21112026'],'2026-11-16');
   assert.equal(run('appData.myGames[0].HomeScore'),2);
   assert.equal(run('appData.myGames[0].Status'),'FT');
   run("selectedDateKey = '2026-11-23'; renderMyGames()");

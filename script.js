@@ -725,14 +725,14 @@ window.backToTeamGame=backToTeamGame;
 function gameTeamAction(teamName,matchId=''){
   return `onclick="openTeamFromGame(${escapeAttr(JSON.stringify(String(teamName||'')))},event,${escapeAttr(JSON.stringify(String(matchId||'')))})" aria-label="${escapeAttr('Open '+teamName+' team profile')}"`;
 }
-function renderMatchRowFlat(match){
-  const p = formatScoreboardDateParts(match.Date,match.Time);
+function renderMatchRowFlat(match,showKickoff=true){
+  const p = showKickoff ? formatScoreboardDateParts(match.Date,match.Time) : null;
   const score = match.Status==='FT' ? renderScoreText(match) : 'vs';
   const click = match.MatchID ? `onclick="openMatchDetail('${escapeAttr(match.MatchID)}')"` : '';
   const league = match.CompetitionLabel || match.Competition || 'Competition';
   const statusText = match.Status || 'Scheduled';
   const statusClass = statusText.trim().toUpperCase()==='FT' ? 'status-ft' : 'status-scheduled';
-  return `<article class="my-games-match" ${click}><div class="my-games-date"><span>${escapeHTML(p.date)} - ${escapeHTML(p.time)}</span><span>${escapeHTML(league)}</span></div><button type="button" class="my-games-team-name home game-team-link" ${gameTeamAction(match.HomeTeam,match.MatchID||match.ID)}>${escapeHTML(match.HomeTeam)}</button><button type="button" class="my-games-logo game-team-link" ${gameTeamAction(match.HomeTeam,match.MatchID||match.ID)}>${renderTeamLogo(match.HomeLogo,match.HomeTeam)}</button><div class="my-games-score">${score}</div><button type="button" class="my-games-logo game-team-link" ${gameTeamAction(match.AwayTeam,match.MatchID||match.ID)}>${renderTeamLogo(match.AwayLogo,match.AwayTeam)}</button><button type="button" class="my-games-team-name away game-team-link" ${gameTeamAction(match.AwayTeam,match.MatchID||match.ID)}>${escapeHTML(match.AwayTeam)}</button><div class="my-games-status ${statusClass}">${escapeHTML(statusText)}</div></article>`;
+  return `<article class="my-games-match" ${click}><div class="my-games-date">${p ? `<span>${escapeHTML(p.date)} - ${escapeHTML(p.time)}</span><span>${escapeHTML(league)}</span>` : `<small class="scoreboard-time-main">${escapeHTML(league)}</small>`}</div><button type="button" class="my-games-team-name home game-team-link" ${gameTeamAction(match.HomeTeam,match.MatchID||match.ID)}>${escapeHTML(match.HomeTeam)}</button><button type="button" class="my-games-logo game-team-link" ${gameTeamAction(match.HomeTeam,match.MatchID||match.ID)}>${renderTeamLogo(match.HomeLogo,match.HomeTeam)}</button><div class="my-games-score">${score}</div><button type="button" class="my-games-logo game-team-link" ${gameTeamAction(match.AwayTeam,match.MatchID||match.ID)}>${renderTeamLogo(match.AwayLogo,match.AwayTeam)}</button><button type="button" class="my-games-team-name away game-team-link" ${gameTeamAction(match.AwayTeam,match.MatchID||match.ID)}>${escapeHTML(match.AwayTeam)}</button><div class="my-games-status ${statusClass}">${escapeHTML(statusText)}</div></article>`;
 }
 function renderHomeGames(){
   const selected = parseDateOnly(selectedDateKey) || new Date();
@@ -759,7 +759,7 @@ function renderHomeGames(){
     const dayMatches = dayGroups[dayKey].sort((a,b)=>matchDateSortValue(a)-matchDateSortValue(b) || compareCompetitionPriority(a,b));
     const dayDate = parseDateOnly(dayKey);
     const dayLabel = dayDate ? `${weekdayNameFromDate(dayDate)} ${formatShortDateFromDate(dayDate).replace(/\.$/,'')}` : dayKey;
-    return `<section class="home-time-block"><div class="home-time-heading">${escapeHTML(dayLabel)}</div>${dayMatches.map(renderMatchRowFlat).join('')}</section>`;
+    return `<section class="home-time-block"><div class="home-time-heading">${escapeHTML(dayLabel)}</div>${dayMatches.map(match=>renderMatchRowFlat(match)).join('')}</section>`;
   }).join('');
 
   setHTML('homeGamesList', html);
@@ -922,52 +922,58 @@ function getMatchStorageKey(match){
   ].join('|');
 }
 
-function buildMyGamesDayAssignment(scheduledMatches,weekStart,snapshotDate,store){
-  const weekKey = dateToKey(weekStart);
-  const snapshotKey = dateToKey(snapshotDate);
-  const todayWeek = dateToKey(getWeekStart(snapshotDate));
-  const savedPlan = store.weeks[weekKey];
-  const plan = savedPlan?.playWeek === 'monday-sunday' ? savedPlan : undefined;
-  const dayDates = Object.fromEntries(Array.from({length:7},(_,index)=>{
-    const date = addDays(weekStart,index);
-    return [weekdayNameFromDate(date),dateToKey(date)];
-  }));
-  const dayKeys = new Set(MY_GAMES_PLAY_DAYS.map(day=>dayDates[day]));
+function buildMyGamesDayAssignment(weekMatches,dayDates,snapshotKey,store,compareMatches){
+  const weekKey = dayDates.Monday;
+  const pastWeek = dayDates.Sunday < snapshotKey;
+  const currentWeek = weekKey <= snapshotKey && !pastWeek;
+  const plan = store.weeks[weekKey];
+  const frozen = plan?.day === snapshotKey && plan?.policy === 'competition-order';
+  const dayKeys = new Set(Object.values(dayDates));
+  const eligible = MY_GAMES_PLAY_DAYS.filter(day=>pastWeek || dayDates[day] >= snapshotKey);
   const assignment = new Map();
+  const unassignedPlayed = [];
   const remaining = [];
 
-  for(const match of scheduledMatches){
-    const id = getMatchStorageKey(match);
-    const saved = plan?.assignments[id];
-    if(dayKeys.has(saved) && (plan.day === snapshotKey || weekKey < todayWeek)){
+  for(const match of weekMatches){
+    const saved = plan?.assignments?.[getMatchStorageKey(match)];
+    const played = isPlayedMatch(match);
+    if(dayKeys.has(saved) && (played || pastWeek || (frozen && saved >= snapshotKey))){
       assignment.set(match,saved);
     }else{
-      remaining.push(match);
+      (played ? unassignedPlayed : remaining).push(match);
     }
   }
 
-  const eligible = MY_GAMES_PLAY_DAYS.filter(day=>weekKey < todayWeek || dayDates[day] >= snapshotKey);
-  remaining.sort(compareMyGamesMatches);
-  if(plan?.day === snapshotKey && eligible.length){
+  const elapsed = MY_GAMES_PLAY_DAYS.filter(day=>dayDates[day] < snapshotKey);
+  const playedDays = elapsed.length ? elapsed : ['Monday'];
+  fillDaysInCalendarOrder(
+    unassignedPlayed.sort(compareMatches),playedDays,
+    computeDayQuotas(unassignedPlayed.length,playedDays)
+  ).forEach((day,match)=>assignment.set(match,dayDates[day]));
+
+  remaining.sort(compareMatches);
+  if(frozen){
+    const priority = PERSONAL_DAY_PRIORITY.filter(day=>eligible.includes(day));
     const counts = Object.fromEntries(eligible.map(day=>[day,0]));
-    for(const date of assignment.values()){
+    for(const [match,date] of assignment){
+      if(isPlayedMatch(match)) continue;
       const day = eligible.find(name=>dayDates[name] === date);
       if(day) counts[day]++;
     }
     for(const match of remaining){
-      const day = eligible.reduce((best,name)=>counts[name] < counts[best] ? name : best);
+      const day = priority.reduce((best,name)=>counts[name] < counts[best] ? name : best);
       assignment.set(match,dayDates[day]);
       counts[day]++;
     }
   }else{
-    const quotas = computeDayQuotas(remaining.length,eligible);
-    fillDaysInCalendarOrder(remaining,eligible,quotas)
+    fillDaysInCalendarOrder(remaining,eligible,computeDayQuotas(remaining.length,eligible))
       .forEach((day,match)=>assignment.set(match,dayDates[day]));
   }
 
-  if(weekKey === todayWeek){
+  if(currentWeek){
     store.weeks[weekKey] = {
       playWeek:'monday-sunday',
+      policy:'competition-order',
       day:snapshotKey,
       assignments:Object.fromEntries([...assignment].map(([match,date])=>[getMatchStorageKey(match),date]))
     };
@@ -983,26 +989,25 @@ function renderMyGames(){
       : [];
 
   const weekStart = getWeekStart(getSelectedMyGamesDate());
-  const groups = new Map();
-  for(let offset=0;offset<7;offset++){
-    const date = addDays(weekStart,offset);
-    groups.set(dateToKey(date),[]);
-  }
   const weekKey = dateToKey(weekStart);
-  const scheduled = [];
-  for(const match of all){
-    if(!match.Date) continue;
-    if(isPlayedMatch(match)){
-      groups.get(match.Date)?.push(match);
-    }else if(dateToKey(getMyGamesKickoffWeekStart(parseDateOnly(match.Date))) === weekKey){
-      scheduled.push(match);
-    }
+  const dayDates = Object.fromEntries(MY_GAMES_PLAY_DAYS.map(day=>[
+    day,dateToKey(addDays(weekStart,(WEEKDAY_NAMES_BY_JS_INDEX.indexOf(day)+6)%7))
+  ]));
+  const groups = new Map(Object.values(dayDates).map(date=>[date,[]]));
+  const weekMatches = all.filter(match=>
+    match.Date && dateToKey(getMyGamesKickoffWeekStart(parseDateOnly(match.Date))) === weekKey
+  );
+  const competitionTiers = new Map();
+  for(const match of weekMatches){
+    const key = getMyGamesCanonicalCompetitionKey(match);
+    competitionTiers.set(key,Math.min(competitionTiers.get(key) ?? Infinity,getMyGamesPriorityTier(match)));
   }
-  const plan = buildMyGamesDayAssignment(scheduled,weekStart,getMyGamesSnapshotDate(),loadMyGamesScheduleStore());
+  const compareMatches = (a,b)=>compareMyGamesMatches(a,b,competitionTiers);
+  const snapshotKey = dateToKey(getMyGamesSnapshotDate());
+  const plan = buildMyGamesDayAssignment(weekMatches,dayDates,snapshotKey,loadMyGamesScheduleStore(),compareMatches);
   for(const [match,date] of plan){
     groups.get(date).push(match);
   }
-  const weekMatches = [...groups.values()].flat();
 
   setText(
     'myGamesTitle',
@@ -1043,8 +1048,8 @@ function renderMyGames(){
         const body =
           dayMatches.length
             ? dayMatches
-                .sort(compareMyGamesMatches)
-                .map(renderMatchRowFlat)
+                .sort(compareMatches)
+                .map(match=>renderMatchRowFlat(match,false))
                 .join('')
             : '<div class="empty home-empty">No games.</div>';
 
@@ -3242,79 +3247,23 @@ function isMyGamesNationalTeamMatch(match){
   );
 }
 
-function compareMyGamesMatches(a,b){
-
-  // NATIONAL TEAMS ONLY:
-  // Ignore competition type completely.
-  // Sort every National Teams match by its real date + kickoff time.
+function compareMyGamesMatches(a,b,competitionTiers){
   const aIsNationalTeam = isMyGamesNationalTeamMatch(a);
   const bIsNationalTeam = isMyGamesNationalTeamMatch(b);
-
   if(aIsNationalTeam !== bIsNationalTeam) return aIsNationalTeam ? -1 : 1;
 
-  if(aIsNationalTeam && bIsNationalTeam){
-    const kickoffDifference =
-      matchDateSortValue(a) -
-      matchDateSortValue(b);
-
-    if(kickoffDifference !== 0){
-      return kickoffDifference;
-    }
-
-    // Only used if two national-team matches have
-    // exactly the same date and kickoff time.
-    return (
-      String(a.HomeTeam || '')
-        .localeCompare(String(b.HomeTeam || '')) ||
-      String(a.AwayTeam || '')
-        .localeCompare(String(b.AwayTeam || ''))
-    );
-  }
-
-
-  // CLUB GAMES — EXISTING LOGIC UNCHANGED
-  const aTier = getMyGamesPriorityTier(a);
-  const bTier = getMyGamesPriorityTier(b);
-
-  if(aTier !== bTier){
-    return aTier - bTier;
-  }
-
-  const aCompetition =
-    getMyGamesCanonicalCompetitionKey(a);
-
-  const bCompetition =
-    getMyGamesCanonicalCompetitionKey(b);
-
-  if(aCompetition === bCompetition){
-    const kickoffDifference =
-      matchDateSortValue(a) -
-      matchDateSortValue(b);
-
-    if(kickoffDifference !== 0){
-      return kickoffDifference;
-    }
-
-    return (
-      String(a.HomeTeam || '')
-        .localeCompare(String(b.HomeTeam || '')) ||
-      String(a.AwayTeam || '')
-        .localeCompare(String(b.AwayTeam || ''))
-    );
-  }
-
-  const competitionOrder =
-    aCompetition.localeCompare(bCompetition);
-
-  if(competitionOrder !== 0){
-    return competitionOrder;
-  }
-
-  return (
-    matchDateSortValue(a) -
-    matchDateSortValue(b)
-  );
+  const aCompetition = getMyGamesCanonicalCompetitionKey(a);
+  const bCompetition = getMyGamesCanonicalCompetitionKey(b);
+  const tierOrder = aIsNationalTeam ? 0 :
+    (competitionTiers?.get(aCompetition) ?? getMyGamesPriorityTier(a)) -
+    (competitionTiers?.get(bCompetition) ?? getMyGamesPriorityTier(b));
+  return tierOrder ||
+    aCompetition.localeCompare(bCompetition) ||
+    String(a.HomeTeam || '').localeCompare(String(b.HomeTeam || '')) ||
+    String(a.AwayTeam || '').localeCompare(String(b.AwayTeam || '')) ||
+    String(a.MatchID || '').localeCompare(String(b.MatchID || ''));
 }
+
 function getRankClass(index,size,isGroup,teamRow,groupName){
 
   const pos = index + 1;
