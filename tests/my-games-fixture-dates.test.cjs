@@ -24,6 +24,10 @@ ctx.games = [
   ['HAM-BAY-21112026','Bundesliga','Hamburger SV','Bayern','21/11/2026','14:30',0,3],
   ['earlier-club','Ligue 1','PSG','Toulouse','16/11/2026','09:00','',''],
   ['same-day-club','Ligue 1','PSG','Lille','17/11/2026','09:00','',''],
+  ['weekend-national','Nations League','France','Spain','21/11/2026','19:45','',''],
+  ['weekend-ligue','Ligue 1','PSG','Nice','21/11/2026','19:45','',''],
+  ['weekend-bundesliga','Bundesliga','Bayern','Mainz','21/11/2026','14:30','',''],
+  ['weekend-premier','Premier League','Arsenal','Chelsea','22/11/2026','16:30','',''],
   ['following-monday','Ligue 1','PSG','Lens','23/11/2026','19:45','',''],
   ['missing','Nations League','England','France','17.11','16:00',1,1]
 ].map(([matchId,competition,homeTeam,awayTeam,date,time,homeScore,awayScore])=>({
@@ -42,6 +46,8 @@ ctx.fetch = async url=>url.includes('action=home')
 async function verifyFixtureDates(){
   await run('appData = {}; loadHomeData()');
   run(`
+    let scheduleDay = '2026-11-16';
+    getMyGamesSnapshotDate = () => parseDateOnly(scheduleDay);
     selectedDateKey = '2026-11-16';
     setHTML = setText = (id,value) => output[id] = value;
     renderMyGames();
@@ -55,18 +61,34 @@ async function verifyFixtureDates(){
     'Monday 16.11','Tuesday 17.11','Wednesday 18.11','Thursday 19.11',
     'Friday 20.11','Saturday 21.11','Sunday 22.11'
   ]);
-  assert.deepEqual(blocks[0].games,['earlier-club']);
+  assert.deepEqual(blocks[0].games,['weekend-national']);
   assert.deepEqual(blocks[1].games,[
     'UKR-SPA-17112026','ENG-SWE-17112026','GER-NET-17112026','POR-CZE-17112026','same-day-club'
   ]);
-  assert.deepEqual(blocks[4].games,['CLE-PSG-20112026']);
+  assert.ok(blocks[4].games.includes('CLE-PSG-20112026'));
   assert.deepEqual(blocks[5].games,['HAM-BAY-21112026']);
   assert.equal(ctx.output.myGamesPlayedValue,6);
-  assert.equal(ctx.output.myGamesScheduledValue,2);
+  assert.equal(ctx.output.myGamesScheduledValue,6);
+  assert.ok(blocks[2].games.length && blocks[3].games.length);
+  assert.equal(blocks.filter(block=>block.games.includes('following-monday')).length,1);
+  assert.equal(blocks.some(block=>block.games.includes('earlier-club')),false);
+  assert.match(ctx.output.myGamesList,/21\.11 - 19:45/);
+
+  const plan = run("JSON.stringify(myGamesScheduleStore.weeks['2026-11-16'].assignments)");
+  run('renderMyGames()');
+  assert.deepEqual(JSON.parse(run("JSON.stringify(myGamesScheduleStore.weeks['2026-11-16'].assignments)")),JSON.parse(plan));
+  run("scheduleDay = '2026-11-18'; renderMyGames()");
+  const reshuffled = JSON.parse(run("JSON.stringify(myGamesScheduleStore.weeks['2026-11-16'].assignments)"));
+  assert.deepEqual([...new Set(Object.values(reshuffled))].sort(),[
+    '2026-11-18','2026-11-19','2026-11-20','2026-11-22'
+  ]);
+  assert.equal(reshuffled['weekend-national'],'2026-11-18');
+  assert.equal(Object.keys(reshuffled).length,6);
+  assert.match(ctx.output.myGamesList,/Tuesday 17\.11[\s\S]*UKR-SPA-17112026/);
   assert.equal(run('appData.myGames[0].HomeScore'),2);
   assert.equal(run('appData.myGames[0].Status'),'FT');
   run("selectedDateKey = '2026-11-23'; renderMyGames()");
-  assert.match(ctx.output.myGamesList,/Monday 23.11[\s\S]*following-monday/);
+  assert.doesNotMatch(ctx.output.myGamesList,/following-monday/);
 
   for(const [input,expected] of [
     ['2026-12-31T23:45:00-02:00',{date:'2027-01-01',time:'01:45'}],
