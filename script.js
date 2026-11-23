@@ -277,8 +277,16 @@ async function loadHomeData(){
   }
   if(appData !== home) return;
 
+  const fixtureKey = match => [normaliseCompetitionName(match.Competition), match.MatchID, match.Date].join('|');
+  const kickoffByFixture = new Map(fixtures.filter(match=>match.Date && match.Time)
+    .map(match=>[fixtureKey(match), match.Time]));
+  const fillMissingKickoff = match => {
+    const time = !match.Time && match.Date ? kickoffByFixture.get(fixtureKey(match)) : '';
+    return time ? {...match, Time:time} : match;
+  };
   const nationsLeague = fixtures.filter(match=>normaliseCompetitionName(match.Competition)==='nations league');
-  home.allMatches = dedupeMatchArray(home.allMatches.concat(nationsLeague));
+  home.allMatches = dedupeMatchArray(home.allMatches.map(fillMissingKickoff).concat(nationsLeague));
+  home.myGames = home.myGames.map(fillMissingKickoff);
   const favouriteFixtures = home.allMatches.concat(fixtures).filter(match=>{
     const teams = isMyGamesNationalTeamMatch(match) ? MY_GAMES_NATIONAL_TEAMS : MY_GAMES_CLUB_TEAMS;
     return teams.has(normaliseTeamName(match.HomeTeam)) || teams.has(normaliseTeamName(match.AwayTeam));
@@ -466,6 +474,7 @@ function isPresent(value){
 function mapApiMatchToPascal(match){
   const home = match.homeTeam || '';
   const away = match.awayTeam || '';
+  const kickoff = normaliseFixtureKickoff(match.date, match.time);
   return {
     MatchID: match.matchId || `${home}-${away}-${match.date}`,
     Competition: match.competition || '',
@@ -473,8 +482,8 @@ function mapApiMatchToPascal(match){
     Region: match.region || '',
     CompetitionType: match.competitionType || '',
     Round: match.round || '',
-    Date: match.date || '',
-    Time: match.time || '',
+    Date: kickoff.date,
+    Time: kickoff.time,
     HomeTeam: home,
     AwayTeam: away,
     HomeScore: isPresent(match.homeScore) ? match.homeScore : '',
@@ -512,6 +521,7 @@ function parseFixturesTable(rows, fallbackId){
     const away = String(row['Away']||'').trim();
     if(!home || !away) return null;
 
+    const kickoff = normaliseFixtureKickoff(row.Date, row.Time);
     const fallback = splitScoreText(row['S']);
     const homeScore = String(row['HG']??'').trim() || fallback.home;
     const awayScore = String(row['AG']??'').trim() || fallback.away;
@@ -528,8 +538,8 @@ function parseFixturesTable(rows, fallbackId){
       AwayScore: awayScore,
       HomePens: homePens,
       AwayPens: awayPens,
-      Date: row['Date']||'',
-      Time: row['Time']||'',
+      Date: kickoff.date,
+      Time: kickoff.time,
       Venue: row['Venue']||'',
       YouTubeURL: row['YouTube URL']||'',
       Status: (homeScore!=='' && awayScore!=='') ? 'FT' : 'Scheduled',
@@ -803,15 +813,65 @@ function formatFixtureTime(hour,minute){
   return [hour,minute].map(part=>String(part).padStart(2,'0')).join(':');
 }
 
+const SHEETS_EPOCH = Date.UTC(1899, 11, 30);
+const MS_PER_FIXTURE_DAY = 86400000;
+
+function parseSheetSerial(value){
+  const text = String(value ?? '').trim();
+  if(!/^\d+(?:\.\d+)?$/.test(text)) return null;
+  const number = Number(text);
+  return Number.isFinite(number) ? number : null;
+}
+
+function formatSheetFraction(fraction){
+  const minutes = Math.floor((fraction * MS_PER_FIXTURE_DAY + 0.01) / 60000) % 1440;
+  return formatFixtureTime(Math.floor(minutes / 60), minutes % 60);
+}
+
+function normaliseFixtureKickoff(date, time){
+  const schedule = parseMyGamesFixtureDate(date);
+  const shortDate = /^(\d{1,2})\.(\d{1,2})\.?$/.exec(String(date ?? '').trim());
+  const partial = shortDate && parseMyGamesFixtureDate(`${shortDate[1]}.${shortDate[2]}.2000`);
+  return {
+    date: schedule?.date || (partial ? partial.date.slice(8) + '.' + partial.date.slice(5,7) : ''),
+    time: parseMyGamesFixtureTime(time) || schedule?.time || ''
+  };
+}
+
 function parseMyGamesFixtureTime(value){
+  const serial = parseSheetSerial(value);
+  if(serial !== null && serial < 1) return formatSheetFraction(serial);
   const text = String(value ?? '').trim();
   const time = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(text)
     || /^Date\(1899,\s*11,\s*30,\s*(\d{1,2}),\s*(\d{1,2})(?:,\s*\d{1,2})?(?:,\s*\d{1,3})?\)$/.exec(text);
-  return time ? formatFixtureTime(+time[1],+time[2]) : '';
+  if(time) return formatFixtureTime(+time[1],+time[2]);
+  const twelveHour = /^(0?[1-9]|1[0-2]):([0-5]\d)(?::[0-5]\d)?\s*([AP]M)$/i.exec(text);
+  if(twelveHour){
+    return formatFixtureTime(+twelveHour[1] % 12 + (/pm/i.test(twelveHour[3]) ? 12 : 0), +twelveHour[2]);
+  }
+  return parseMyGamesFixtureDate(value)?.time || '';
 }
 
 function parseMyGamesFixtureDate(value){
+  const serial = parseSheetSerial(value);
+  if(serial !== null){
+    // Serial dates are calendar days in the sheet, independent of browser time zone.
+    // Four-digit integers may be years, so leave those unresolved.
+    if(serial < 10000 || serial >= 2958466) return null;
+    const wholeDays = Math.floor(serial);
+    return {
+      date: new Date(SHEETS_EPOCH + wholeDays * MS_PER_FIXTURE_DAY).toISOString().slice(0,10),
+      time: serial === wholeDays ? '' : formatSheetFraction(serial - wholeDays)
+    };
+  }
   const text = String(value ?? '').trim();
+  const appsScriptDate = /^(?:Sun|Mon|Tue|Wed|Thu|Fri|Sat) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) (\d{1,2}) (\d{4}) (\d{2}):(\d{2}):([0-5]\d) GMT([+-]\d{4})(?: \(.*\))?$/.exec(text);
+  if(appsScriptDate){
+    const [,monthName,day,year,hour,minute,second,offset] = appsScriptDate;
+    const month = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].indexOf(monthName) + 1;
+    const pad = part => String(part).padStart(2,'0');
+    return parseMyGamesFixtureDate(`${year}-${pad(month)}-${pad(day)}T${hour}:${minute}:${second}${offset}`);
+  }
   const iso = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::\d{2}(?:\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/.exec(text);
   const dayFirst = /^(\d{1,2})([./-])(\d{1,2})\2(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::\d{2})?)?$/.exec(text);
   // Google Visualization dates use a zero-based month and sheet-local time.
@@ -3515,10 +3575,24 @@ function isLeaguePhaseCompetition(){
 }
 function getRegionForCompetition(m){ return String(m.Region||'World').toUpperCase(); }
 function getDateKey(v){ const d=parseDateOnly(v); return d?dateToKey(d):''; }
-function parseDateOnly(v){ if(v instanceof Date) return new Date(v.getFullYear(),v.getMonth(),v.getDate()); const t=String(v||'').trim(); if(!t)return null; if(/^\d{4}-\d{2}-\d{2}$/.test(t)){ const p=t.split('-'); return new Date(+p[0],+p[1]-1,+p[2]); } if(/^\d{1,2}[./-]\d{1,2}[./-]\d{4}$/.test(t)){ const p=t.split(/[./-]/); return new Date(+p[2],+p[1]-1,+p[0]); } const fallback=new Date(t); if(!isNaN(fallback)) return new Date(fallback.getFullYear(),fallback.getMonth(),fallback.getDate()); return null; }
-function matchDateSortValue(m){ const d=parseDateOnly(m.Date); if(!d)return 0; const p=String(m.Time||'00:00').trim().split(':'); d.setHours(+p[0]||0,+p[1]||0,0,0); return d.getTime(); }
-function formatScoreboardDateParts(date,time){ const d=parseDateOnly(date); return {date:d?formatShortDateFromDate(d).replace(/\.$/,''):String(date||'').trim(), time:String(time||'').trim()}; }
-function formatFullDateTime(date,time){ const d=parseDateOnly(date); return [d?d.toLocaleDateString('en-GB'):String(date||'').trim(),String(time||'').trim()].filter(Boolean).join(' '); }
+function parseDateOnly(v){ if(v instanceof Date) return new Date(v.getFullYear(),v.getMonth(),v.getDate()); const t=String(v||'').trim(); if(!t || /^\d{1,2}\.\d{1,2}\.?$/.test(t))return null; if(/^\d{4}-\d{2}-\d{2}$/.test(t)){ const p=t.split('-'); return new Date(+p[0],+p[1]-1,+p[2]); } if(/^\d{1,2}[./-]\d{1,2}[./-]\d{4}$/.test(t)){ const p=t.split(/[./-]/); return new Date(+p[2],+p[1]-1,+p[0]); } const fallback=new Date(t); if(!isNaN(fallback)) return new Date(fallback.getFullYear(),fallback.getMonth(),fallback.getDate()); return null; }
+function matchDateSortValue(match){
+  const kickoff = normaliseFixtureKickoff(match.Date, match.Time);
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(kickoff.date)) return 0;
+  return Date.parse(`${kickoff.date}T${kickoff.time || '00:00'}:00Z`);
+}
+function formatScoreboardDateParts(date,time){
+  const kickoff = normaliseFixtureKickoff(date,time);
+  const label = kickoff.date.length === 10
+    ? kickoff.date.slice(8) + '.' + kickoff.date.slice(5,7)
+    : kickoff.date;
+  return {date:label,time:kickoff.time};
+}
+function formatFullDateTime(date,time){
+  const kickoff = normaliseFixtureKickoff(date,time);
+  const label = kickoff.date.length === 10 ? kickoff.date.split('-').reverse().join('/') : kickoff.date;
+  return [label,kickoff.time].filter(Boolean).join(' ');
+}
 function dateToKey(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 function getTodayKey(){ return dateToKey(new Date()); }
 function addDays(date,days){ const d=new Date(date); d.setDate(d.getDate()+days); return new Date(d.getFullYear(),d.getMonth(),d.getDate()); }
